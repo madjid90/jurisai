@@ -25,8 +25,8 @@ const NAV_ITEMS = [
 ] as const;
 
 const SECONDARY_ITEMS = [
-  { to: "/dashboard", label: "Équipe", icon: Users, soon: true },
-  { to: "/dashboard", label: "Paramètres", icon: Settings, soon: true },
+  { to: "/team", label: "Équipe", icon: Users },
+  { to: "/settings", label: "Paramètres", icon: Settings },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -68,7 +68,13 @@ function Sidebar() {
       </div>
       <nav className="mt-2 flex flex-col gap-1">
         {SECONDARY_ITEMS.map((item) => (
-          <NavItem key={item.label} label={item.label} icon={item.icon} to={item.to} soon={item.soon} />
+          <NavItem
+            key={item.label}
+            label={item.label}
+            icon={item.icon}
+            to={item.to}
+            active={currentPath === item.to}
+          />
         ))}
       </nav>
 
