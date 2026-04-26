@@ -22,9 +22,11 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticated/dossiers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents.index'
+import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 
 const SignupRoute = SignupRouteImport.update({
@@ -91,6 +93,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDossiersRoute = AuthenticatedDossiersRouteImport.update({
+  id: '/dossiers',
+  path: '/dossiers',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -107,6 +114,11 @@ const AuthenticatedDocumentsIndexRoute =
     path: '/documents/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedDossiersIdRoute = AuthenticatedDossiersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedDossiersRoute,
+} as any)
 const AuthenticatedDocumentsIdRoute =
   AuthenticatedDocumentsIdRouteImport.update({
     id: '/documents/$id',
@@ -127,9 +139,11 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
+  '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -145,9 +159,11 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
+  '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
 }
 export interface FileRoutesById {
@@ -165,9 +181,11 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
+  '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -185,9 +203,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/chat'
     | '/dashboard'
+    | '/dossiers'
     | '/settings'
     | '/team'
     | '/documents/$id'
+    | '/dossiers/$id'
     | '/documents/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -203,9 +223,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/chat'
     | '/dashboard'
+    | '/dossiers'
     | '/settings'
     | '/team'
     | '/documents/$id'
+    | '/dossiers/$id'
     | '/documents'
   id:
     | '__root__'
@@ -222,9 +244,11 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/chat'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dossiers'
     | '/_authenticated/settings'
     | '/_authenticated/team'
     | '/_authenticated/documents/$id'
+    | '/_authenticated/dossiers/$id'
     | '/_authenticated/documents/'
   fileRoutesById: FileRoutesById
 }
@@ -335,6 +359,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/dossiers': {
+      id: '/_authenticated/dossiers'
+      path: '/dossiers'
+      fullPath: '/dossiers'
+      preLoaderRoute: typeof AuthenticatedDossiersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -356,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDocumentsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/dossiers/$id': {
+      id: '/_authenticated/dossiers/$id'
+      path: '/$id'
+      fullPath: '/dossiers/$id'
+      preLoaderRoute: typeof AuthenticatedDossiersIdRouteImport
+      parentRoute: typeof AuthenticatedDossiersRoute
+    }
     '/_authenticated/documents/$id': {
       id: '/_authenticated/documents/$id'
       path: '/documents/$id'
@@ -366,9 +404,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedDossiersRouteChildren {
+  AuthenticatedDossiersIdRoute: typeof AuthenticatedDossiersIdRoute
+}
+
+const AuthenticatedDossiersRouteChildren: AuthenticatedDossiersRouteChildren = {
+  AuthenticatedDossiersIdRoute: AuthenticatedDossiersIdRoute,
+}
+
+const AuthenticatedDossiersRouteWithChildren =
+  AuthenticatedDossiersRoute._addFileChildren(
+    AuthenticatedDossiersRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
@@ -378,6 +430,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,

@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          contract_type: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          full_name: string
+          hire_date: string | null
+          id: string
+          job_title: string | null
+          notes: string | null
+          phone: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          contract_type?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          full_name: string
+          hire_date?: string | null
+          id?: string
+          job_title?: string | null
+          notes?: string | null
+          phone?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          contract_type?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          full_name?: string
+          hire_date?: string | null
+          id?: string
+          job_title?: string | null
+          notes?: string | null
+          phone?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -149,6 +202,123 @@ export type Database = {
           },
           {
             foreignKeyName: "documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dossier_deadlines: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          dossier_id: string
+          due_date: string
+          id: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          dossier_id: string
+          due_date: string
+          id?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          dossier_id?: string
+          due_date?: string
+          id?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_deadlines_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dossier_deadlines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dossiers: {
+        Row: {
+          category: string
+          client_id: string | null
+          closed_at: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          risk_level: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          client_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          risk_level?: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          client_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          risk_level?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossiers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dossiers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
