@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/chat", label: "Assistant IA", icon: MessageSquare },
   { to: "/documents", label: "Documents", icon: FileText },
+  { to: "/analyses", label: "Analyses", icon: ScanSearch },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen },
   { to: "/dashboard", label: "Veille juridique", icon: Bell, soon: true },
 ] as const;
