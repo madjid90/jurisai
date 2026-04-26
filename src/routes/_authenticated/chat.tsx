@@ -101,10 +101,11 @@ function ChatPage() {
     const text = input.trim();
     if (!text || streaming) return;
 
-    let convoId = activeConvoId;
+    let convoId: string | null = activeConvoId;
     if (!convoId) {
-      convoId = await newConversation();
-      if (!convoId) return;
+      const created = await newConversation();
+      if (!created) return;
+      convoId = created;
     }
 
     setInput("");
