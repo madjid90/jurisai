@@ -174,11 +174,11 @@ function TopBar() {
 // Main column — "Nouvelle requête IA"
 // ────────────────────────────────────────────────────────────────────────────────
 
-const QUERY_TABS = [
+const QUERY_TABS: { label: string; icon: typeof MessageSquare; active?: boolean }[] = [
   { label: "Question juridique", icon: MessageSquare, active: true },
   { label: "Analyser un contrat", icon: FileText },
   { label: "Importer un document", icon: Upload },
-] as const;
+];
 
 function NewQueryCard() {
   return (
