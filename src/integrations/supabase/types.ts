@@ -102,6 +102,72 @@ export type Database = {
           },
         ]
       }
+      document_analyses: {
+        Row: {
+          analysis: Json | null
+          created_at: string
+          dossier_id: string | null
+          error_message: string | null
+          extracted_text: string | null
+          file_size: number
+          file_type: string
+          filename: string
+          id: string
+          status: string
+          tenant_id: string
+          tokens_used: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json | null
+          created_at?: string
+          dossier_id?: string | null
+          error_message?: string | null
+          extracted_text?: string | null
+          file_size: number
+          file_type: string
+          filename: string
+          id?: string
+          status?: string
+          tenant_id: string
+          tokens_used?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json | null
+          created_at?: string
+          dossier_id?: string | null
+          error_message?: string | null
+          extracted_text?: string | null
+          file_size?: number
+          file_type?: string
+          filename?: string
+          id?: string
+          status?: string
+          tenant_id?: string
+          tokens_used?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_analyses_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_analyses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_templates: {
         Row: {
           body: string
