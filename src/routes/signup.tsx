@@ -5,15 +5,21 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell, Field } from "@/routes/login";
 
+type SignupSearch = { redirect?: string };
+
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [{ title: "Créer un compte · JurisAI" }],
+  }),
+  validateSearch: (search: Record<string, unknown>): SignupSearch => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
   component: SignupPage,
 });
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,8 +32,9 @@ function SignupPage() {
       return;
     }
     setLoading(true);
+    const returnPath = redirect ?? "/onboarding";
     const redirectTo =
-      typeof window !== "undefined" ? `${window.location.origin}/onboarding` : undefined;
+      typeof window !== "undefined" ? `${window.location.origin}${returnPath}` : undefined;
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -44,7 +51,7 @@ function SignupPage() {
     toast.success("Compte créé !", {
       description: "Vérifiez votre email pour confirmer votre adresse.",
     });
-    void navigate({ to: "/login" });
+    void navigate({ to: "/login", search: redirect ? { redirect } : undefined });
   };
 
   return (
