@@ -50,16 +50,17 @@ export const completeOnboarding = createServerFn({ method: "POST" })
     }
 
     // 2. Create tenant
-    const { data: tenant, error: tenantErr } = await supabaseAdmin
+    const tenantInsert = {
+      name: data.companyName,
+      slug,
+      siret: data.siret ?? null,
+      sector: data.sector ?? null,
+      idcc: data.idcc ?? null,
+      plan: "starter" as const,
+    };
+    const { data: tenant, error: tenantErr } = await (supabaseAdmin as any)
       .from("tenants")
-      .insert({
-        name: data.companyName,
-        slug,
-        siret: data.siret ?? null,
-        sector: data.sector ?? null,
-        idcc: data.idcc ?? null,
-        plan: "starter",
-      })
+      .insert(tenantInsert)
       .select()
       .single();
 
@@ -67,10 +68,13 @@ export const completeOnboarding = createServerFn({ method: "POST" })
       throw new Error(`Failed to create tenant: ${tenantErr?.message ?? "unknown"}`);
     }
 
+    const tenantId = (tenant as { id: string; slug: string }).id;
+    const tenantSlug = (tenant as { id: string; slug: string }).slug;
+
     // 3. Assign admin role
-    const { error: roleErr } = await supabaseAdmin.from("user_roles").insert({
+    const { error: roleErr } = await (supabaseAdmin as any).from("user_roles").insert({
       user_id: userId,
-      tenant_id: tenant.id,
+      tenant_id: tenantId,
       role: "admin",
     });
     if (roleErr) {
@@ -78,10 +82,10 @@ export const completeOnboarding = createServerFn({ method: "POST" })
     }
 
     // 4. Update profile (link tenant + mark onboarded)
-    const { error: profileErr } = await supabaseAdmin
+    const { error: profileErr } = await (supabaseAdmin as any)
       .from("profiles")
       .update({
-        tenant_id: tenant.id,
+        tenant_id: tenantId,
         full_name: data.fullName,
         job_title: data.jobTitle ?? null,
         phone: data.phone ?? null,
@@ -94,5 +98,5 @@ export const completeOnboarding = createServerFn({ method: "POST" })
       throw new Error(`Failed to update profile: ${profileErr.message}`);
     }
 
-    return { tenantId: tenant.id, slug: tenant.slug };
+    return { tenantId, slug: tenantSlug };
   });
