@@ -6,6 +6,7 @@ import {
   Bell,
   FileText,
   FolderOpen,
+  ScanSearch,
   Users,
   Settings,
   LogOut,
