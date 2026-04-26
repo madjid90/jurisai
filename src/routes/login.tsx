@@ -5,15 +5,21 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 
+type LoginSearch = { redirect?: string };
+
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [{ title: "Connexion · JurisAI" }],
+  }),
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +34,7 @@ function LoginPage() {
       return;
     }
     toast.success("Bienvenue !");
-    void navigate({ to: "/dashboard" });
+    void navigate({ to: redirect ?? "/dashboard" });
   };
 
   return (
@@ -71,7 +77,11 @@ function LoginPage() {
 
       <p className="mt-6 text-center text-[13px] text-muted-foreground">
         Pas encore de compte ?{" "}
-        <Link to="/signup" className="font-medium text-accent hover:underline">
+        <Link
+          to="/signup"
+          search={redirect ? { redirect } : undefined}
+          className="font-medium text-accent hover:underline"
+        >
           Créer un compte
         </Link>
       </p>

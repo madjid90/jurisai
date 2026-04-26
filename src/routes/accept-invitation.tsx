@@ -126,12 +126,14 @@ function AcceptInvitationPage() {
               <div className="mt-6 flex w-full flex-col gap-2">
                 <Link
                   to="/signup"
+                  search={{ redirect: `/accept-invitation?token=${token ?? ""}` }}
                   className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-[14px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95"
                 >
                   Créer un compte
                 </Link>
                 <Link
                   to="/login"
+                  search={{ redirect: `/accept-invitation?token=${token ?? ""}` }}
                   className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-border text-[14px] font-medium text-foreground transition hover:bg-secondary"
                 >
                   J'ai déjà un compte
