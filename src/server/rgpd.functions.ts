@@ -36,13 +36,13 @@ export const exportMyData = createServerFn({ method: "POST" })
       (c) => c.id,
     );
 
-    let messages: unknown[] = [];
+    let messages: Array<Record<string, unknown>> = [];
     if (conversationIds.length > 0) {
       const { data: msgs } = await db
         .from("messages")
         .select("id, conversation_id, role, content, created_at")
         .in("conversation_id", conversationIds);
-      messages = (msgs as unknown[]) ?? [];
+      messages = (msgs as Array<Record<string, unknown>>) ?? [];
     }
 
     const { data: documents } = await db
