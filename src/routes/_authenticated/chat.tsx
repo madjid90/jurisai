@@ -1,0 +1,438 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Loader2, Send, Plus, MessageSquare, Sparkles, AlertCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { toast } from "sonner";
+import { AppShell } from "@/components/app/AppShell";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/_authenticated/chat")({
+  head: () => ({ meta: [{ title: "Assistant IA · JurisAI" }] }),
+  component: ChatPage,
+});
+
+type Msg = { role: "user" | "assistant"; content: string };
+
+type Conversation = {
+  id: string;
+  title: string;
+  created_at: string;
+};
+
+function ChatPage() {
+  const { profile, user } = useAuth();
+  const navigate = useNavigate();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConvoId, setActiveConvoId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load conversations
+  useEffect(() => {
+    if (!profile?.tenant_id) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("conversations")
+        .select("id, title, created_at")
+        .eq("tenant_id", profile.tenant_id!)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setConversations((data as Conversation[]) ?? []);
+    })();
+  }, [profile?.tenant_id]);
+
+  // Load messages of active conversation
+  useEffect(() => {
+    if (!activeConvoId) {
+      setMessages([]);
+      return;
+    }
+    setLoadingMessages(true);
+    void (async () => {
+      const { data } = await supabase
+        .from("messages")
+        .select("role, content")
+        .eq("conversation_id", activeConvoId)
+        .order("created_at", { ascending: true });
+      setMessages(
+        ((data as Array<{ role: string; content: string }>) ?? [])
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      );
+      setLoadingMessages(false);
+    })();
+  }, [activeConvoId]);
+
+  // Auto-scroll
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, streaming]);
+
+  const newConversation = async () => {
+    if (!profile?.tenant_id || !user) return;
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert({
+        tenant_id: profile.tenant_id,
+        user_id: user.id,
+        title: "Nouvelle question",
+      })
+      .select("id, title, created_at")
+      .single();
+    if (error || !data) {
+      toast.error("Impossible de créer la conversation", { description: error?.message });
+      return null;
+    }
+    const newConvo = data as Conversation;
+    setConversations((prev) => [newConvo, ...prev]);
+    setActiveConvoId(newConvo.id);
+    setMessages([]);
+    return newConvo.id;
+  };
+
+  const sendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || streaming) return;
+
+    let convoId: string | null = activeConvoId;
+    if (!convoId) {
+      const created = await newConversation();
+      if (!created) return;
+      convoId = created;
+    }
+
+    setInput("");
+    const userMsg: Msg = { role: "user", content: text };
+    const history = messages;
+    setMessages((prev) => [...prev, userMsg]);
+    setStreaming(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expirée");
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/legal-chat`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          conversationId: convoId,
+          message: text,
+          history,
+        }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        const err = await resp.json().catch(() => ({ error: "Erreur inconnue" }));
+        if (resp.status === 402) {
+          toast.error("Quota atteint", { description: err.error });
+        } else if (resp.status === 429) {
+          toast.error("Trop de requêtes", { description: err.error });
+        } else {
+          toast.error("Erreur", { description: err.error });
+        }
+        setMessages((prev) => prev.slice(0, -1));
+        setStreaming(false);
+        return;
+      }
+
+      // Stream parsing
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let assistantSoFar = "";
+      let assistantStarted = false;
+
+      const upsertAssistant = (chunk: string) => {
+        assistantSoFar += chunk;
+        setMessages((prev) => {
+          if (!assistantStarted) {
+            assistantStarted = true;
+            return [...prev, { role: "assistant", content: assistantSoFar }];
+          }
+          return prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, content: assistantSoFar } : m,
+          );
+        });
+      };
+
+      let streamDone = false;
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIdx: number;
+        while ((newlineIdx = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIdx);
+          textBuffer = textBuffer.slice(newlineIdx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (json === "[DONE]") {
+            streamDone = true;
+            break;
+          }
+          try {
+            const parsed = JSON.parse(json);
+            const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (delta) upsertAssistant(delta);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Refresh conversation list (title may have changed)
+      const { data: refreshed } = await supabase
+        .from("conversations")
+        .select("id, title, created_at")
+        .eq("tenant_id", profile!.tenant_id!)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setConversations((refreshed as Conversation[]) ?? []);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      toast.error("Échec de la requête", { description: msg });
+      setMessages((prev) => prev.slice(0, -1));
+    } finally {
+      setStreaming(false);
+    }
+  };
+
+  if (!profile) {
+    return (
+      <AppShell>
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-accent" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!profile.tenant_id) {
+    return (
+      <AppShell>
+        <div className="rounded-3xl border border-border bg-card p-8 text-center shadow-[var(--shadow-card)]">
+          <AlertCircle className="mx-auto h-10 w-10 text-accent" />
+          <h2 className="mt-4 text-lg font-semibold">Onboarding requis</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Terminez la configuration de votre entreprise pour utiliser l'assistant.
+          </p>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/onboarding" })}
+            className="mt-4 rounded-xl bg-gradient-to-br from-primary to-accent px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Compléter l'onboarding
+          </button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell>
+      <div className="flex min-h-0 flex-1 gap-3">
+        {/* Conversations sidebar */}
+        <aside className="glass-panel hidden w-[260px] flex-shrink-0 flex-col rounded-3xl p-3 shadow-[var(--shadow-card)] lg:flex">
+          <button
+            type="button"
+            onClick={() => void newConversation()}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary to-accent text-[13px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle question
+          </button>
+
+          <div className="mt-4 flex-1 space-y-1 overflow-y-auto">
+            {conversations.length === 0 && (
+              <p className="px-3 py-2 text-[12px] text-muted-foreground">
+                Aucune conversation pour le moment.
+              </p>
+            )}
+            {conversations.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setActiveConvoId(c.id)}
+                className={cn(
+                  "flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left transition",
+                  activeConvoId === c.id
+                    ? "bg-accent-soft text-accent-soft-foreground"
+                    : "text-foreground/80 hover:bg-secondary",
+                )}
+              >
+                <MessageSquare className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                <span className="line-clamp-2 text-[12.5px] font-medium">{c.title}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Chat area */}
+        <section className="glass-panel flex min-w-0 flex-1 flex-col rounded-3xl shadow-[var(--shadow-card)]">
+          <header className="flex items-center justify-between border-b border-border px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <h1 className="text-[15px] font-semibold text-foreground">Assistant juridique IA</h1>
+                <p className="text-[11.5px] text-muted-foreground">
+                  Expert en droit du travail français
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6">
+            {loadingMessages ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-accent" />
+              </div>
+            ) : messages.length === 0 ? (
+              <EmptyState onPick={(q) => setInput(q)} />
+            ) : (
+              <div className="mx-auto max-w-3xl space-y-6">
+                {messages.map((m, i) => (
+                  <MessageBubble key={i} role={m.role} content={m.content} />
+                ))}
+                {streaming &&
+                  messages[messages.length - 1]?.role === "user" && (
+                    <MessageBubble role="assistant" content="" loading />
+                  )}
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={sendMessage} className="border-t border-border p-4">
+            <div className="mx-auto flex max-w-3xl items-end gap-2">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendMessage(e as unknown as FormEvent);
+                  }
+                }}
+                placeholder="Posez une question juridique… (ex : Délai de préavis pour un cadre)"
+                rows={1}
+                disabled={streaming}
+                className="min-h-[44px] flex-1 resize-none rounded-xl border border-border bg-background px-4 py-3 text-[14px] text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+                style={{ maxHeight: "160px" }}
+              />
+              <button
+                type="submit"
+                disabled={streaming || !input.trim()}
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95 disabled:opacity-50"
+              >
+                {streaming ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-muted-foreground">
+              JurisAI peut commettre des erreurs. Vérifiez les informations critiques.
+            </p>
+          </form>
+        </section>
+      </div>
+    </AppShell>
+  );
+}
+
+function MessageBubble({
+  role,
+  content,
+  loading,
+}: {
+  role: "user" | "assistant";
+  content: string;
+  loading?: boolean;
+}) {
+  const isUser = role === "user";
+  return (
+    <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
+      {!isUser && (
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
+          <Sparkles className="h-3.5 w-3.5" />
+        </div>
+      )}
+      <div
+        className={cn(
+          "max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed",
+          isUser
+            ? "bg-gradient-to-br from-primary to-accent text-primary-foreground"
+            : "border border-border bg-card text-foreground",
+        )}
+      >
+        {loading ? (
+          <div className="flex gap-1">
+            <span className="h-2 w-2 animate-bounce rounded-full bg-accent [animation-delay:-0.3s]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-accent [animation-delay:-0.15s]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-accent" />
+          </div>
+        ) : isUser ? (
+          <p className="whitespace-pre-wrap">{content}</p>
+        ) : (
+          <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:text-[12px] prose-code:font-medium prose-code:text-accent prose-code:before:content-none prose-code:after:content-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SUGGESTIONS = [
+  "Quel est le délai de préavis pour un licenciement de cadre ?",
+  "Comment calculer une indemnité de rupture conventionnelle ?",
+  "Quelles sont les obligations en matière de RGPD pour un service RH ?",
+  "Un salarié peut-il refuser une modification de son contrat de travail ?",
+];
+
+function EmptyState({ onPick }: { onPick: (q: string) => void }) {
+  return (
+    <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[var(--shadow-glow)]">
+        <Sparkles className="h-7 w-7" />
+      </div>
+      <h2 className="mt-5 text-[22px] font-bold tracking-tight text-foreground">
+        Bonjour, comment puis-je vous aider ?
+      </h2>
+      <p className="mt-2 text-[14px] text-muted-foreground">
+        Posez une question sur le droit du travail français, je cite mes sources.
+      </p>
+      <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="rounded-xl border border-border bg-card p-4 text-left text-[13px] text-foreground transition hover:border-accent hover:bg-accent-soft"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

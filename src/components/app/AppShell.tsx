@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
-  { to: "/dashboard", label: "Assistant IA", icon: MessageSquare, soon: true },
+  { to: "/chat", label: "Assistant IA", icon: MessageSquare },
   { to: "/dashboard", label: "Veille juridique", icon: Bell, soon: true },
   { to: "/dashboard", label: "Documents", icon: FileText, soon: true },
   { to: "/dashboard", label: "Dossiers", icon: FolderOpen, soon: true },
@@ -57,7 +57,7 @@ function Sidebar() {
             label={item.label}
             icon={item.icon}
             to={item.to}
-            active={i === 0 && currentPath === "/dashboard"}
+            active={currentPath === item.to}
             soon={"soon" in item ? item.soon : undefined}
           />
         ))}
