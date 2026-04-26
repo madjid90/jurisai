@@ -1,12 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Settings, Building2, User as UserIcon, Loader2, Save } from "lucide-react";
+import {
+  Settings,
+  Building2,
+  User as UserIcon,
+  Loader2,
+  Save,
+  Download,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { updateProfile, updateTenant } from "@/server/settings.functions";
+import { exportMyData, deleteMyAccount } from "@/server/rgpd.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Paramètres · JurisAI" }] }),
@@ -23,9 +33,12 @@ type Tenant = {
 };
 
 function SettingsPage() {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, signOut } = useAuth();
+  const navigate = useNavigate();
   const updateProfileFn = useServerFn(updateProfile);
   const updateTenantFn = useServerFn(updateTenant);
+  const exportDataFn = useServerFn(exportMyData);
+  const deleteAccountFn = useServerFn(deleteMyAccount);
 
   // Profile form
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
@@ -40,6 +53,58 @@ function SettingsPage() {
   const [sector, setSector] = useState("");
   const [idcc, setIdcc] = useState("");
   const [savingTenant, setSavingTenant] = useState(false);
+
+  // RGPD
+  const [exporting, setExporting] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      const data = await exportDataFn({});
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `jurisai-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Vos données ont été exportées");
+    } catch (err) {
+      toast.error("Export impossible", {
+        description: err instanceof Error ? err.message : "Erreur",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (deleteConfirm !== "SUPPRIMER") {
+      toast.error("Confirmation incorrecte", {
+        description: 'Tapez "SUPPRIMER" pour confirmer.',
+      });
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteAccountFn({ data: { confirmation: "SUPPRIMER" as const } });
+      toast.success("Compte supprimé");
+      await signOut();
+      void navigate({ to: "/" });
+    } catch (err) {
+      toast.error("Suppression impossible", {
+        description: err instanceof Error ? err.message : "Erreur",
+      });
+      setDeleting(false);
+    }
+  };
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -266,6 +331,92 @@ function SettingsPage() {
             )}
           </form>
         )}
+
+        {/* RGPD — Mes données */}
+        <div className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+          <div className="mb-5 flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-accent" />
+            <h2 className="text-[15px] font-semibold text-foreground">
+              Mes données personnelles (RGPD)
+            </h2>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-secondary/40 p-4">
+              <p className="text-[13.5px] font-semibold text-foreground">
+                Exporter mes données
+              </p>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Téléchargez l'intégralité de vos données au format JSON
+                (profil, conversations, documents).
+              </p>
+              <button
+                type="button"
+                onClick={onExport}
+                disabled={exporting}
+                className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-[12.5px] font-semibold text-foreground transition hover:bg-secondary disabled:opacity-60"
+              >
+                {exporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Télécharger l'export
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
+              <p className="text-[13.5px] font-semibold text-foreground">
+                Supprimer mon compte
+              </p>
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Suppression définitive du compte et de toutes les données
+                associées. Action irréversible.
+              </p>
+              {!showDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDelete(true)}
+                  className="mt-3 inline-flex h-9 items-center gap-2 rounded-xl border border-destructive/50 bg-background px-3 text-[12.5px] font-semibold text-destructive transition hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer mon compte
+                </button>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  <input
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder='Tapez "SUPPRIMER"'
+                    className="h-9 w-full rounded-xl border border-border bg-background px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-destructive focus:outline-none focus:ring-2 focus:ring-destructive/20"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={onDelete}
+                      disabled={deleting || deleteConfirm !== "SUPPRIMER"}
+                      className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl bg-destructive px-3 text-[12.5px] font-semibold text-destructive-foreground transition hover:opacity-95 disabled:opacity-60"
+                    >
+                      {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Confirmer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDelete(false);
+                        setDeleteConfirm("");
+                      }}
+                      disabled={deleting}
+                      className="inline-flex h-9 items-center justify-center rounded-xl border border-border bg-background px-3 text-[12.5px] font-semibold text-foreground hover:bg-secondary disabled:opacity-60"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </AppShell>
   );

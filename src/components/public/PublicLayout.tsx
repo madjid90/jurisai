@@ -3,8 +3,9 @@ import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 
 const FOOTER_LINKS = [
   { label: "Tarifs", to: "/#pricing" },
-  { label: "Connexion", to: "/login" },
-  { label: "Inscription", to: "/signup" },
+  { label: "Mentions légales", to: "/mentions-legales" },
+  { label: "CGU", to: "/cgu" },
+  { label: "Confidentialité", to: "/confidentialite" },
 ];
 
 export function PublicHeader() {
