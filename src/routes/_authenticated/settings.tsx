@@ -53,6 +53,58 @@ function SettingsPage() {
   const [sector, setSector] = useState("");
   const [idcc, setIdcc] = useState("");
   const [savingTenant, setSavingTenant] = useState(false);
+
+  // RGPD
+  const [exporting, setExporting] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      const data = await exportDataFn({});
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `jurisai-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Vos données ont été exportées");
+    } catch (err) {
+      toast.error("Export impossible", {
+        description: err instanceof Error ? err.message : "Erreur",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const onDelete = async () => {
+    if (deleteConfirm !== "SUPPRIMER") {
+      toast.error("Confirmation incorrecte", {
+        description: 'Tapez "SUPPRIMER" pour confirmer.',
+      });
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteAccountFn({ data: { confirmation: "SUPPRIMER" as const } });
+      toast.success("Compte supprimé");
+      await signOut();
+      void navigate({ to: "/" });
+    } catch (err) {
+      toast.error("Suppression impossible", {
+        description: err instanceof Error ? err.message : "Erreur",
+      });
+      setDeleting(false);
+    }
+  };
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
