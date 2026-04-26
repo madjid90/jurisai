@@ -25,6 +25,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticated/dossiers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
+import { Route as AuthenticatedAnalysesRouteImport } from './routes/_authenticated/analyses'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents.index'
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
@@ -108,6 +109,11 @@ const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAnalysesRoute = AuthenticatedAnalysesRouteImport.update({
+  id: '/analyses',
+  path: '/analyses',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDocumentsIndexRoute =
   AuthenticatedDocumentsIndexRouteImport.update({
     id: '/documents/',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/analyses': typeof AuthenticatedAnalysesRoute
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/analyses': typeof AuthenticatedAnalysesRoute
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/analyses': typeof AuthenticatedAnalysesRoute
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/analyses'
     | '/chat'
     | '/dashboard'
     | '/dossiers'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/analyses'
     | '/chat'
     | '/dashboard'
     | '/dossiers'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/analyses'
     | '/_authenticated/chat'
     | '/_authenticated/dashboard'
     | '/_authenticated/dossiers'
@@ -380,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/analyses': {
+      id: '/_authenticated/analyses'
+      path: '/analyses'
+      fullPath: '/analyses'
+      preLoaderRoute: typeof AuthenticatedAnalysesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/documents/': {
       id: '/_authenticated/documents/'
       path: '/documents'
@@ -418,6 +437,7 @@ const AuthenticatedDossiersRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAnalysesRoute: typeof AuthenticatedAnalysesRoute
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
@@ -428,6 +448,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAnalysesRoute: AuthenticatedAnalysesRoute,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
@@ -457,3 +478,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
