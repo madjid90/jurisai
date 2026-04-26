@@ -25,8 +25,8 @@ const NAV_ITEMS = [
 ] as const;
 
 const SECONDARY_ITEMS = [
-  { to: "/dashboard", label: "Équipe", icon: Users, soon: true },
-  { to: "/dashboard", label: "Paramètres", icon: Settings, soon: true },
+  { to: "/team", label: "Équipe", icon: Users },
+  { to: "/settings", label: "Paramètres", icon: Settings },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
