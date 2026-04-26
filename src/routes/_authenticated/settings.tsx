@@ -1,12 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Settings, Building2, User as UserIcon, Loader2, Save } from "lucide-react";
+import {
+  Settings,
+  Building2,
+  User as UserIcon,
+  Loader2,
+  Save,
+  Download,
+  ShieldAlert,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { updateProfile, updateTenant } from "@/server/settings.functions";
+import { exportMyData, deleteMyAccount } from "@/server/rgpd.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Paramètres · JurisAI" }] }),
@@ -23,9 +33,12 @@ type Tenant = {
 };
 
 function SettingsPage() {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile, signOut } = useAuth();
+  const navigate = useNavigate();
   const updateProfileFn = useServerFn(updateProfile);
   const updateTenantFn = useServerFn(updateTenant);
+  const exportDataFn = useServerFn(exportMyData);
+  const deleteAccountFn = useServerFn(deleteMyAccount);
 
   // Profile form
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
