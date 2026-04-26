@@ -68,7 +68,13 @@ function Sidebar() {
       </div>
       <nav className="mt-2 flex flex-col gap-1">
         {SECONDARY_ITEMS.map((item) => (
-          <NavItem key={item.label} label={item.label} icon={item.icon} to={item.to} soon={item.soon} />
+          <NavItem
+            key={item.label}
+            label={item.label}
+            icon={item.icon}
+            to={item.to}
+            active={currentPath === item.to}
+          />
         ))}
       </nav>
 
