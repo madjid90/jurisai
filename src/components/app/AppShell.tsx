@@ -57,7 +57,7 @@ function Sidebar() {
             label={item.label}
             icon={item.icon}
             to={item.to}
-            active={i === 0 && currentPath === "/dashboard"}
+            active={currentPath === item.to}
             soon={"soon" in item ? item.soon : undefined}
           />
         ))}
