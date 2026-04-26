@@ -3,6 +3,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Untyped admin client to avoid type churn
+const db = supabaseAdmin as unknown as { from: (table: string) => any };
+
 // ─── Update tenant (admin only) ─────────────────────────────────────────────
 
 const updateTenantSchema = z.object({
@@ -19,19 +22,16 @@ export const updateTenant = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
     const { userId } = ctx;
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await db
       .from("profiles")
       .select("tenant_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.tenant_id) {
-      throw new Error("Aucune organisation associée");
-    }
-    const tenantId = profile.tenant_id;
+    if (!profile?.tenant_id) throw new Error("Aucune organisation associée");
+    const tenantId: string = profile.tenant_id;
 
-    // Verify admin
-    const { data: roles } = await supabaseAdmin
+    const { data: roles } = await db
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
@@ -42,7 +42,7 @@ export const updateTenant = createServerFn({ method: "POST" })
       throw new Error("Seuls les administrateurs peuvent modifier l'organisation");
     }
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await db
       .from("tenants")
       .update({
         name: data.name,
@@ -53,11 +53,10 @@ export const updateTenant = createServerFn({ method: "POST" })
       .eq("id", tenantId);
 
     if (error) throw new Error(`Échec de la mise à jour : ${error.message}`);
-
     return { ok: true };
   });
 
-// ─── Update profile (any user, own profile) ─────────────────────────────────
+// ─── Update profile ─────────────────────────────────────────────────────────
 
 const updateProfileSchema = z.object({
   fullName: z.string().min(1).max(120),
@@ -72,7 +71,7 @@ export const updateProfile = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
     const { userId } = ctx;
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await db
       .from("profiles")
       .update({
         full_name: data.fullName,
@@ -102,35 +101,34 @@ export const removeMember = createServerFn({ method: "POST" })
       throw new Error("Vous ne pouvez pas vous retirer vous-même");
     }
 
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await db
       .from("profiles")
       .select("tenant_id")
       .eq("id", userId)
       .single();
     if (!profile?.tenant_id) throw new Error("Aucune organisation");
+    const tenantId: string = profile.tenant_id;
 
-    const { data: roles } = await supabaseAdmin
+    const { data: roles } = await db
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .eq("tenant_id", profile.tenant_id);
+      .eq("tenant_id", tenantId);
 
     const isAdmin = (roles ?? []).some((r: { role: string }) => r.role === "admin");
     if (!isAdmin) throw new Error("Permission refusée");
 
-    // Delete user's roles in this tenant
-    await supabaseAdmin
+    await db
       .from("user_roles")
       .delete()
       .eq("user_id", data.memberId)
-      .eq("tenant_id", profile.tenant_id);
+      .eq("tenant_id", tenantId);
 
-    // Unlink profile from tenant
-    await (supabaseAdmin as any)
+    await db
       .from("profiles")
       .update({ tenant_id: null, onboarded: false })
       .eq("id", data.memberId)
-      .eq("tenant_id", profile.tenant_id);
+      .eq("tenant_id", tenantId);
 
     return { ok: true };
   });

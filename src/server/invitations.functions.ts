@@ -3,6 +3,11 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Untyped admin client to avoid type churn when DB schema evolves
+const db = supabaseAdmin as unknown as {
+  from: (table: string) => any;
+};
+
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
 const inviteSchema = z.object({
@@ -28,19 +33,18 @@ export const sendInvitation = createServerFn({ method: "POST" })
     const { userId } = ctx;
 
     // 1. Get user's tenant + verify admin/manager role
-    const { data: profileRaw } = await supabaseAdmin
+    const { data: profile } = await db
       .from("profiles")
       .select("tenant_id")
       .eq("id", userId)
       .single();
-    const profile = profileRaw as { tenant_id: string | null } | null;
 
     if (!profile?.tenant_id) {
       throw new Error("Vous devez d'abord compléter l'onboarding");
     }
-    const tenantId = profile.tenant_id;
+    const tenantId: string = profile.tenant_id;
 
-    const { data: roles } = await supabaseAdmin
+    const { data: roles } = await db
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
@@ -54,7 +58,7 @@ export const sendInvitation = createServerFn({ method: "POST" })
     }
 
     // 2. Check if email already a member
-    const { data: existingMember } = await supabaseAdmin
+    const { data: existingMember } = await db
       .from("profiles")
       .select("id")
       .eq("email", data.email)
@@ -65,7 +69,7 @@ export const sendInvitation = createServerFn({ method: "POST" })
     }
 
     // 3. Check pending invitation
-    const { data: existingInvite } = await supabaseAdmin
+    const { data: existingInvite } = await db
       .from("invitations")
       .select("id, accepted_at, expires_at")
       .eq("tenant_id", tenantId)
@@ -73,12 +77,12 @@ export const sendInvitation = createServerFn({ method: "POST" })
       .is("accepted_at", null)
       .maybeSingle();
 
-    if (existingInvite && new Date(existingInvite.expires_at as string) > new Date()) {
+    if (existingInvite && new Date(existingInvite.expires_at) > new Date()) {
       throw new Error("Une invitation est déjà en attente pour cet email");
     }
 
     // 4. Create invitation
-    const { data: invite, error } = await (supabaseAdmin as any)
+    const { data: invite, error } = await db
       .from("invitations")
       .insert({
         tenant_id: tenantId,
@@ -94,11 +98,11 @@ export const sendInvitation = createServerFn({ method: "POST" })
     }
 
     return {
-      id: invite.id,
-      token: invite.token,
-      email: invite.email,
-      role: invite.role,
-      expiresAt: invite.expires_at,
+      id: invite.id as string,
+      token: invite.token as string,
+      email: invite.email as string,
+      role: invite.role as "admin" | "manager" | "user",
+      expiresAt: invite.expires_at as string,
     };
   });
 
@@ -112,7 +116,7 @@ export const acceptInvitation = createServerFn({ method: "POST" })
     const { userId, userEmail } = ctx;
 
     // 1. Fetch invitation
-    const { data: invite, error: inviteErr } = await supabaseAdmin
+    const { data: invite, error: inviteErr } = await db
       .from("invitations")
       .select("id, tenant_id, email, role, accepted_at, expires_at")
       .eq("token", data.token)
@@ -144,7 +148,7 @@ export const acceptInvitation = createServerFn({ method: "POST" })
     }
 
     // 2. Check user not already in another tenant
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await db
       .from("profiles")
       .select("tenant_id, onboarded")
       .eq("id", userId)
@@ -154,8 +158,8 @@ export const acceptInvitation = createServerFn({ method: "POST" })
       throw new Error("Vous appartenez déjà à une autre organisation");
     }
 
-    // 3. Assign role
-    const { error: roleErr } = await (supabaseAdmin as any).from("user_roles").upsert(
+    // 3. Assign role (ignore if already exists)
+    const { error: roleErr } = await db.from("user_roles").upsert(
       {
         user_id: userId,
         tenant_id: inv.tenant_id,
@@ -168,7 +172,7 @@ export const acceptInvitation = createServerFn({ method: "POST" })
     }
 
     // 4. Update profile
-    const { error: profileErr } = await (supabaseAdmin as any)
+    const { error: profileErr } = await db
       .from("profiles")
       .update({
         tenant_id: inv.tenant_id,
@@ -181,7 +185,7 @@ export const acceptInvitation = createServerFn({ method: "POST" })
     }
 
     // 5. Mark invitation accepted
-    await (supabaseAdmin as any)
+    await db
       .from("invitations")
       .update({ accepted_at: new Date().toISOString() })
       .eq("id", inv.id);
@@ -198,27 +202,26 @@ export const revokeInvitation = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
     const { userId } = ctx;
 
-    const { data: invite } = await supabaseAdmin
+    const { data: invite } = await db
       .from("invitations")
       .select("id, tenant_id")
       .eq("id", data.invitationId)
       .single();
 
     if (!invite) throw new Error("Invitation introuvable");
-    const inv = invite as { id: string; tenant_id: string };
 
     // Verify admin/manager
-    const { data: roles } = await supabaseAdmin
+    const { data: roles } = await db
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .eq("tenant_id", inv.tenant_id);
+      .eq("tenant_id", invite.tenant_id);
 
     const allowed = (roles ?? []).some(
       (r: { role: string }) => r.role === "admin" || r.role === "manager",
     );
     if (!allowed) throw new Error("Permission refusée");
 
-    await supabaseAdmin.from("invitations").delete().eq("id", inv.id);
+    await db.from("invitations").delete().eq("id", invite.id);
     return { ok: true };
   });
