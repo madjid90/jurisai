@@ -77,7 +77,11 @@ function LoginPage() {
 
       <p className="mt-6 text-center text-[13px] text-muted-foreground">
         Pas encore de compte ?{" "}
-        <Link to="/signup" className="font-medium text-accent hover:underline">
+        <Link
+          to="/signup"
+          search={redirect ? { redirect } : undefined}
+          className="font-medium text-accent hover:underline"
+        >
           Créer un compte
         </Link>
       </p>
