@@ -2,3 +2,6 @@ project_id = "yuvysjsyumxpekzvlzsx"
 
 [functions.legal-chat]
 verify_jwt = false
+
+[functions.seed-demo]
+verify_jwt = false
