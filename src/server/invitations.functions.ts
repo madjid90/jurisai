@@ -28,11 +28,12 @@ export const sendInvitation = createServerFn({ method: "POST" })
     const { userId } = ctx;
 
     // 1. Get user's tenant + verify admin/manager role
-    const { data: profile } = await supabaseAdmin
+    const { data: profileRaw } = await supabaseAdmin
       .from("profiles")
       .select("tenant_id")
       .eq("id", userId)
       .single();
+    const profile = profileRaw as { tenant_id: string | null } | null;
 
     if (!profile?.tenant_id) {
       throw new Error("Vous devez d'abord compléter l'onboarding");
