@@ -45,6 +45,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Sidebar() {
   const router = useRouter();
   const currentPath = router.state.location.pathname;
+  const { user } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "super_admin")
+        .maybeSingle();
+      setIsSuperAdmin(!!data);
+    })();
+  }, [user]);
 
   return (
     <aside className="glass-panel flex w-[244px] flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)]">
