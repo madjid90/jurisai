@@ -26,6 +26,7 @@ import { GlobalSearch } from "@/components/app/GlobalSearch";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/chat", label: "Assistant IA", icon: MessageSquare },
+  { to: "/agent", label: "Agent IA", icon: Sparkles },
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/analyses", label: "Analyses", icon: ScanSearch },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen },
