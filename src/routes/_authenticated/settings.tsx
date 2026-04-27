@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { IntegrationsPanel } from "@/components/settings/IntegrationsPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { updateProfile, updateTenant } from "@/server/settings.functions";
@@ -331,6 +332,9 @@ function SettingsPage() {
             )}
           </form>
         )}
+
+        {/* Intégrations (admins seulement) */}
+        {isAdmin && <IntegrationsPanel />}
 
         {/* RGPD — Mes données */}
         <div className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
