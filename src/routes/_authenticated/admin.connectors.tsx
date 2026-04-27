@@ -26,6 +26,7 @@ import {
   listConnectorErrors,
   listConnectorJobs,
   triggerConnector,
+  type ConnectorErrorRow,
 } from "@/server/connectors.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/connectors")({
