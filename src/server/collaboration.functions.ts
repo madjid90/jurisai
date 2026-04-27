@@ -155,6 +155,14 @@ export const createTask = createServerFn({ method: "POST" })
         _metadata: { dossier_id: dossier.id, task_id: inserted.id },
       });
     }
+
+    // Slack + webhook (best-effort)
+    const { notifyTenantSlack, dispatchWebhook } = await import("@/server/slack.server");
+    void notifyTenantSlack(supabaseAdmin, tenantId,
+      `📝 Nouvelle tâche *${data.title}* sur *${dossier.title}* (priorité ${data.priority})`);
+    void dispatchWebhook(supabaseAdmin, tenantId, "task.created",
+      { dossier_id: dossier.id, task_id: inserted.id, title: data.title, priority: data.priority });
+
     return { id: inserted.id };
   });
 
