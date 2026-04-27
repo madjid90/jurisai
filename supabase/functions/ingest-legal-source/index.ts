@@ -9,6 +9,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { embedTexts, chunkText } from "../_shared/embeddings.ts";
+import { smartChunk } from "../_shared/smart-chunk.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -166,7 +167,11 @@ Deno.serve(async (req) => {
       if (text.length > 200_000) text = text.slice(0, 200_000);
 
       // 4. Chunk + embed
-      const chunks = chunkText(text, { targetChars: 3200, overlapChars: 200 });
+      // Smart hierarchical chunking based on source type, fallback to paragraph chunker
+      let chunks = smartChunk(text, source_type);
+      if (chunks.length === 0) {
+        chunks = chunkText(text, { targetChars: 3200, overlapChars: 200 });
+      }
       const embeddings = await embedTexts(
         LOVABLE_API_KEY,
         chunks.map((c) => `${c.heading ?? ""}\n${c.content}`),
