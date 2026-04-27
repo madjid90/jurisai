@@ -223,7 +223,7 @@ export const listNotifications = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return (data ?? []) as Array<{
       id: string; kind: string; title: string; body: string | null; link: string | null;
-      read_at: string | null; created_at: string; metadata: Record<string, unknown>;
+      read_at: string | null; created_at: string; metadata: Record<string, any>;
     }>;
   });
 
