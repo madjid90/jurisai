@@ -97,6 +97,22 @@ function Sidebar() {
         ))}
       </nav>
 
+      {isSuperAdmin && (
+        <>
+          <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Admin
+          </div>
+          <nav className="mt-2 flex flex-col gap-1">
+            <NavItem
+              label="Connecteurs data"
+              icon={Database}
+              to="/admin/connectors"
+              active={currentPath === "/admin/connectors"}
+            />
+          </nav>
+        </>
+      )}
+
       <div className="mt-auto pt-6">
         <UpgradeCard />
         <UserMenu />
