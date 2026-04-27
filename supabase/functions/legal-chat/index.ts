@@ -109,6 +109,21 @@ Deno.serve(async (req) => {
       .single();
     const idccFilter = tenant?.idcc ?? null;
 
+    // 4.5 Rate limit (10 req/min/user) — protection coût IA + DoS
+    const { data: rl, error: rlErr } = await supabaseAdmin.rpc("check_rate_limit", {
+      p_user_id: userId,
+      p_endpoint: "legal-chat",
+      p_max_per_minute: 10,
+    });
+    if (rlErr) {
+      console.error("Rate limit check error:", rlErr);
+    } else if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
+      return jsonErr(
+        `Trop de requêtes (${rl[0].current_count}/min). Réessayez dans une minute.`,
+        429,
+      );
+    }
+
     // 5. Quota
     const { data: quotaOk, error: quotaErr } = await supabaseAdmin.rpc(
       "increment_questions_used",
@@ -182,23 +197,45 @@ Deno.serve(async (req) => {
       systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée — le LLM doit le signaler.)\n</SOURCES>`;
     }
 
-    // 10. Call AI Gateway streaming
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CHAT_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...(history ?? []),
-          { role: "user", content: message },
-        ],
-        stream: true,
-      }),
-    });
+    // 10. Call AI Gateway streaming with timeout (60s) + 1 retry on transient errors
+    const callGateway = async (): Promise<Response> => {
+      const ctrl = new AbortController();
+      const timeoutId = setTimeout(() => ctrl.abort("timeout"), 60_000);
+      try {
+        return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: CHAT_MODEL,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...(history ?? []),
+              { role: "user", content: message },
+            ],
+            stream: true,
+          }),
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    let aiResponse: Response;
+    try {
+      aiResponse = await callGateway();
+      // Retry once on 5xx (transient gateway error)
+      if (aiResponse.status >= 500 && aiResponse.status < 600) {
+        await new Promise((r) => setTimeout(r, 800));
+        aiResponse = await callGateway();
+      }
+    } catch (e) {
+      console.error("AI gateway fetch failed:", e);
+      return jsonErr("Le service IA est temporairement indisponible. Réessayez.", 503);
+    }
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) return jsonErr("Trop de requêtes. Réessayez dans un instant.", 429);

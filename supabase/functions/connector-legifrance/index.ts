@@ -18,6 +18,7 @@ import {
   updateJob,
 } from "../_shared/ingest.ts";
 import { legifranceFetch } from "../_shared/piste.ts";
+import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 
 const DEFAULT_CODE = "LEGITEXT000006072050"; // Code du travail
 
@@ -60,6 +61,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    await requireSuperAdmin(req);
     const body = await req.json().catch(() => ({}));
     const codeId: string = body.code_id ?? DEFAULT_CODE;
     const maxArticles: number = Math.min(Number(body.max_articles) || 5000, 10000);
@@ -168,6 +170,7 @@ Deno.serve(async (req) => {
     });
     return jsonResponse({ job_id: jobId, processed, failed, total: target.length });
   } catch (err) {
+    if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return jsonResponse({ error: (err as Error).message }, 500);
   }
 });

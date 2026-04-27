@@ -11,6 +11,7 @@ import {
   startJob,
   updateJob,
 } from "../_shared/ingest.ts";
+import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 
 const GH_API_DIR =
   "https://api.github.com/repos/SocialGouv/cdtn-admin/contents/targets/frontend/data/modeles-de-courriers";
@@ -28,6 +29,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    await requireSuperAdmin(req);
     const db = getAdminClient();
     const jobId = await startJob(db, "cdtn-modeles", {});
 
@@ -95,6 +97,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ job_id: jobId, processed, failed, total: mdFiles.length });
   } catch (err) {
+    if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return jsonResponse({ error: (err as Error).message }, 500);
   }
 });

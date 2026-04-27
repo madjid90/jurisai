@@ -2,7 +2,7 @@
 // Usage : POST https://yuvysjsyumxpekzvlzsx.supabase.co/functions/v1/seed-demo
 // Body : { "email": "demo@jurisai.test", "password": "Demo1234!" } (optionnel)
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,11 +14,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const url = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const admin = createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const { admin } = await requireSuperAdmin(req);
 
     const body = await req.json().catch(() => ({}));
     const email = body.email ?? `demo+${Date.now()}@jurisai.test`;
@@ -207,6 +203,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
+    if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

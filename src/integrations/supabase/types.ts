@@ -827,6 +827,33 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          request_count?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       templates_public: {
         Row: {
           category: string
@@ -1001,6 +1028,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          p_endpoint: string
+          p_max_per_minute?: number
+          p_user_id: string
+        }
+        Returns: {
+          allowed: boolean
+          current_count: number
+          reset_at: string
+        }[]
+      }
+      cleanup_rate_limits: { Args: never; Returns: undefined }
       current_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {

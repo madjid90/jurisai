@@ -16,6 +16,7 @@ import {
   startJob,
   updateJob,
 } from "../_shared/ingest.ts";
+import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 
 // Top IDCC to seed first (from product spec, ranked by employee coverage).
 const TOP_IDCC = [
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    await requireSuperAdmin(req);
     const body = await req.json().catch(() => ({}));
     const mode: "top" | "all" | "idcc" = body.mode ?? "top";
     const requestedIdcc: string[] = Array.isArray(body.idcc) ? body.idcc : [];
@@ -149,6 +151,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ job_id: jobId, processed, failed, total: target.length });
   } catch (err) {
+    if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return jsonResponse({ error: (err as Error).message }, 500);
   }
 });
