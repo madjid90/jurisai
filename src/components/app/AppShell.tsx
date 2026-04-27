@@ -117,6 +117,18 @@ function Sidebar() {
               to="/admin/legal-sources"
               active={currentPath === "/admin/legal-sources"}
             />
+            <NavItem
+              label="Tenants"
+              icon={Users}
+              to="/admin/tenants"
+              active={currentPath === "/admin/tenants"}
+            />
+            <NavItem
+              label="Usage"
+              icon={Sparkles}
+              to="/admin/usage"
+              active={currentPath === "/admin/usage"}
+            />
           </nav>
         </>
       )}
