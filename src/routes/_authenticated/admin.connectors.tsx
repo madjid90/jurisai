@@ -352,7 +352,7 @@ function JobRow({ job }: { job: Job }) {
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="font-medium">{job.connector ?? job.source_type}</span>
+          <span className="font-medium">{job.connector ?? job.job_type}</span>
           <Badge variant="outline" className="text-[10px]">{job.status}</Badge>
         </div>
         <span className="text-xs text-muted-foreground">
