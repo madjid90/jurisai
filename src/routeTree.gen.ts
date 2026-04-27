@@ -35,6 +35,10 @@ import { Route as AuthenticatedAdminUsageRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
 import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
+import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1.me'
+import { Route as ApiPublicV1DossiersRouteImport } from './routes/api/public/v1.dossiers'
+import { Route as ApiPublicV1DeadlinesRouteImport } from './routes/api/public/v1.deadlines'
+import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1.clients'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar.$token'
 
 const SignupRoute = SignupRouteImport.update({
@@ -171,6 +175,26 @@ const AuthenticatedAdminConnectorsRoute =
     path: '/admin/connectors',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const ApiPublicV1MeRoute = ApiPublicV1MeRouteImport.update({
+  id: '/api/public/v1/me',
+  path: '/api/public/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1DossiersRoute = ApiPublicV1DossiersRouteImport.update({
+  id: '/api/public/v1/dossiers',
+  path: '/api/public/v1/dossiers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1DeadlinesRoute = ApiPublicV1DeadlinesRouteImport.update({
+  id: '/api/public/v1/deadlines',
+  path: '/api/public/v1/deadlines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
+  id: '/api/public/v1/clients',
+  path: '/api/public/v1/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   id: '/api/public/calendar/$token',
   path: '/api/public/calendar/$token',
@@ -204,6 +228,10 @@ export interface FileRoutesByFullPath {
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
+  '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
+  '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
+  '/api/public/v1/me': typeof ApiPublicV1MeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -232,6 +260,10 @@ export interface FileRoutesByTo {
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
+  '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
+  '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
+  '/api/public/v1/me': typeof ApiPublicV1MeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -262,6 +294,10 @@ export interface FileRoutesById {
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
+  '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
+  '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
+  '/api/public/v1/me': typeof ApiPublicV1MeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -292,6 +328,10 @@ export interface FileRouteTypes {
     | '/dossiers/$id'
     | '/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/v1/clients'
+    | '/api/public/v1/deadlines'
+    | '/api/public/v1/dossiers'
+    | '/api/public/v1/me'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -320,6 +360,10 @@ export interface FileRouteTypes {
     | '/dossiers/$id'
     | '/documents'
     | '/api/public/calendar/$token'
+    | '/api/public/v1/clients'
+    | '/api/public/v1/deadlines'
+    | '/api/public/v1/dossiers'
+    | '/api/public/v1/me'
   id:
     | '__root__'
     | '/'
@@ -349,6 +393,10 @@ export interface FileRouteTypes {
     | '/_authenticated/dossiers/$id'
     | '/_authenticated/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/v1/clients'
+    | '/api/public/v1/deadlines'
+    | '/api/public/v1/dossiers'
+    | '/api/public/v1/me'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -364,6 +412,10 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
+  ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
+  ApiPublicV1DeadlinesRoute: typeof ApiPublicV1DeadlinesRoute
+  ApiPublicV1DossiersRoute: typeof ApiPublicV1DossiersRoute
+  ApiPublicV1MeRoute: typeof ApiPublicV1MeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -550,6 +602,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminConnectorsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/v1/me': {
+      id: '/api/public/v1/me'
+      path: '/api/public/v1/me'
+      fullPath: '/api/public/v1/me'
+      preLoaderRoute: typeof ApiPublicV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/dossiers': {
+      id: '/api/public/v1/dossiers'
+      path: '/api/public/v1/dossiers'
+      fullPath: '/api/public/v1/dossiers'
+      preLoaderRoute: typeof ApiPublicV1DossiersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/deadlines': {
+      id: '/api/public/v1/deadlines'
+      path: '/api/public/v1/deadlines'
+      fullPath: '/api/public/v1/deadlines'
+      preLoaderRoute: typeof ApiPublicV1DeadlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/clients': {
+      id: '/api/public/v1/clients'
+      path: '/api/public/v1/clients'
+      fullPath: '/api/public/v1/clients'
+      preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/calendar/$token': {
       id: '/api/public/calendar/$token'
       path: '/api/public/calendar/$token'
@@ -635,6 +715,10 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
+  ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
+  ApiPublicV1DeadlinesRoute: ApiPublicV1DeadlinesRoute,
+  ApiPublicV1DossiersRoute: ApiPublicV1DossiersRoute,
+  ApiPublicV1MeRoute: ApiPublicV1MeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
