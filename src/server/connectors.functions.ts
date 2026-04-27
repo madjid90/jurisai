@@ -26,7 +26,7 @@ export type ConnectorJobRow = {
   items_failed: number | null;
   started_at: string | null;
   finished_at: string | null;
-  params: unknown;
+  params: Record<string, unknown> | null | object;
   created_at: string;
 };
 
