@@ -68,8 +68,8 @@ const TOOLS = [
         properties: {
           dossier_id: { type: "string" },
           title: { type: "string" },
-          priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
-          due_at: { type: "string", description: "Date ISO 8601 optionnelle" },
+          priority: { type: "string", enum: ["low", "normal", "high", "urgent"] },
+          due_date: { type: "string", description: "Date ISO 8601 optionnelle" },
         },
         required: ["dossier_id", "title"],
       },
@@ -85,9 +85,9 @@ const TOOLS = [
         properties: {
           dossier_id: { type: "string" },
           title: { type: "string" },
-          due_at: { type: "string", description: "Date ISO 8601" },
+          due_date: { type: "string", description: "Date ISO 8601" },
         },
-        required: ["dossier_id", "title", "due_at"],
+        required: ["dossier_id", "title", "due_date"],
       },
     },
   },
