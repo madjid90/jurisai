@@ -40,7 +40,8 @@ export const listAuditLogs = createServerFn({ method: "GET" })
     return (rows ?? []) as Array<{
       id: string; action: string; resource_type: string | null;
       resource_id: string | null; ip_address: string | null;
-      user_agent: string | null; metadata: Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      user_agent: string | null; metadata: Record<string, any>;
       created_at: string; user_id: string | null; api_key_id: string | null;
     }>;
   });

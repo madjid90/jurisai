@@ -29,6 +29,7 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     return (await res.json()) as {
       answer: string;
       sources: Array<{ n: number; title: string; ref: string | null; url: string | null }>;
-      trace: Array<{ tool: string; args: unknown; result: unknown }>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      trace: Array<{ tool: string; args: any; result: any }>;
     };
   });
