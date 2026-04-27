@@ -228,7 +228,7 @@ function ConnectorsAdminPage() {
         </Card>
 
         {/* Errors */}
-        {(errorsQuery.data?.errors.length ?? 0) > 0 && (
+        {(errorsQuery.data?.errors?.length ?? 0) > 0 && (
           <Card className="glass-panel border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -237,7 +237,7 @@ function ConnectorsAdminPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-xs">
-                {errorsQuery.data?.errors.slice(0, 20).map((e) => (
+                {errorsQuery.data?.errors.slice(0, 20).map((e: ConnectorErrorRow) => (
                   <div key={e.id} className="rounded-lg border border-border/30 px-3 py-2">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">{e.connector}</Badge>
