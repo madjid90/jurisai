@@ -23,6 +23,7 @@ import {
   startJob,
   updateJob,
 } from "../_shared/ingest.ts";
+import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 
 const JUDILIBRE_BASE = "https://api.piste.gouv.fr/cassation/judilibre/v1.0";
 const JUDILIBRE_SANDBOX = "https://sandbox-api.piste.gouv.fr/cassation/judilibre/v1.0";
@@ -79,6 +80,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    await requireSuperAdmin(req);
     const body = await req.json().catch(() => ({}));
     const chambers: string[] = Array.isArray(body.chamber) ? body.chamber : ["soc", "com"];
     const dateStart: string = body.date_start ?? defaultDateStart();
@@ -190,6 +192,7 @@ Deno.serve(async (req) => {
     });
     return jsonResponse({ job_id: jobId, processed, failed, total: target.length });
   } catch (err) {
+    if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return jsonResponse({ error: (err as Error).message }, 500);
   }
 });

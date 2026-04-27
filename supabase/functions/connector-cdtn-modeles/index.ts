@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ job_id: jobId, processed, failed, total: mdFiles.length });
   } catch (err) {
+    if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return jsonResponse({ error: (err as Error).message }, 500);
   }
 });
