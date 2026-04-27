@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  Download,
   Loader2,
   Plus,
   Save,
@@ -22,6 +23,7 @@ import {
   updateDeadline,
   updateDossier,
 } from "@/server/crm.functions";
+import { exportDossierPDF } from "@/server/exports.functions";
 
 export const Route = createFileRoute("/_authenticated/dossiers/$id")({
   head: () => ({ meta: [{ title: "Dossier · JurisAI" }] }),
