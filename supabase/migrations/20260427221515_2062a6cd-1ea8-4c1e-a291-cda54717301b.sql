@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.create_notification(uuid, uuid, text, text, text, text, jsonb) FROM PUBLIC, anon, authenticated;
