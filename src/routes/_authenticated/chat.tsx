@@ -8,13 +8,24 @@ import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import {
+  SourcesPanel,
+  extractReferenced,
+  renderCitationsInline,
+  type CitationSource,
+} from "@/components/chat/SourcesPanel";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Assistant IA · JurisAI" }] }),
   component: ChatPage,
 });
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = {
+  id?: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: CitationSource[];
+};
 
 type Conversation = {
   id: string;
@@ -47,7 +58,7 @@ function ChatPage() {
     })();
   }, [profile?.tenant_id]);
 
-  // Load messages of active conversation
+  // Load messages + citations of active conversation
   useEffect(() => {
     if (!activeConvoId) {
       setMessages([]);
@@ -55,16 +66,66 @@ function ChatPage() {
     }
     setLoadingMessages(true);
     void (async () => {
-      const { data } = await supabase
+      const { data: msgRows } = await supabase
         .from("messages")
-        .select("role, content")
+        .select("id, role, content")
         .eq("conversation_id", activeConvoId)
         .order("created_at", { ascending: true });
-      setMessages(
-        ((data as Array<{ role: string; content: string }>) ?? [])
+
+      const baseMsgs: Msg[] =
+        ((msgRows as Array<{ id: string; role: string; content: string }>) ?? [])
           .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-      );
+          .map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content }));
+
+      // Fetch citations for assistant messages
+      const assistantIds = baseMsgs.filter((m) => m.role === "assistant" && m.id).map((m) => m.id!);
+      if (assistantIds.length > 0) {
+        const { data: cits } = await supabase
+          .from("chat_citations")
+          .select(
+            "message_id, rank, score, chunk_id, legal_chunks(content, heading, legal_sources(id, title, source_type, reference_code, official_url))",
+          )
+          .in("message_id", assistantIds);
+        const byMsg = new Map<string, CitationSource[]>();
+        ((cits ?? []) as unknown as Array<{
+          message_id: string;
+          rank: number;
+          score: number;
+          chunk_id: string;
+          legal_chunks: {
+            content: string;
+            heading: string | null;
+            legal_sources: {
+              id: string;
+              title: string;
+              source_type: string;
+              reference_code: string | null;
+              official_url: string | null;
+            };
+          };
+        }>).forEach((c) => {
+          const arr = byMsg.get(c.message_id) ?? [];
+          arr.push({
+            n: c.rank,
+            chunk_id: c.chunk_id,
+            source_id: c.legal_chunks?.legal_sources?.id ?? "",
+            title: c.legal_chunks?.legal_sources?.title ?? "Source",
+            reference: c.legal_chunks?.legal_sources?.reference_code ?? null,
+            url: c.legal_chunks?.legal_sources?.official_url ?? null,
+            type: c.legal_chunks?.legal_sources?.source_type ?? "manual",
+            heading: c.legal_chunks?.heading ?? null,
+            excerpt: (c.legal_chunks?.content ?? "").slice(0, 300),
+          });
+          byMsg.set(c.message_id, arr);
+        });
+        baseMsgs.forEach((m) => {
+          if (m.id && byMsg.has(m.id)) {
+            m.sources = byMsg.get(m.id)!.sort((a, b) => a.n - b.n);
+          }
+        });
+      }
+
+      setMessages(baseMsgs);
       setLoadingMessages(false);
     })();
   }, [activeConvoId]);
@@ -110,7 +171,7 @@ function ChatPage() {
 
     setInput("");
     const userMsg: Msg = { role: "user", content: text };
-    const history = messages;
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
     setMessages((prev) => [...prev, userMsg]);
     setStreaming(true);
 
@@ -127,67 +188,84 @@ function ChatPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          conversationId: convoId,
-          message: text,
-          history,
-        }),
+        body: JSON.stringify({ conversationId: convoId, message: text, history }),
       });
 
       if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({ error: "Erreur inconnue" }));
-        if (resp.status === 402) {
-          toast.error("Quota atteint", { description: err.error });
-        } else if (resp.status === 429) {
-          toast.error("Trop de requêtes", { description: err.error });
-        } else {
-          toast.error("Erreur", { description: err.error });
-        }
+        if (resp.status === 402) toast.error("Quota atteint", { description: err.error });
+        else if (resp.status === 429) toast.error("Trop de requêtes", { description: err.error });
+        else toast.error("Erreur", { description: err.error });
         setMessages((prev) => prev.slice(0, -1));
         setStreaming(false);
         return;
       }
 
-      // Stream parsing
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
       let assistantSoFar = "";
       let assistantStarted = false;
+      let receivedSources: CitationSource[] = [];
 
       const upsertAssistant = (chunk: string) => {
         assistantSoFar += chunk;
         setMessages((prev) => {
           if (!assistantStarted) {
             assistantStarted = true;
-            return [...prev, { role: "assistant", content: assistantSoFar }];
+            return [
+              ...prev,
+              { role: "assistant", content: assistantSoFar, sources: receivedSources },
+            ];
           }
           return prev.map((m, i) =>
-            i === prev.length - 1 ? { ...m, content: assistantSoFar } : m,
+            i === prev.length - 1
+              ? { ...m, content: assistantSoFar, sources: receivedSources }
+              : m,
           );
         });
       };
 
       let streamDone = false;
+      let currentEvent: string | null = null;
       while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
         textBuffer += decoder.decode(value, { stream: true });
 
-        let newlineIdx: number;
-        while ((newlineIdx = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIdx);
-          textBuffer = textBuffer.slice(newlineIdx + 1);
+        let nlIdx: number;
+        while ((nlIdx = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, nlIdx);
+          textBuffer = textBuffer.slice(nlIdx + 1);
           if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
+          if (line.startsWith(":") || line.trim() === "") {
+            currentEvent = null;
+            continue;
+          }
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+            continue;
+          }
           if (!line.startsWith("data: ")) continue;
-          const json = line.slice(6).trim();
-          if (json === "[DONE]") {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") {
             streamDone = true;
             break;
           }
+
+          if (currentEvent === "sources") {
+            try {
+              receivedSources = JSON.parse(data) as CitationSource[];
+            } catch (err) {
+              console.error("sources parse err", err);
+            }
+            currentEvent = null;
+            continue;
+          }
+
+          // Default: OpenAI-compatible chat completion delta
           try {
-            const parsed = JSON.parse(json);
+            const parsed = JSON.parse(data);
             const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (delta) upsertAssistant(delta);
           } catch {
@@ -248,7 +326,6 @@ function ChatPage() {
   return (
     <AppShell>
       <div className="flex min-h-0 flex-1 gap-3">
-        {/* Conversations sidebar */}
         <aside className="glass-panel hidden w-[260px] flex-shrink-0 flex-col rounded-3xl p-3 shadow-[var(--shadow-card)] lg:flex">
           <button
             type="button"
@@ -284,7 +361,6 @@ function ChatPage() {
           </div>
         </aside>
 
-        {/* Chat area */}
         <section className="glass-panel flex min-w-0 flex-1 flex-col rounded-3xl shadow-[var(--shadow-card)]">
           <header className="flex items-center justify-between border-b border-border px-6 py-4">
             <div className="flex items-center gap-3">
@@ -292,9 +368,11 @@ function ChatPage() {
                 <Sparkles className="h-4 w-4" />
               </div>
               <div>
-                <h1 className="text-[15px] font-semibold text-foreground">Assistant juridique IA</h1>
+                <h1 className="text-[15px] font-semibold text-foreground">
+                  Assistant juridique IA
+                </h1>
                 <p className="text-[11.5px] text-muted-foreground">
-                  Expert en droit du travail français
+                  Sourcé sur Code du travail, conventions collectives, jurisprudence
                 </p>
               </div>
             </div>
@@ -310,12 +388,16 @@ function ChatPage() {
             ) : (
               <div className="mx-auto max-w-3xl space-y-6">
                 {messages.map((m, i) => (
-                  <MessageBubble key={i} role={m.role} content={m.content} />
+                  <MessageBubble
+                    key={m.id ?? i}
+                    role={m.role}
+                    content={m.content}
+                    sources={m.sources}
+                  />
                 ))}
-                {streaming &&
-                  messages[messages.length - 1]?.role === "user" && (
-                    <MessageBubble role="assistant" content="" loading />
-                  )}
+                {streaming && messages[messages.length - 1]?.role === "user" && (
+                  <MessageBubble role="assistant" content="" loading />
+                )}
               </div>
             )}
           </div>
@@ -350,7 +432,7 @@ function ChatPage() {
               </button>
             </div>
             <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-muted-foreground">
-              JurisAI peut commettre des erreurs. Vérifiez les informations critiques.
+              JurisAI cite ses sources officielles. Vérifiez les informations critiques.
             </p>
           </form>
         </section>
@@ -363,12 +445,17 @@ function MessageBubble({
   role,
   content,
   loading,
+  sources,
 }: {
   role: "user" | "assistant";
   content: string;
   loading?: boolean;
+  sources?: CitationSource[];
 }) {
   const isUser = role === "user";
+  const referenced = !isUser && content ? extractReferenced(content) : new Set<number>();
+  const renderedContent = !isUser && sources ? renderCitationsInline(content, sources) : content;
+
   return (
     <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
@@ -393,9 +480,14 @@ function MessageBubble({
         ) : isUser ? (
           <p className="whitespace-pre-wrap">{content}</p>
         ) : (
-          <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:text-[12px] prose-code:font-medium prose-code:text-accent prose-code:before:content-none prose-code:after:content-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-          </div>
+          <>
+            <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-foreground prose-code:rounded prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:text-[12px] prose-code:font-medium prose-code:text-accent prose-code:before:content-none prose-code:after:content-none prose-a:text-accent prose-a:font-semibold prose-a:no-underline hover:prose-a:underline">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{renderedContent}</ReactMarkdown>
+            </div>
+            {sources && sources.length > 0 && (
+              <SourcesPanel sources={sources} referenced={referenced} />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -419,7 +511,8 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         Bonjour, comment puis-je vous aider ?
       </h2>
       <p className="mt-2 text-[14px] text-muted-foreground">
-        Posez une question sur le droit du travail français, je cite mes sources.
+        Posez une question sur le droit du travail français — chaque réponse cite ses sources
+        officielles.
       </p>
       <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
         {SUGGESTIONS.map((s) => (
