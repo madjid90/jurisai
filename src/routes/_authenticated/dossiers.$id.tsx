@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  Download,
   Loader2,
   Plus,
   Save,
@@ -22,6 +23,7 @@ import {
   updateDeadline,
   updateDossier,
 } from "@/server/crm.functions";
+import { exportDossierPDF } from "@/server/exports.functions";
 
 export const Route = createFileRoute("/_authenticated/dossiers/$id")({
   head: () => ({ meta: [{ title: "Dossier · JurisAI" }] }),
@@ -70,12 +72,37 @@ function DossierDetailPage() {
   const createDeadlineFn = useServerFn(createDeadline);
   const updateDeadlineFn = useServerFn(updateDeadline);
   const deleteDeadlineFn = useServerFn(deleteDeadline);
+  const exportFn = useServerFn(exportDossierPDF);
 
   const [loading, setLoading] = useState(true);
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const res = await exportFn({ data: { dossierId: id } });
+      // Convert base64 → Blob → trigger browser download
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("PDF généré");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur export");
+    } finally {
+      setExporting(false);
+    }
+  };
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -213,6 +240,18 @@ function DossierDetailPage() {
                     className="h-9 rounded-xl border border-border px-3 text-[12.5px] font-medium hover:bg-secondary"
                   >
                     Modifier
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={exporting}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[12.5px] font-medium hover:bg-secondary disabled:opacity-50"
+                  >
+                    {exporting ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    Exporter PDF
                   </button>
                   <button
                     onClick={handleDelete}

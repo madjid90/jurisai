@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_dismissals: {
+        Row: {
+          alert_id: string
+          dismissed_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          alert_id: string
+          dismissed_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          alert_id?: string
+          dismissed_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_dismissals_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "legal_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_citations: {
         Row: {
           chunk_id: string
@@ -641,6 +670,59 @@ export type Database = {
           },
         ]
       }
+      legal_alerts: {
+        Row: {
+          change_type: string
+          created_at: string
+          id: string
+          idcc: string | null
+          legal_date: string | null
+          metadata: Json
+          official_url: string | null
+          severity: string
+          source_id: string | null
+          source_type: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          change_type?: string
+          created_at?: string
+          id?: string
+          idcc?: string | null
+          legal_date?: string | null
+          metadata?: Json
+          official_url?: string | null
+          severity?: string
+          source_id?: string | null
+          source_type?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          id?: string
+          idcc?: string | null
+          legal_date?: string | null
+          metadata?: Json
+          official_url?: string | null
+          severity?: string
+          source_id?: string | null
+          source_type?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_alerts_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_chunks: {
         Row: {
           chunk_index: number
@@ -902,6 +984,39 @@ export type Database = {
           title?: string
           updated_at?: string
           variables?: Json | null
+        }
+        Relationships: []
+      }
+      tenant_alert_subscriptions: {
+        Row: {
+          created_at: string
+          email_enabled: boolean
+          frequency: string
+          id: string
+          idcc_filters: string[]
+          severity_min: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean
+          frequency?: string
+          id?: string
+          idcc_filters?: string[]
+          severity_min?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean
+          frequency?: string
+          id?: string
+          idcc_filters?: string[]
+          severity_min?: string
+          tenant_id?: string
+          updated_at?: string
         }
         Relationships: []
       }

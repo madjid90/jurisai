@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/analyses", label: "Analyses", icon: ScanSearch },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen },
-  { to: "/dashboard", label: "Veille juridique", icon: Bell, soon: true },
+  { to: "/veille", label: "Veille juridique", icon: Bell },
 ] as const;
 
 const SECONDARY_ITEMS = [
@@ -79,7 +79,7 @@ function Sidebar() {
             icon={item.icon}
             to={item.to}
             active={currentPath === item.to}
-            soon={"soon" in item ? item.soon : undefined}
+            soon={"soon" in item ? Boolean((item as { soon?: boolean }).soon) : undefined}
           />
         ))}
       </nav>
