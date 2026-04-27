@@ -224,3 +224,98 @@ export const exportDossierPDF = createServerFn({ method: "POST" })
       mime: "application/pdf",
     };
   });
+
+// ─── Export single document ─────────────────────────────────────────────────
+
+const exportDocSchema = z.object({
+  documentId: z.string().uuid(),
+  format: z.enum(["pdf", "docx"]),
+});
+
+export const exportDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => exportDocSchema.parse(i))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as { userId: string };
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+    const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id;
+    if (!tenantId) throw new Error("No tenant");
+
+    const { data: doc, error } = await (supabaseAdmin as any)
+      .from("documents")
+      .select("id, title, content, status, updated_at")
+      .eq("id", data.documentId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error || !doc) throw new Error("Document not found");
+
+    const safeName = String(doc.title).replace(/[^\w\-]+/g, "_").slice(0, 60) || "document";
+
+    if (data.format === "pdf") {
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+      const margin = 20;
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const usable = pageW - margin * 2;
+
+      pdf.setFont("helvetica", "bold").setFontSize(18);
+      pdf.text(String(doc.title), margin, margin + 4);
+      pdf.setFont("helvetica", "normal").setFontSize(10).setTextColor(120);
+      pdf.text(`Mis à jour le ${new Date(doc.updated_at).toLocaleDateString("fr-FR")}`, margin, margin + 11);
+      pdf.setTextColor(0).setFontSize(11);
+
+      const lines = pdf.splitTextToSize(String(doc.content ?? ""), usable);
+      let y = margin + 22;
+      for (const line of lines) {
+        if (y > pageH - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += 6;
+      }
+      const base64 = pdf.output("datauristring").split(",")[1];
+      return { filename: `${safeName}.pdf`, base64, mime: "application/pdf" };
+    }
+
+    // DOCX export
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } =
+      await import("docx");
+
+    const paragraphs: InstanceType<typeof Paragraph>[] = [
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.LEFT,
+        children: [new TextRun({ text: String(doc.title), bold: true })],
+      }),
+      new Paragraph({
+        children: [new TextRun({
+          text: `Mis à jour le ${new Date(doc.updated_at).toLocaleDateString("fr-FR")}`,
+          italics: true, color: "777777", size: 18,
+        })],
+      }),
+      new Paragraph({ children: [new TextRun("")] }),
+      ...String(doc.content ?? "").split(/\n/).map((line) =>
+        new Paragraph({ children: [new TextRun(line)] }),
+      ),
+    ];
+
+    const docx = new Document({
+      sections: [{
+        properties: {
+          page: { margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } },
+        },
+        children: paragraphs,
+      }],
+    });
+
+    const buf = await Packer.toBuffer(docx);
+    const base64 = Buffer.from(buf).toString("base64");
+    return {
+      filename: `${safeName}.docx`,
+      base64,
+      mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+  });

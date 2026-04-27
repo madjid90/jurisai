@@ -24,9 +24,10 @@ export const Route = createFileRoute("/api/public/v1/dossiers")({
 
           const { data, error, count } = await (supabaseAdmin as any)
             .from("dossiers")
-            .select("id, title, status, client_id, description, created_at, updated_at", {
-              count: "exact",
-            })
+            .select(
+              "id, title, status, category, risk_level, client_id, description, created_at, updated_at",
+              { count: "exact" },
+            )
             .eq("tenant_id", ctx.tenantId)
             .order("created_at", { ascending: false })
             .range(offset, offset + limit - 1);
@@ -34,9 +35,7 @@ export const Route = createFileRoute("/api/public/v1/dossiers")({
           if (error) throw new Error(error.message);
 
           await logApiAudit(ctx, request, "api.dossiers.list", "dossier", null, {
-            limit,
-            offset,
-            returned: data?.length ?? 0,
+            limit, offset, returned: data?.length ?? 0,
           });
 
           return jsonResponse({ data: data ?? [], total: count ?? 0, limit, offset });
