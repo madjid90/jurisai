@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.seed-demo]
 verify_jwt = false
+
+[functions.seed-legal]
+verify_jwt = false
+
+[functions.ingest-legal-source]
+verify_jwt = false
