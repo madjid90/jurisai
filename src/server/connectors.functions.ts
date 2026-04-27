@@ -16,17 +16,39 @@ async function assertSuperAdmin(userId: string): Promise<void> {
   if (!data) throw new Error("Accès réservé aux super-administrateurs");
 }
 
+export type ConnectorJobRow = {
+  id: string;
+  connector: string | null;
+  status: string;
+  source_type: string | null;
+  items_total: number | null;
+  items_processed: number | null;
+  items_failed: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+  params: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export const listConnectorJobs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertSuperAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          order: (c: string, o: { ascending: boolean }) => {
+            limit: (n: number) => Promise<{ data: ConnectorJobRow[] | null; error: { message: string } | null }>;
+          };
+        };
+      };
+    })
       .from("ingestion_jobs")
       .select("id, connector, status, source_type, items_total, items_processed, items_failed, started_at, finished_at, params, created_at")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return { jobs: data ?? [] };
+    return { jobs: (data ?? []) as ConnectorJobRow[] };
   });
 
 export const listConnectorErrors = createServerFn({ method: "POST" })
