@@ -61,7 +61,7 @@ export const toggleLegalSourceActive = createServerFn({ method: "POST" })
     await assertSuperAdmin(context.userId);
     const { error } = await supabaseAdmin
       .from("legal_sources")
-      .update({ is_active: data.is_active, updated_at: new Date().toISOString() })
+      .update({ is_active: data.is_active })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
