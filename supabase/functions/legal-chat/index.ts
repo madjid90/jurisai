@@ -1,6 +1,9 @@
-// Edge function: legal-chat
-// Streams responses from Lovable AI Gateway with a French labour-law expert system prompt.
-// Enforces tenant quota via increment_questions_used RPC and persists messages.
+// Edge function: legal-chat (RAG mode)
+// 1. Embed the user question
+// 2. Run hybrid_search (vector + BM25) on legal_chunks, filtered by tenant IDCC
+// 3. Inject top chunks into the system prompt as authoritative context
+// 4. Stream the LLM answer
+// 5. Persist citations linking each used chunk to the assistant message
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -10,33 +13,39 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Tu es **JurisAI**, un assistant expert en droit du travail français, conçu pour aider les juristes, RH et dirigeants d'entreprise.
+const EMBED_MODEL = "openai/text-embedding-3-small";
+const CHAT_MODEL = "google/gemini-3-flash-preview";
 
-## Tes domaines d'expertise
-- Code du travail français (contrats, durée du travail, congés, ruptures)
-- Conventions collectives (IDCC) et accords de branche
-- URSSAF, cotisations sociales, prélèvements
-- Inspection du travail, prud'hommes, contentieux social
-- RGPD appliqué aux ressources humaines
-- Jurisprudence récente (Cour de cassation, Conseil d'État)
+const BASE_PROMPT = `Tu es **JurisAI**, assistant expert en droit du travail français pour juristes, RH et dirigeants.
 
-## Règles de réponse
-1. **Cite TOUJOURS tes sources** : articles du Code du travail (ex: "Article L1234-1"), arrêts (ex: "Cass. soc., 12 mars 2024, n°22-12345"), conventions collectives quand c'est pertinent.
-2. **Structure tes réponses** avec des titres markdown (##, ###), des listes à puces, et **mets en gras** les points clés.
-3. **Sois précis et opérationnel** : donne des conseils actionnables, pas seulement des principes généraux.
-4. **Reconnais tes limites** : si une question dépasse le droit du travail français ou nécessite l'avis d'un avocat (contentieux complexe, montage juridique sensible), recommande explicitement de consulter un professionnel.
-5. **Format des réponses** :
-   - Commence par une **réponse synthétique en 2-3 phrases**
-   - Puis développe avec une section **"📚 Cadre juridique"** (sources)
-   - Puis **"✅ En pratique"** (étapes concrètes)
-   - Puis **"⚠️ Points de vigilance"** si pertinent
-6. **Ton professionnel mais accessible** : pas de jargon inutile, vulgarise si nécessaire.
-7. **Date** : nous sommes en 2026, base-toi sur le droit en vigueur actuellement.
+## Règles ABSOLUES
+1. **Tu RÉPONDS UNIQUEMENT à partir des SOURCES OFFICIELLES fournies ci-dessous** sous la balise <SOURCES>. Tu n'inventes JAMAIS d'article ni d'arrêt.
+2. **À chaque affirmation juridique** tu cites la source via la syntaxe \`[source:N]\` où N est le numéro indiqué dans <SOURCES>. Plusieurs sources possibles : \`[source:1][source:3]\`.
+3. Si **aucune source pertinente n'est fournie**, réponds une réponse générale en précisant en début : « ⚠️ Réponse générale — aucune source officielle n'a été trouvée pour votre question, vérifiez auprès d'un professionnel. »
+4. Tu ne donnes jamais de consultation juridique se substituant à un avocat.
 
-## Ce que tu ne fais JAMAIS
-- Tu ne donnes pas de consultation juridique se substituant à un avocat
-- Tu ne traites pas les questions hors droit du travail français (sauf RGPD RH)
-- Tu n'inventes JAMAIS d'articles, d'arrêts ou de jurisprudence — si tu n'es pas sûr, dis-le`;
+## Format
+- Commence par une **réponse synthétique en 2-3 phrases**
+- Section **"📚 Cadre juridique"** avec les références citées
+- Section **"✅ En pratique"** avec les étapes concrètes
+- Section **"⚠️ Points de vigilance"** si pertinent
+- Markdown : titres ##, listes à puces, **gras** sur points clés
+- Ton professionnel mais accessible
+
+## Date
+Nous sommes en 2026. Base-toi sur le droit en vigueur actuellement.`;
+
+interface ChunkResult {
+  chunk_id: string;
+  source_id: string;
+  content: string;
+  heading: string | null;
+  source_title: string;
+  source_type: string;
+  reference_code: string | null;
+  official_url: string | null;
+  score: number;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -52,13 +61,10 @@ Deno.serve(async (req) => {
       throw new Error("Missing required env vars");
     }
 
-    // 1. Auth: extract user from Bearer token
+    // 1. Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonErr("Missing authorization", 401);
     }
     const accessToken = authHeader.replace(/^Bearer\s+/i, "");
 
@@ -67,15 +73,10 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: userData, error: userErr } = await supabaseUser.auth.getUser(accessToken);
-    if (userErr || !userData.user) {
-      return new Response(JSON.stringify({ error: "Invalid session" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (userErr || !userData.user) return jsonErr("Invalid session", 401);
     const userId = userData.user.id;
 
-    // 2. Parse body
+    // 2. Body
     const body = await req.json();
     const { conversationId, message, history } = body as {
       conversationId: string;
@@ -83,65 +84,105 @@ Deno.serve(async (req) => {
       history: Array<{ role: "user" | "assistant"; content: string }>;
     };
     if (!conversationId || !message?.trim()) {
-      return new Response(JSON.stringify({ error: "Missing conversationId or message" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonErr("Missing conversationId or message", 400);
     }
 
-    // 3. Service-role client for quota + DB writes
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // 4. Verify conversation belongs to user + get tenant_id
+    // 3. Verify conversation + tenant
     const { data: convo, error: convoErr } = await supabaseAdmin
       .from("conversations")
       .select("id, tenant_id, user_id, title")
       .eq("id", conversationId)
       .single();
     if (convoErr || !convo || convo.user_id !== userId) {
-      return new Response(JSON.stringify({ error: "Conversation not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonErr("Conversation not found", 404);
     }
 
-    // 5. Check + decrement quota atomically
+    // 4. Tenant IDCC for filtering
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("idcc")
+      .eq("id", convo.tenant_id)
+      .single();
+    const idccFilter = tenant?.idcc ?? null;
+
+    // 5. Quota
     const { data: quotaOk, error: quotaErr } = await supabaseAdmin.rpc(
       "increment_questions_used",
       { _tenant_id: convo.tenant_id },
     );
     if (quotaErr) {
-      console.error("Quota RPC error:", quotaErr);
+      console.error("Quota error:", quotaErr);
       throw new Error("Quota check failed");
     }
     if (!quotaOk) {
-      return new Response(
-        JSON.stringify({
-          error: "Quota mensuel atteint. Passez au plan supérieur pour continuer.",
-        }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonErr("Quota mensuel atteint. Passez au plan supérieur pour continuer.", 402);
     }
 
     // 6. Persist user message
-    await supabaseAdmin.from("messages").insert({
-      conversation_id: conversationId,
-      role: "user",
-      content: message,
-    });
+    const { data: userMsgRow } = await supabaseAdmin
+      .from("messages")
+      .insert({ conversation_id: conversationId, role: "user", content: message })
+      .select("id")
+      .single();
 
-    // 7. If first message, set conversation title from prompt
+    // 7. First message: set conversation title
     if (!history || history.length === 0) {
       const title = message.slice(0, 80) + (message.length > 80 ? "…" : "");
-      await supabaseAdmin
-        .from("conversations")
-        .update({ title })
-        .eq("id", conversationId);
+      await supabaseAdmin.from("conversations").update({ title }).eq("id", conversationId);
     }
 
-    // 8. Call Lovable AI Gateway with streaming
+    // 8. RAG: embed the question + hybrid_search
+    let chunks: ChunkResult[] = [];
+    try {
+      const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model: EMBED_MODEL, input: [message] }),
+      });
+      if (embRes.ok) {
+        const embJson = await embRes.json();
+        const embedding: number[] = embJson.data?.[0]?.embedding ?? [];
+        if (embedding.length > 0) {
+          const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
+            query_embedding: embedding as unknown as string,
+            query_text: message,
+            match_count: 8,
+            idcc_filter: idccFilter,
+          });
+          if (searchErr) console.error("hybrid_search error:", searchErr);
+          chunks = (results ?? []) as ChunkResult[];
+        }
+      } else {
+        console.error("Embedding failed:", await embRes.text());
+      }
+    } catch (e) {
+      console.error("RAG retrieval failed:", e);
+      // Continue without RAG context — degrade gracefully
+    }
+
+    // 9. Build system prompt with sources
+    let systemPrompt = BASE_PROMPT;
+    if (chunks.length > 0) {
+      const sourcesBlock = chunks
+        .map((c, i) => {
+          const ref = c.reference_code ? ` (${c.reference_code})` : "";
+          const url = c.official_url ? `\nURL: ${c.official_url}` : "";
+          return `[source:${i + 1}] ${c.source_title}${ref}${url}\n${c.content.slice(0, 1500)}`;
+        })
+        .join("\n\n---\n\n");
+      systemPrompt += `\n\n<SOURCES>\n${sourcesBlock}\n</SOURCES>`;
+    } else {
+      systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée — le LLM doit le signaler.)\n</SOURCES>`;
+    }
+
+    // 10. Call AI Gateway streaming
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -149,9 +190,9 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: CHAT_MODEL,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...(history ?? []),
           { role: "user", content: message },
         ],
@@ -160,30 +201,35 @@ Deno.serve(async (req) => {
     });
 
     if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Trop de requêtes. Réessayez dans un instant." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Crédits IA épuisés. Contactez votre administrateur." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
+      if (aiResponse.status === 429) return jsonErr("Trop de requêtes. Réessayez dans un instant.", 429);
+      if (aiResponse.status === 402) return jsonErr("Crédits IA épuisés. Contactez votre administrateur.", 402);
       const errText = await aiResponse.text();
       console.error("AI gateway error", aiResponse.status, errText);
-      return new Response(JSON.stringify({ error: "Erreur du service IA" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonErr("Erreur du service IA", 500);
     }
 
-    // 9. Stream the response back AND collect it to persist the assistant message
+    // 11. Send sources metadata FIRST as a SSE prelude, then forward the LLM stream
     let assistantContent = "";
+    const sourcesPayload = chunks.map((c, i) => ({
+      n: i + 1,
+      chunk_id: c.chunk_id,
+      source_id: c.source_id,
+      title: c.source_title,
+      reference: c.reference_code,
+      url: c.official_url,
+      type: c.source_type,
+      heading: c.heading,
+      excerpt: c.content.slice(0, 300),
+    }));
+
     const stream = new ReadableStream({
       async start(controller) {
+        const encoder = new TextEncoder();
+        // Prelude with sources (custom event)
+        controller.enqueue(
+          encoder.encode(`event: sources\ndata: ${JSON.stringify(sourcesPayload)}\n\n`),
+        );
+
         const reader = aiResponse.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -192,16 +238,13 @@ Deno.serve(async (req) => {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
-            // Forward chunk to client
             controller.enqueue(value);
 
-            // Also parse to accumulate assistant content
             buffer += decoder.decode(value, { stream: true });
-            let newlineIdx: number;
-            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, newlineIdx);
-              buffer = buffer.slice(newlineIdx + 1);
+            let nlIdx: number;
+            while ((nlIdx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, nlIdx);
+              buffer = buffer.slice(nlIdx + 1);
               if (line.endsWith("\r")) line = line.slice(0, -1);
               if (!line.startsWith("data: ")) continue;
               const json = line.slice(6).trim();
@@ -211,7 +254,6 @@ Deno.serve(async (req) => {
                 const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
                 if (delta) assistantContent += delta;
               } catch {
-                // partial; will be re-attempted
                 buffer = line + "\n" + buffer;
                 break;
               }
@@ -221,18 +263,50 @@ Deno.serve(async (req) => {
           console.error("Stream error:", e);
         } finally {
           controller.close();
-          // Persist assistant message (fire-and-forget, but awaited inside Deno task)
+
           if (assistantContent.trim()) {
-            await supabaseAdmin.from("messages").insert({
-              conversation_id: conversationId,
-              role: "assistant",
-              content: assistantContent,
-            });
+            const { data: assistantMsg } = await supabaseAdmin
+              .from("messages")
+              .insert({
+                conversation_id: conversationId,
+                role: "assistant",
+                content: assistantContent,
+              })
+              .select("id")
+              .single();
+
+            // Persist citations only for chunks actually referenced [source:N] in the answer
+            if (assistantMsg && chunks.length > 0) {
+              const referenced = new Set<number>();
+              const re = /\[source:(\d+)\]/g;
+              let m;
+              while ((m = re.exec(assistantContent)) !== null) {
+                referenced.add(parseInt(m[1], 10));
+              }
+              const rows = [...referenced]
+                .filter((n) => n >= 1 && n <= chunks.length)
+                .map((n) => ({
+                  message_id: assistantMsg.id,
+                  chunk_id: chunks[n - 1].chunk_id,
+                  tenant_id: convo.tenant_id,
+                  rank: n,
+                  score: chunks[n - 1].score,
+                }));
+              if (rows.length > 0) {
+                await supabaseAdmin.from("chat_citations").insert(rows);
+              }
+            }
+
             await supabaseAdmin.from("usage_logs").insert({
               tenant_id: convo.tenant_id,
               user_id: userId,
               action: "legal_chat",
-              metadata: { conversation_id: conversationId, length: assistantContent.length },
+              metadata: {
+                conversation_id: conversationId,
+                length: assistantContent.length,
+                chunks_retrieved: chunks.length,
+                user_message_id: userMsgRow?.id,
+              },
             });
           }
         }
@@ -244,9 +318,13 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("legal-chat error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return jsonErr(e instanceof Error ? e.message : "Unknown error", 500);
   }
 });
+
+function jsonErr(msg: string, status: number) {
+  return new Response(JSON.stringify({ error: msg }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}

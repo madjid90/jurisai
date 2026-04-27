@@ -40,20 +40,21 @@ export function getLovableApiKey(): string {
   return k;
 }
 
-/** Create a job row in 'pending' state and return its id. */
+/** Create a job row in 'running' state and return its id. */
 export async function startJob(
   db: SupabaseClient,
   connector: ConnectorName,
   params: Record<string, unknown> = {},
+  triggeredBy?: string,
 ): Promise<string> {
   const { data, error } = await db
     .from("ingestion_jobs")
     .insert({
       connector,
-      source_type: connector,
+      job_type: connector,
       status: "running",
-      started_at: new Date().toISOString(),
       params,
+      triggered_by: triggeredBy ?? null,
     })
     .select("id")
     .single();
@@ -77,7 +78,7 @@ export async function finishJob(
 ): Promise<void> {
   await db.from("ingestion_jobs").update({
     status,
-    finished_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
     ...extra,
   }).eq("id", jobId);
 }

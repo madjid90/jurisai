@@ -330,12 +330,11 @@ type Job = {
   id: string;
   connector: string | null;
   status: string;
-  source_type: string | null;
+  job_type: string | null;
   items_total: number | null;
   items_processed: number | null;
   items_failed: number | null;
-  started_at: string | null;
-  finished_at: string | null;
+  completed_at: string | null;
   created_at: string;
 };
 
@@ -353,7 +352,7 @@ function JobRow({ job }: { job: Job }) {
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="font-medium">{job.connector ?? job.source_type}</span>
+          <span className="font-medium">{job.connector ?? job.job_type}</span>
           <Badge variant="outline" className="text-[10px]">{job.status}</Badge>
         </div>
         <span className="text-xs text-muted-foreground">
