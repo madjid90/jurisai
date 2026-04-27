@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_citations: {
+        Row: {
+          chunk_id: string
+          created_at: string
+          id: string
+          message_id: string
+          rank: number
+          score: number | null
+          tenant_id: string
+        }
+        Insert: {
+          chunk_id: string
+          created_at?: string
+          id?: string
+          message_id: string
+          rank?: number
+          score?: number | null
+          tenant_id: string
+        }
+        Update: {
+          chunk_id?: string
+          created_at?: string
+          id?: string
+          message_id?: string
+          rank?: number
+          score?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_citations_chunk_id_fkey"
+            columns: ["chunk_id"]
+            isOneToOne: false
+            referencedRelation: "legal_chunks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_citations_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           contract_type: string | null
@@ -392,6 +437,53 @@ export type Database = {
           },
         ]
       }
+      ingestion_jobs: {
+        Row: {
+          chunks_created: number
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input_url: string | null
+          job_type: string
+          source_id: string | null
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          chunks_created?: number
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_url?: string | null
+          job_type: string
+          source_id?: string | null
+          status?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          chunks_created?: number
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_url?: string | null
+          job_type?: string
+          source_id?: string | null
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_jobs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -435,6 +527,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      legal_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          fts: unknown
+          heading: string | null
+          id: string
+          source_id: string
+          token_count: number | null
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          fts?: unknown
+          heading?: string | null
+          id?: string
+          source_id: string
+          token_count?: number | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          fts?: unknown
+          heading?: string | null
+          id?: string
+          source_id?: string
+          token_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_sources: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          idcc: string | null
+          is_active: boolean
+          metadata: Json
+          official_url: string | null
+          reference_code: string | null
+          source_type: string
+          title: string
+          updated_at: string
+          version_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idcc?: string | null
+          is_active?: boolean
+          metadata?: Json
+          official_url?: string | null
+          reference_code?: string | null
+          source_type: string
+          title: string
+          updated_at?: string
+          version_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idcc?: string | null
+          is_active?: boolean
+          metadata?: Json
+          official_url?: string | null
+          reference_code?: string | null
+          source_type?: string
+          title?: string
+          updated_at?: string
+          version_date?: string | null
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -650,6 +831,26 @@ export type Database = {
         }
         Returns: boolean
       }
+      hybrid_search: {
+        Args: {
+          idcc_filter?: string
+          match_count?: number
+          query_embedding: string
+          query_text: string
+          rrf_k?: number
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          heading: string
+          official_url: string
+          reference_code: string
+          score: number
+          source_id: string
+          source_title: string
+          source_type: string
+        }[]
+      }
       increment_questions_used: {
         Args: { _tenant_id: string }
         Returns: boolean
@@ -658,9 +859,10 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "manager" | "user"
+      app_role: "admin" | "manager" | "user" | "super_admin"
       plan_type: "starter" | "pro" | "business"
     }
     CompositeTypes: {
@@ -789,7 +991,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "user"],
+      app_role: ["admin", "manager", "user", "super_admin"],
       plan_type: ["starter", "pro", "business"],
     },
   },
