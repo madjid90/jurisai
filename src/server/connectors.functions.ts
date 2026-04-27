@@ -20,12 +20,11 @@ export type ConnectorJobRow = {
   id: string;
   connector: string | null;
   status: string;
-  source_type: string | null;
+  job_type: string | null;
   items_total: number | null;
   items_processed: number | null;
   items_failed: number | null;
-  started_at: string | null;
-  finished_at: string | null;
+  completed_at: string | null;
   params: Record<string, unknown> | null | object;
   created_at: string;
 };
@@ -44,7 +43,7 @@ export const listConnectorJobs = createServerFn({ method: "POST" })
       };
     })
       .from("ingestion_jobs")
-      .select("id, connector, status, source_type, items_total, items_processed, items_failed, started_at, finished_at, params, created_at")
+      .select("id, connector, status, job_type, items_total, items_processed, items_failed, completed_at, params, created_at")
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
