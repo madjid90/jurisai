@@ -59,7 +59,14 @@ export const toggleLegalSourceActive = createServerFn({ method: "POST" })
   .inputValidator((input: { id: string; is_active: boolean }) => input)
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
-    const { error } = await supabaseAdmin
+    const client = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        update: (v: Record<string, unknown>) => {
+          eq: (c: string, v: string) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+    const { error } = await client
       .from("legal_sources")
       .update({ is_active: data.is_active })
       .eq("id", data.id);
