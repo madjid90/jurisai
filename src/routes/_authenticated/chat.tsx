@@ -496,6 +496,7 @@ function MessageBubble({
             {sources && sources.length > 0 && (
               <SourcesPanel sources={sources} referenced={referenced} />
             )}
+            {meta && <ConfidenceBadge meta={meta} />}
             {messageId && tenantId && (
               <MessageFeedback messageId={messageId} tenantId={tenantId} />
             )}
