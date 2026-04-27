@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { DossierCollab } from "@/components/app/DossierCollab";
 import { cn } from "@/lib/utils";
 import {
   createDeadline,
@@ -353,6 +354,8 @@ function DossierDetailPage() {
                 </div>
               )}
             </section>
+
+            <DossierCollab dossierId={id} />
           </div>
 
           {/* Right: meta */}
