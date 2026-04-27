@@ -8,6 +8,7 @@ import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { Field } from "@/routes/login";
 import { completeOnboarding } from "@/server/onboarding.functions";
 import { cn } from "@/lib/utils";
+import { IDCCAutocomplete } from "@/components/onboarding/IDCCAutocomplete";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Bienvenue · JurisAI" }] }),
@@ -206,11 +207,11 @@ function OnboardingPage() {
                 subtitle="Pour des réponses adaptées à votre secteur. Vous pourrez la modifier plus tard."
               >
                 <div className="space-y-4">
-                  <Field
+                  <IDCCAutocomplete
                     label="Code IDCC (optionnel)"
                     value={idcc}
-                    onChange={setIdcc}
-                    placeholder="ex. 1486 (Syntec), 1979 (HCR)…"
+                    onChange={(v: string) => setIdcc(v)}
+                    placeholder="Tapez un code (ex. 1486) ou un nom (ex. Syntec)…"
                   />
                   <div className="rounded-xl border border-border bg-secondary/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
                     💡 L'IDCC (Identifiant De la Convention Collective) permet à JurisAI d'adapter

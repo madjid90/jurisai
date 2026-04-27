@@ -19,6 +19,7 @@ import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { QuotaBadge } from "@/components/app/QuotaBadge";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
@@ -116,11 +117,24 @@ function Sidebar() {
               to="/admin/legal-sources"
               active={currentPath === "/admin/legal-sources"}
             />
+            <NavItem
+              label="Tenants"
+              icon={Users}
+              to="/admin/tenants"
+              active={currentPath === "/admin/tenants"}
+            />
+            <NavItem
+              label="Usage"
+              icon={Sparkles}
+              to="/admin/usage"
+              active={currentPath === "/admin/usage"}
+            />
           </nav>
         </>
       )}
 
       <div className="mt-auto pt-6">
+        <QuotaBadge />
         <UpgradeCard />
         <UserMenu />
       </div>
