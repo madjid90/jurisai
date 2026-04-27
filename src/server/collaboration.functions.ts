@@ -71,6 +71,13 @@ export const addComment = createServerFn({ method: "POST" })
         }),
       ),
     );
+
+    // Slack + webhook (best-effort, non-blocking)
+    const { notifyTenantSlack, dispatchWebhook } = await import("@/server/slack.server");
+    void notifyTenantSlack(supabaseAdmin, tenantId,
+      `💬 Nouveau commentaire sur *${dossier.title}* : ${data.body.slice(0, 200)}`);
+    void dispatchWebhook(supabaseAdmin, tenantId, "comment.added",
+      { dossier_id: dossier.id, comment_id: inserted.id, body: data.body });
     return { id: inserted.id };
   });
 
@@ -148,6 +155,14 @@ export const createTask = createServerFn({ method: "POST" })
         _metadata: { dossier_id: dossier.id, task_id: inserted.id },
       });
     }
+
+    // Slack + webhook (best-effort)
+    const { notifyTenantSlack, dispatchWebhook } = await import("@/server/slack.server");
+    void notifyTenantSlack(supabaseAdmin, tenantId,
+      `📝 Nouvelle tâche *${data.title}* sur *${dossier.title}* (priorité ${data.priority})`);
+    void dispatchWebhook(supabaseAdmin, tenantId, "task.created",
+      { dossier_id: dossier.id, task_id: inserted.id, title: data.title, priority: data.priority });
+
     return { id: inserted.id };
   });
 
