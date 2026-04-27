@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Sparkles,
   Database,
+  BookMarked,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -108,6 +109,12 @@ function Sidebar() {
               icon={Database}
               to="/admin/connectors"
               active={currentPath === "/admin/connectors"}
+            />
+            <NavItem
+              label="Sources légales"
+              icon={BookMarked}
+              to="/admin/legal-sources"
+              active={currentPath === "/admin/legal-sources"}
             />
           </nav>
         </>
