@@ -542,3 +542,56 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
     </div>
   );
 }
+
+// ---- META block (S3: structured agent output) ----
+type AgentMeta = {
+  short_answer?: string;
+  confidence?: number;
+  needs_more_info?: boolean;
+  legal_basis?: string[];
+};
+
+const META_RE = /<!--META-->\s*```json\s*([\s\S]*?)\s*```\s*<!--\/META-->/i;
+
+function extractMeta(text: string): AgentMeta | null {
+  const m = text.match(META_RE);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[1]) as AgentMeta;
+  } catch {
+    return null;
+  }
+}
+
+function stripMeta(text: string): string {
+  return text.replace(META_RE, "").trim();
+}
+
+function ConfidenceBadge({ meta }: { meta: AgentMeta }) {
+  const conf = typeof meta.confidence === "number" ? meta.confidence : null;
+  const tone =
+    conf === null ? "neutral" : conf >= 0.8 ? "good" : conf >= 0.5 ? "warn" : "bad";
+  const colors: Record<string, string> = {
+    good: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+    warn: "bg-amber-500/10 text-amber-600 border-amber-500/30",
+    bad: "bg-rose-500/10 text-rose-600 border-rose-500/30",
+    neutral: "bg-secondary text-muted-foreground border-border",
+  };
+  return (
+    <div className={cn("mt-3 flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]", colors[tone])}>
+      {conf !== null && (
+        <span className="font-semibold">Confiance · {(conf * 100).toFixed(0)}%</span>
+      )}
+      {meta.needs_more_info && (
+        <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-medium text-amber-700">
+          ⚠ Précisions requises
+        </span>
+      )}
+      {meta.legal_basis && meta.legal_basis.length > 0 && (
+        <span className="text-muted-foreground">
+          · {meta.legal_basis.length} fondement{meta.legal_basis.length > 1 ? "s" : ""}
+        </span>
+      )}
+    </div>
+  );
+}
