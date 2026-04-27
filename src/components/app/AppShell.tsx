@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Home,
   MessageSquare,
@@ -12,9 +12,11 @@ import {
   LogOut,
   ChevronDown,
   Sparkles,
+  Database,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
