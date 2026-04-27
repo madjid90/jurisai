@@ -20,6 +20,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
+import { NotificationBell } from "@/components/app/NotificationBell";
+import { GlobalSearch } from "@/components/app/GlobalSearch";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
@@ -39,7 +41,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="mesh-bg flex min-h-screen p-3">
       <Sidebar />
-      <main className="flex min-w-0 flex-1 flex-col gap-3 pl-3">{children}</main>
+      <main className="flex min-w-0 flex-1 flex-col gap-3 pl-3">
+        <header className="flex items-center justify-end gap-2">
+          <GlobalSearch />
+          <NotificationBell />
+        </header>
+        {children}
+      </main>
     </div>
   );
 }
