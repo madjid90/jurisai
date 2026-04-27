@@ -112,6 +112,57 @@ export type Database = {
           },
         ]
       }
+      conventions_collectives: {
+        Row: {
+          brochure: string | null
+          created_at: string
+          effectif: number | null
+          id: string
+          idcc: string
+          is_active: boolean | null
+          is_extended: boolean | null
+          last_synced_at: string | null
+          naf_codes: string[] | null
+          raw_metadata: Json | null
+          short_title: string | null
+          source_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brochure?: string | null
+          created_at?: string
+          effectif?: number | null
+          id?: string
+          idcc: string
+          is_active?: boolean | null
+          is_extended?: boolean | null
+          last_synced_at?: string | null
+          naf_codes?: string[] | null
+          raw_metadata?: Json | null
+          short_title?: string | null
+          source_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brochure?: string | null
+          created_at?: string
+          effectif?: number | null
+          id?: string
+          idcc?: string
+          is_active?: boolean | null
+          is_extended?: boolean | null
+          last_synced_at?: string | null
+          naf_codes?: string[] | null
+          raw_metadata?: Json | null
+          short_title?: string | null
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string
@@ -437,15 +488,67 @@ export type Database = {
           },
         ]
       }
+      ingestion_errors: {
+        Row: {
+          connector: string
+          created_at: string
+          error_message: string
+          error_type: string
+          external_id: string | null
+          id: string
+          job_id: string | null
+          payload: Json | null
+          resolved: boolean | null
+          retry_count: number | null
+        }
+        Insert: {
+          connector: string
+          created_at?: string
+          error_message: string
+          error_type: string
+          external_id?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json | null
+          resolved?: boolean | null
+          retry_count?: number | null
+        }
+        Update: {
+          connector?: string
+          created_at?: string
+          error_message?: string
+          error_type?: string
+          external_id?: string | null
+          id?: string
+          job_id?: string | null
+          payload?: Json | null
+          resolved?: boolean | null
+          retry_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_errors_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "ingestion_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingestion_jobs: {
         Row: {
           chunks_created: number
           completed_at: string | null
+          connector: string | null
           created_at: string
           error_message: string | null
           id: string
           input_url: string | null
+          items_failed: number | null
+          items_processed: number | null
+          items_total: number | null
           job_type: string
+          params: Json | null
           source_id: string | null
           status: string
           triggered_by: string | null
@@ -453,11 +556,16 @@ export type Database = {
         Insert: {
           chunks_created?: number
           completed_at?: string | null
+          connector?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
           input_url?: string | null
+          items_failed?: number | null
+          items_processed?: number | null
+          items_total?: number | null
           job_type: string
+          params?: Json | null
           source_id?: string | null
           status?: string
           triggered_by?: string | null
@@ -465,11 +573,16 @@ export type Database = {
         Update: {
           chunks_created?: number
           completed_at?: string | null
+          connector?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
           input_url?: string | null
+          items_failed?: number | null
+          items_processed?: number | null
+          items_total?: number | null
           job_type?: string
+          params?: Json | null
           source_id?: string | null
           status?: string
           triggered_by?: string | null
@@ -574,13 +687,18 @@ export type Database = {
       }
       legal_sources: {
         Row: {
+          connector: string | null
           created_at: string
           created_by: string | null
+          external_id: string | null
           id: string
           idcc: string | null
           is_active: boolean
+          last_synced_at: string | null
+          legal_date: string | null
           metadata: Json
           official_url: string | null
+          raw_metadata: Json | null
           reference_code: string | null
           source_type: string
           title: string
@@ -588,13 +706,18 @@ export type Database = {
           version_date: string | null
         }
         Insert: {
+          connector?: string | null
           created_at?: string
           created_by?: string | null
+          external_id?: string | null
           id?: string
           idcc?: string | null
           is_active?: boolean
+          last_synced_at?: string | null
+          legal_date?: string | null
           metadata?: Json
           official_url?: string | null
+          raw_metadata?: Json | null
           reference_code?: string | null
           source_type: string
           title: string
@@ -602,13 +725,18 @@ export type Database = {
           version_date?: string | null
         }
         Update: {
+          connector?: string | null
           created_at?: string
           created_by?: string | null
+          external_id?: string | null
           id?: string
           idcc?: string | null
           is_active?: boolean
+          last_synced_at?: string | null
+          legal_date?: string | null
           metadata?: Json
           official_url?: string | null
+          raw_metadata?: Json | null
           reference_code?: string | null
           source_type?: string
           title?: string
@@ -698,6 +826,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      templates_public: {
+        Row: {
+          category: string
+          content_md: string
+          created_at: string
+          description: string | null
+          disclaimer: string | null
+          external_id: string
+          id: string
+          last_synced_at: string | null
+          legal_basis: string[] | null
+          quality_level: string | null
+          source_url: string | null
+          title: string
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          category: string
+          content_md: string
+          created_at?: string
+          description?: string | null
+          disclaimer?: string | null
+          external_id: string
+          id?: string
+          last_synced_at?: string | null
+          legal_basis?: string[] | null
+          quality_level?: string | null
+          source_url?: string | null
+          title: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          category?: string
+          content_md?: string
+          created_at?: string
+          description?: string | null
+          disclaimer?: string | null
+          external_id?: string
+          id?: string
+          last_synced_at?: string | null
+          legal_basis?: string[] | null
+          quality_level?: string | null
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: []
       }
       tenants: {
         Row: {
