@@ -180,6 +180,18 @@ function Sidebar() {
               to="/admin/usage"
               active={currentPath === "/admin/usage"}
             />
+            <NavItem
+              label="Qualité données"
+              icon={ShieldCheck}
+              to="/admin/data-quality"
+              active={currentPath === "/admin/data-quality"}
+            />
+            <NavItem
+              label="Évaluation RAG"
+              icon={Activity}
+              to="/admin/rag-quality"
+              active={currentPath === "/admin/rag-quality"}
+            />
           </nav>
         </>
       )}
