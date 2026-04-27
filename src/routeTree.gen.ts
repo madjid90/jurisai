@@ -20,6 +20,7 @@ import { Route as CguRouteImport } from './routes/cgu'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedVeilleRouteImport } from './routes/_authenticated/veille'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticated/dossiers'
@@ -88,6 +89,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedVeilleRoute = AuthenticatedVeilleRouteImport.update({
+  id: '/veille',
+  path: '/veille',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   id: '/team',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/veille': typeof AuthenticatedVeilleRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/veille': typeof AuthenticatedVeilleRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/veille': typeof AuthenticatedVeilleRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/dossiers'
     | '/settings'
     | '/team'
+    | '/veille'
     | '/admin/connectors'
     | '/admin/legal-sources'
     | '/admin/tenants'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/dossiers'
     | '/settings'
     | '/team'
+    | '/veille'
     | '/admin/connectors'
     | '/admin/legal-sources'
     | '/admin/tenants'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dossiers'
     | '/_authenticated/settings'
     | '/_authenticated/team'
+    | '/_authenticated/veille'
     | '/_authenticated/admin/connectors'
     | '/_authenticated/admin/legal-sources'
     | '/_authenticated/admin/tenants'
@@ -419,6 +431,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/veille': {
+      id: '/_authenticated/veille'
+      path: '/veille'
+      fullPath: '/veille'
+      preLoaderRoute: typeof AuthenticatedVeilleRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/team': {
       id: '/_authenticated/team'
@@ -554,6 +573,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
@@ -569,6 +589,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
