@@ -27,6 +27,7 @@ import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedAnalysesRouteImport } from './routes/_authenticated/analyses'
+import { Route as AuthenticatedAgentRouteImport } from './routes/_authenticated/agent'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents.index'
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
@@ -35,6 +36,11 @@ import { Route as AuthenticatedAdminUsageRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
 import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
+import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
+import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1.me'
+import { Route as ApiPublicV1DossiersRouteImport } from './routes/api/public/v1.dossiers'
+import { Route as ApiPublicV1DeadlinesRouteImport } from './routes/api/public/v1.deadlines'
+import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1.clients'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar.$token'
 
 const SignupRoute = SignupRouteImport.update({
@@ -126,6 +132,11 @@ const AuthenticatedAnalysesRoute = AuthenticatedAnalysesRouteImport.update({
   path: '/analyses',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAgentRoute = AuthenticatedAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDocumentsIndexRoute =
   AuthenticatedDocumentsIndexRouteImport.update({
     id: '/documents/',
@@ -171,6 +182,31 @@ const AuthenticatedAdminConnectorsRoute =
     path: '/admin/connectors',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiPublicV1MeRoute = ApiPublicV1MeRouteImport.update({
+  id: '/api/public/v1/me',
+  path: '/api/public/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1DossiersRoute = ApiPublicV1DossiersRouteImport.update({
+  id: '/api/public/v1/dossiers',
+  path: '/api/public/v1/dossiers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1DeadlinesRoute = ApiPublicV1DeadlinesRouteImport.update({
+  id: '/api/public/v1/deadlines',
+  path: '/api/public/v1/deadlines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
+  id: '/api/public/v1/clients',
+  path: '/api/public/v1/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   id: '/api/public/calendar/$token',
   path: '/api/public/calendar/$token',
@@ -188,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/agent': typeof AuthenticatedAgentRoute
   '/analyses': typeof AuthenticatedAnalysesRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -195,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/veille': typeof AuthenticatedVeilleRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
@@ -204,6 +242,10 @@ export interface FileRoutesByFullPath {
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
+  '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
+  '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
+  '/api/public/v1/me': typeof ApiPublicV1MeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -216,6 +258,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/agent': typeof AuthenticatedAgentRoute
   '/analyses': typeof AuthenticatedAnalysesRouteWithChildren
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -223,6 +266,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/veille': typeof AuthenticatedVeilleRoute
+  '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
@@ -232,6 +276,10 @@ export interface FileRoutesByTo {
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
+  '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
+  '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
+  '/api/public/v1/me': typeof ApiPublicV1MeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -246,6 +294,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/agent': typeof AuthenticatedAgentRoute
   '/_authenticated/analyses': typeof AuthenticatedAnalysesRouteWithChildren
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -253,6 +302,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/veille': typeof AuthenticatedVeilleRoute
+  '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
@@ -262,6 +312,10 @@ export interface FileRoutesById {
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
+  '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
+  '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
+  '/api/public/v1/me': typeof ApiPublicV1MeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -276,6 +330,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/agent'
     | '/analyses'
     | '/chat'
     | '/dashboard'
@@ -283,6 +338,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/team'
     | '/veille'
+    | '/admin/audit'
     | '/admin/connectors'
     | '/admin/legal-sources'
     | '/admin/tenants'
@@ -292,6 +348,10 @@ export interface FileRouteTypes {
     | '/dossiers/$id'
     | '/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/v1/clients'
+    | '/api/public/v1/deadlines'
+    | '/api/public/v1/dossiers'
+    | '/api/public/v1/me'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -304,6 +364,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/agent'
     | '/analyses'
     | '/chat'
     | '/dashboard'
@@ -311,6 +372,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/team'
     | '/veille'
+    | '/admin/audit'
     | '/admin/connectors'
     | '/admin/legal-sources'
     | '/admin/tenants'
@@ -320,6 +382,10 @@ export interface FileRouteTypes {
     | '/dossiers/$id'
     | '/documents'
     | '/api/public/calendar/$token'
+    | '/api/public/v1/clients'
+    | '/api/public/v1/deadlines'
+    | '/api/public/v1/dossiers'
+    | '/api/public/v1/me'
   id:
     | '__root__'
     | '/'
@@ -333,6 +399,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/agent'
     | '/_authenticated/analyses'
     | '/_authenticated/chat'
     | '/_authenticated/dashboard'
@@ -340,6 +407,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/team'
     | '/_authenticated/veille'
+    | '/_authenticated/admin/audit'
     | '/_authenticated/admin/connectors'
     | '/_authenticated/admin/legal-sources'
     | '/_authenticated/admin/tenants'
@@ -349,6 +417,10 @@ export interface FileRouteTypes {
     | '/_authenticated/dossiers/$id'
     | '/_authenticated/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/v1/clients'
+    | '/api/public/v1/deadlines'
+    | '/api/public/v1/dossiers'
+    | '/api/public/v1/me'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -364,6 +436,10 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
+  ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
+  ApiPublicV1DeadlinesRoute: typeof ApiPublicV1DeadlinesRoute
+  ApiPublicV1DossiersRoute: typeof ApiPublicV1DossiersRoute
+  ApiPublicV1MeRoute: typeof ApiPublicV1MeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -494,6 +570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalysesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/agent': {
+      id: '/_authenticated/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AuthenticatedAgentRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/documents/': {
       id: '/_authenticated/documents/'
       path: '/documents'
@@ -550,6 +633,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminConnectorsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/audit': {
+      id: '/_authenticated/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/v1/me': {
+      id: '/api/public/v1/me'
+      path: '/api/public/v1/me'
+      fullPath: '/api/public/v1/me'
+      preLoaderRoute: typeof ApiPublicV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/dossiers': {
+      id: '/api/public/v1/dossiers'
+      path: '/api/public/v1/dossiers'
+      fullPath: '/api/public/v1/dossiers'
+      preLoaderRoute: typeof ApiPublicV1DossiersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/deadlines': {
+      id: '/api/public/v1/deadlines'
+      path: '/api/public/v1/deadlines'
+      fullPath: '/api/public/v1/deadlines'
+      preLoaderRoute: typeof ApiPublicV1DeadlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/clients': {
+      id: '/api/public/v1/clients'
+      path: '/api/public/v1/clients'
+      fullPath: '/api/public/v1/clients'
+      preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/calendar/$token': {
       id: '/api/public/calendar/$token'
       path: '/api/public/calendar/$token'
@@ -587,6 +705,7 @@ const AuthenticatedDossiersRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAgentRoute: typeof AuthenticatedAgentRoute
   AuthenticatedAnalysesRoute: typeof AuthenticatedAnalysesRouteWithChildren
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -594,6 +713,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
+  AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
@@ -603,6 +723,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAgentRoute: AuthenticatedAgentRoute,
   AuthenticatedAnalysesRoute: AuthenticatedAnalysesRouteWithChildren,
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
@@ -610,6 +731,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
+  AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
@@ -635,6 +757,10 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
+  ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
+  ApiPublicV1DeadlinesRoute: ApiPublicV1DeadlinesRoute,
+  ApiPublicV1DossiersRoute: ApiPublicV1DossiersRoute,
+  ApiPublicV1MeRoute: ApiPublicV1MeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
