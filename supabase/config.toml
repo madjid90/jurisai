@@ -11,3 +11,15 @@ verify_jwt = false
 
 [functions.ingest-legal-source]
 verify_jwt = false
+
+[functions.connector-kali]
+verify_jwt = false
+
+[functions.connector-cdtn-modeles]
+verify_jwt = false
+
+[functions.connector-legifrance]
+verify_jwt = false
+
+[functions.connector-judilibre]
+verify_jwt = false
