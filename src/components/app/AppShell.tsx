@@ -19,6 +19,7 @@ import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { QuotaBadge } from "@/components/app/QuotaBadge";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
@@ -121,6 +122,7 @@ function Sidebar() {
       )}
 
       <div className="mt-auto pt-6">
+        <QuotaBadge />
         <UpgradeCard />
         <UserMenu />
       </div>
