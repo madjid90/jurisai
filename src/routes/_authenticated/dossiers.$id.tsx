@@ -215,6 +215,18 @@ function DossierDetailPage() {
                     Modifier
                   </button>
                   <button
+                    onClick={handleExportPDF}
+                    disabled={exporting}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[12.5px] font-medium hover:bg-secondary disabled:opacity-50"
+                  >
+                    {exporting ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    Exporter PDF
+                  </button>
+                  <button
                     onClick={handleDelete}
                     className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-destructive/30 px-3 text-[12.5px] font-medium text-destructive hover:bg-destructive/10"
                   >
