@@ -15,6 +15,10 @@ import {
   Sparkles,
   Database,
   BookMarked,
+  Menu,
+  X,
+  Activity,
+  ShieldCheck,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -41,15 +45,51 @@ const SECONDARY_ITEMS = [
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const router = useRouter();
+  const path = router.state.location.pathname;
+  // Auto-close drawer on route change
+  useEffect(() => { setMobileOpen(false); }, [path]);
+
   return (
-    <div className="mesh-bg flex min-h-screen p-3">
-      <Sidebar />
-      <main className="flex min-w-0 flex-1 flex-col gap-3 pl-3">
-        <header className="flex items-center justify-end gap-2">
-          <GlobalSearch />
-          <NotificationBell />
+    <div className="mesh-bg flex min-h-screen md:p-3">
+      {/* Desktop sidebar */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 w-[280px] overflow-y-auto p-3 md:hidden">
+            <Sidebar />
+          </div>
+        </>
+      )}
+      <main className="flex min-w-0 flex-1 flex-col gap-3 md:pl-3">
+        <header className="flex items-center gap-2 border-b border-border/40 bg-background/80 px-3 py-2 backdrop-blur md:border-0 md:bg-transparent md:px-0 md:py-0">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-secondary md:hidden"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="md:hidden">
+            <JurisAIWordmark />
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:block">
+              <GlobalSearch />
+            </div>
+            <NotificationBell />
+          </div>
         </header>
-        {children}
+        <div className="px-3 pb-3 md:px-0 md:pb-0">{children}</div>
       </main>
     </div>
   );
@@ -75,7 +115,7 @@ function Sidebar() {
   }, [user]);
 
   return (
-    <aside className="glass-panel flex w-[244px] flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)]">
+    <aside className="glass-panel flex h-full w-full flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)] md:w-[244px]">
       <div className="flex items-center px-2 py-1.5">
         <JurisAIWordmark />
       </div>
@@ -139,6 +179,18 @@ function Sidebar() {
               icon={Sparkles}
               to="/admin/usage"
               active={currentPath === "/admin/usage"}
+            />
+            <NavItem
+              label="Qualité données"
+              icon={ShieldCheck}
+              to="/admin/data-quality"
+              active={currentPath === "/admin/data-quality"}
+            />
+            <NavItem
+              label="Évaluation RAG"
+              icon={Activity}
+              to="/admin/rag-quality"
+              active={currentPath === "/admin/rag-quality"}
             />
           </nav>
         </>

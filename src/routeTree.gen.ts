@@ -35,7 +35,9 @@ import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
 import { Route as AuthenticatedAdminUsageRouteImport } from './routes/_authenticated/admin.usage'
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
+import { Route as AuthenticatedAdminRagQualityRouteImport } from './routes/_authenticated/admin.rag-quality'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
+import { Route as AuthenticatedAdminDataQualityRouteImport } from './routes/_authenticated/admin.data-quality'
 import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1.me'
@@ -176,10 +178,22 @@ const AuthenticatedAdminTenantsRoute =
     path: '/admin/tenants',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminRagQualityRoute =
+  AuthenticatedAdminRagQualityRouteImport.update({
+    id: '/admin/rag-quality',
+    path: '/admin/rag-quality',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminLegalSourcesRoute =
   AuthenticatedAdminLegalSourcesRouteImport.update({
     id: '/admin/legal-sources',
     path: '/admin/legal-sources',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminDataQualityRoute =
+  AuthenticatedAdminDataQualityRouteImport.update({
+    id: '/admin/data-quality',
+    path: '/admin/data-quality',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminConnectorsRoute =
@@ -241,7 +255,9 @@ export interface FileRoutesByFullPath {
   '/veille': typeof AuthenticatedVeilleRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
+  '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
+  '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
@@ -276,7 +292,9 @@ export interface FileRoutesByTo {
   '/veille': typeof AuthenticatedVeilleRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
+  '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
+  '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
@@ -313,7 +331,9 @@ export interface FileRoutesById {
   '/_authenticated/veille': typeof AuthenticatedVeilleRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
+  '/_authenticated/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
+  '/_authenticated/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/_authenticated/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
@@ -350,7 +370,9 @@ export interface FileRouteTypes {
     | '/veille'
     | '/admin/audit'
     | '/admin/connectors'
+    | '/admin/data-quality'
     | '/admin/legal-sources'
+    | '/admin/rag-quality'
     | '/admin/tenants'
     | '/admin/usage'
     | '/analyses/$id'
@@ -385,7 +407,9 @@ export interface FileRouteTypes {
     | '/veille'
     | '/admin/audit'
     | '/admin/connectors'
+    | '/admin/data-quality'
     | '/admin/legal-sources'
+    | '/admin/rag-quality'
     | '/admin/tenants'
     | '/admin/usage'
     | '/analyses/$id'
@@ -421,7 +445,9 @@ export interface FileRouteTypes {
     | '/_authenticated/veille'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/connectors'
+    | '/_authenticated/admin/data-quality'
     | '/_authenticated/admin/legal-sources'
+    | '/_authenticated/admin/rag-quality'
     | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/usage'
     | '/_authenticated/analyses/$id'
@@ -638,11 +664,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminTenantsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/rag-quality': {
+      id: '/_authenticated/admin/rag-quality'
+      path: '/admin/rag-quality'
+      fullPath: '/admin/rag-quality'
+      preLoaderRoute: typeof AuthenticatedAdminRagQualityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/legal-sources': {
       id: '/_authenticated/admin/legal-sources'
       path: '/admin/legal-sources'
       fullPath: '/admin/legal-sources'
       preLoaderRoute: typeof AuthenticatedAdminLegalSourcesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/data-quality': {
+      id: '/_authenticated/admin/data-quality'
+      path: '/admin/data-quality'
+      fullPath: '/admin/data-quality'
+      preLoaderRoute: typeof AuthenticatedAdminDataQualityRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/connectors': {
@@ -735,7 +775,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
+  AuthenticatedAdminDataQualityRoute: typeof AuthenticatedAdminDataQualityRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
+  AuthenticatedAdminRagQualityRoute: typeof AuthenticatedAdminRagQualityRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
   AuthenticatedAdminUsageRoute: typeof AuthenticatedAdminUsageRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
@@ -754,7 +796,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
+  AuthenticatedAdminDataQualityRoute: AuthenticatedAdminDataQualityRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
+  AuthenticatedAdminRagQualityRoute: AuthenticatedAdminRagQualityRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
   AuthenticatedAdminUsageRoute: AuthenticatedAdminUsageRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,

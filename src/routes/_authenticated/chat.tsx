@@ -14,6 +14,7 @@ import {
   renderCitationsInline,
   type CitationSource,
 } from "@/components/chat/SourcesPanel";
+import { MessageFeedback } from "@/components/app/MessageFeedback";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Assistant IA · JurisAI" }] }),
@@ -393,6 +394,8 @@ function ChatPage() {
                     role={m.role}
                     content={m.content}
                     sources={m.sources}
+                    messageId={m.id}
+                    tenantId={profile?.tenant_id ?? null}
                   />
                 ))}
                 {streaming && messages[messages.length - 1]?.role === "user" && (
@@ -446,11 +449,15 @@ function MessageBubble({
   content,
   loading,
   sources,
+  messageId,
+  tenantId,
 }: {
   role: "user" | "assistant";
   content: string;
   loading?: boolean;
   sources?: CitationSource[];
+  messageId?: string;
+  tenantId?: string | null;
 }) {
   const isUser = role === "user";
   const referenced = !isUser && content ? extractReferenced(content) : new Set<number>();
@@ -486,6 +493,9 @@ function MessageBubble({
             </div>
             {sources && sources.length > 0 && (
               <SourcesPanel sources={sources} referenced={referenced} />
+            )}
+            {messageId && tenantId && (
+              <MessageFeedback messageId={messageId} tenantId={tenantId} />
             )}
           </>
         )}

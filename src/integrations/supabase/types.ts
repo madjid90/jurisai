@@ -100,6 +100,39 @@ export type Database = {
           },
         ]
       }
+      billing_events: {
+        Row: {
+          amount_cents: number | null
+          created_at: string
+          currency: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          stripe_event_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          stripe_event_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          stripe_event_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       chat_citations: {
         Row: {
           chunk_id: string
@@ -283,6 +316,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      data_quality_checks: {
+        Row: {
+          check_name: string
+          details: Json
+          id: string
+          metric_value: number | null
+          ran_at: string
+          status: string
+          threshold: number | null
+        }
+        Insert: {
+          check_name: string
+          details?: Json
+          id?: string
+          metric_value?: number | null
+          ran_at?: string
+          status: string
+          threshold?: number | null
+        }
+        Update: {
+          check_name?: string
+          details?: Json
+          id?: string
+          metric_value?: number | null
+          ran_at?: string
+          status?: string
+          threshold?: number | null
+        }
+        Relationships: []
       }
       document_analyses: {
         Row: {
@@ -861,6 +924,39 @@ export type Database = {
           },
         ]
       }
+      legal_article_versions: {
+        Row: {
+          content: string
+          created_at: string
+          diff_summary: string | null
+          id: string
+          is_current: boolean
+          reference_code: string
+          source_id: string
+          version_date: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          diff_summary?: string | null
+          id?: string
+          is_current?: boolean
+          reference_code: string
+          source_id: string
+          version_date: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          diff_summary?: string | null
+          id?: string
+          is_current?: boolean
+          reference_code?: string
+          source_id?: string
+          version_date?: string
+        }
+        Relationships: []
+      }
       legal_chunks: {
         Row: {
           chunk_index: number
@@ -907,6 +1003,7 @@ export type Database = {
       }
       legal_sources: {
         Row: {
+          authority_level: number
           connector: string | null
           created_at: string
           created_by: string | null
@@ -914,10 +1011,12 @@ export type Database = {
           id: string
           idcc: string | null
           is_active: boolean
+          last_quality_check_at: string | null
           last_synced_at: string | null
           legal_date: string | null
           metadata: Json
           official_url: string | null
+          quality_score: number | null
           raw_metadata: Json | null
           reference_code: string | null
           source_type: string
@@ -926,6 +1025,7 @@ export type Database = {
           version_date: string | null
         }
         Insert: {
+          authority_level?: number
           connector?: string | null
           created_at?: string
           created_by?: string | null
@@ -933,10 +1033,12 @@ export type Database = {
           id?: string
           idcc?: string | null
           is_active?: boolean
+          last_quality_check_at?: string | null
           last_synced_at?: string | null
           legal_date?: string | null
           metadata?: Json
           official_url?: string | null
+          quality_score?: number | null
           raw_metadata?: Json | null
           reference_code?: string | null
           source_type: string
@@ -945,6 +1047,7 @@ export type Database = {
           version_date?: string | null
         }
         Update: {
+          authority_level?: number
           connector?: string | null
           created_at?: string
           created_by?: string | null
@@ -952,16 +1055,51 @@ export type Database = {
           id?: string
           idcc?: string | null
           is_active?: boolean
+          last_quality_check_at?: string | null
           last_synced_at?: string | null
           legal_date?: string | null
           metadata?: Json
           official_url?: string | null
+          quality_score?: number | null
           raw_metadata?: Json | null
           reference_code?: string | null
           source_type?: string
           title?: string
           updated_at?: string
           version_date?: string | null
+        }
+        Relationships: []
+      }
+      message_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          message_id: string
+          rating: number
+          reason: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          message_id: string
+          rating: number
+          reason?: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string
+          rating?: number
+          reason?: string | null
+          tenant_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1086,6 +1224,81 @@ export type Database = {
           },
         ]
       }
+      rag_eval_cases: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          difficulty: string
+          expected_answer_keywords: string[]
+          expected_sources: string[]
+          id: string
+          idcc: string | null
+          question: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          difficulty?: string
+          expected_answer_keywords?: string[]
+          expected_sources?: string[]
+          id?: string
+          idcc?: string | null
+          question: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          difficulty?: string
+          expected_answer_keywords?: string[]
+          expected_sources?: string[]
+          id?: string
+          idcc?: string | null
+          question?: string
+        }
+        Relationships: []
+      }
+      rag_eval_runs: {
+        Row: {
+          answer: string | null
+          case_id: string
+          hallucination_detected: boolean | null
+          id: string
+          latency_ms: number | null
+          model: string | null
+          mrr: number | null
+          precision_at_5: number | null
+          ran_at: string
+          retrieved_sources: string[] | null
+        }
+        Insert: {
+          answer?: string | null
+          case_id: string
+          hallucination_detected?: boolean | null
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          mrr?: number | null
+          precision_at_5?: number | null
+          ran_at?: string
+          retrieved_sources?: string[] | null
+        }
+        Update: {
+          answer?: string | null
+          case_id?: string
+          hallucination_detected?: boolean | null
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          mrr?: number | null
+          precision_at_5?: number | null
+          ran_at?: string
+          retrieved_sources?: string[] | null
+        }
+        Relationships: []
+      }
       rate_limits: {
         Row: {
           created_at: string
@@ -1110,6 +1323,30 @@ export type Database = {
           request_count?: number
           user_id?: string
           window_start?: string
+        }
+        Relationships: []
+      }
+      system_metrics: {
+        Row: {
+          id: string
+          metric_name: string
+          metric_value: number
+          recorded_at: string
+          tags: Json
+        }
+        Insert: {
+          id?: string
+          metric_name: string
+          metric_value: number
+          recorded_at?: string
+          tags?: Json
+        }
+        Update: {
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          recorded_at?: string
+          tags?: Json
         }
         Relationships: []
       }
@@ -1518,6 +1755,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      run_data_quality_checks: { Args: never; Returns: undefined }
       validate_api_key: {
         Args: { _key_hash: string }
         Returns: {
