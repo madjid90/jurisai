@@ -34,17 +34,40 @@ export const listConnectorErrors = createServerFn({ method: "POST" })
   .inputValidator((input: { jobId?: string; connector?: string }) => input)
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
-    let q = supabaseAdmin
+    // Cast to any: types not yet regenerated for ingestion_errors after migration
+    const client = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          order: (c: string, o: { ascending: boolean }) => {
+            limit: (n: number) => Promise<{ data: ConnectorErrorRow[] | null; error: { message: string } | null }>;
+            eq: (col: string, val: string) => unknown;
+          };
+        };
+      };
+    };
+    let q = client
       .from("ingestion_errors")
       .select("id, connector, external_id, error_type, error_message, created_at, resolved")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (data.jobId) q = q.eq("job_id", data.jobId);
-    if (data.connector) q = q.eq("connector", data.connector);
-    const { data: rows, error } = await q;
+      .order("created_at", { ascending: false }) as unknown as {
+        limit: (n: number) => Promise<{ data: ConnectorErrorRow[] | null; error: { message: string } | null }>;
+        eq: (col: string, val: string) => unknown;
+      };
+    if (data.jobId) q = q.eq("job_id", data.jobId) as typeof q;
+    if (data.connector) q = q.eq("connector", data.connector) as typeof q;
+    const { data: rows, error } = await q.limit(100);
     if (error) throw new Error(error.message);
-    return { errors: rows ?? [] };
+    return { errors: (rows ?? []) as ConnectorErrorRow[] };
   });
+
+export type ConnectorErrorRow = {
+  id: string;
+  connector: string;
+  external_id: string | null;
+  error_type: string;
+  error_message: string;
+  created_at: string;
+  resolved: boolean;
+};
 
 export const getConnectorStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

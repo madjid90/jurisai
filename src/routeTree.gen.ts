@@ -30,6 +30,7 @@ import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
+import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -137,6 +138,12 @@ const AuthenticatedAnalysesIdRoute = AuthenticatedAnalysesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AuthenticatedAnalysesRoute,
 } as any)
+const AuthenticatedAdminConnectorsRoute =
+  AuthenticatedAdminConnectorsRouteImport.update({
+    id: '/admin/connectors',
+    path: '/admin/connectors',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -177,6 +185,7 @@ export interface FileRoutesByTo {
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -201,6 +210,7 @@ export interface FileRoutesById {
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/dossiers'
     | '/settings'
     | '/team'
+    | '/admin/connectors'
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/dossiers'
     | '/settings'
     | '/team'
+    | '/admin/connectors'
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
@@ -270,6 +282,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dossiers'
     | '/_authenticated/settings'
     | '/_authenticated/team'
+    | '/_authenticated/admin/connectors'
     | '/_authenticated/analyses/$id'
     | '/_authenticated/documents/$id'
     | '/_authenticated/dossiers/$id'
@@ -439,6 +452,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalysesIdRouteImport
       parentRoute: typeof AuthenticatedAnalysesRoute
     }
+    '/_authenticated/admin/connectors': {
+      id: '/_authenticated/admin/connectors'
+      path: '/admin/connectors'
+      fullPath: '/admin/connectors'
+      preLoaderRoute: typeof AuthenticatedAdminConnectorsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -475,6 +495,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
   AuthenticatedDocumentsIndexRoute: typeof AuthenticatedDocumentsIndexRoute
 }
@@ -486,6 +507,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
   AuthenticatedDocumentsIndexRoute: AuthenticatedDocumentsIndexRoute,
 }
