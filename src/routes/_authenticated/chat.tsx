@@ -460,8 +460,10 @@ function MessageBubble({
   tenantId?: string | null;
 }) {
   const isUser = role === "user";
-  const referenced = !isUser && content ? extractReferenced(content) : new Set<number>();
-  const renderedContent = !isUser && sources ? renderCitationsInline(content, sources) : content;
+  const meta = !isUser ? extractMeta(content) : null;
+  const cleanContent = !isUser ? stripMeta(content) : content;
+  const referenced = !isUser && cleanContent ? extractReferenced(cleanContent) : new Set<number>();
+  const renderedContent = !isUser && sources ? renderCitationsInline(cleanContent, sources) : cleanContent;
 
   return (
     <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
