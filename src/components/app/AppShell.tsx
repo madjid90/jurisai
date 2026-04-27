@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Home,
   MessageSquare,
@@ -12,9 +12,11 @@ import {
   LogOut,
   ChevronDown,
   Sparkles,
+  Database,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -43,6 +45,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Sidebar() {
   const router = useRouter();
   const currentPath = router.state.location.pathname;
+  const { user } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "super_admin")
+        .maybeSingle();
+      setIsSuperAdmin(!!data);
+    })();
+  }, [user]);
 
   return (
     <aside className="glass-panel flex w-[244px] flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)]">
@@ -79,6 +96,22 @@ function Sidebar() {
           />
         ))}
       </nav>
+
+      {isSuperAdmin && (
+        <>
+          <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Admin
+          </div>
+          <nav className="mt-2 flex flex-col gap-1">
+            <NavItem
+              label="Connecteurs data"
+              icon={Database}
+              to="/admin/connectors"
+              active={currentPath === "/admin/connectors"}
+            />
+          </nav>
+        </>
+      )}
 
       <div className="mt-auto pt-6">
         <UpgradeCard />
