@@ -377,6 +377,16 @@ Deno.serve(async (req) => {
                 user_message_id: userMsgRow?.id,
               },
             });
+
+            logEvent("rag.complete", {
+              user_id: userId,
+              tenant_id: convo.tenant_id,
+              conversation_id: conversationId,
+              total_ms: Date.now() - t0,
+              answer_len: assistantContent.length,
+              chunks_used: chunks.length,
+              citations: [...new Set([...assistantContent.matchAll(/\[source:(\d+)\]/g)].map(m => m[1]))].length,
+            });
           }
         }
       },
