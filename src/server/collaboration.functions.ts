@@ -71,6 +71,13 @@ export const addComment = createServerFn({ method: "POST" })
         }),
       ),
     );
+
+    // Slack + webhook (best-effort, non-blocking)
+    const { notifyTenantSlack, dispatchWebhook } = await import("@/server/slack.server");
+    void notifyTenantSlack(supabaseAdmin, tenantId,
+      `💬 Nouveau commentaire sur *${dossier.title}* : ${data.body.slice(0, 200)}`);
+    void dispatchWebhook(supabaseAdmin, tenantId, "comment.added",
+      { dossier_id: dossier.id, comment_id: inserted.id, body: data.body });
     return { id: inserted.id };
   });
 
