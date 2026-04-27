@@ -296,6 +296,7 @@ export type Database = {
           filename: string
           id: string
           status: string
+          storage_path: string | null
           tenant_id: string
           tokens_used: number | null
           updated_at: string
@@ -312,6 +313,7 @@ export type Database = {
           filename: string
           id?: string
           status?: string
+          storage_path?: string | null
           tenant_id: string
           tokens_used?: number | null
           updated_at?: string
@@ -328,6 +330,7 @@ export type Database = {
           filename?: string
           id?: string
           status?: string
+          storage_path?: string | null
           tenant_id?: string
           tokens_used?: number | null
           updated_at?: string
