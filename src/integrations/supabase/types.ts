@@ -1137,6 +1137,105 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_api_keys: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          key_hash: string
+          label: string
+          last_used_at: string | null
+          prefix: string
+          revoked_at: string | null
+          scopes: string[]
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          key_hash: string
+          label: string
+          last_used_at?: string | null
+          prefix: string
+          revoked_at?: string | null
+          scopes?: string[]
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          key_hash?: string
+          label?: string
+          last_used_at?: string | null
+          prefix?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      tenant_integrations: {
+        Row: {
+          calendar_token: string
+          slack_channel: string | null
+          slack_enabled: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          calendar_token?: string
+          slack_channel?: string | null
+          slack_enabled?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          calendar_token?: string
+          slack_channel?: string | null
+          slack_enabled?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tenant_webhooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          events: string[]
+          id: string
+          secret: string
+          target_url: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          events?: string[]
+          id?: string
+          secret: string
+          target_url: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          events?: string[]
+          id?: string
+          secret?: string
+          target_url?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           created_at: string
@@ -1254,6 +1353,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      webhook_deliveries: {
+        Row: {
+          attempted_at: string
+          error: string | null
+          event: string
+          id: string
+          payload: Json
+          response_code: number | null
+          status: string
+          tenant_id: string
+          webhook_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          error?: string | null
+          event: string
+          id?: string
+          payload?: Json
+          response_code?: number | null
+          status: string
+          tenant_id: string
+          webhook_id: string
+        }
+        Update: {
+          attempted_at?: string
+          error?: string | null
+          event?: string
+          id?: string
+          payload?: Json
+          response_code?: number | null
+          status?: string
+          tenant_id?: string
+          webhook_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
