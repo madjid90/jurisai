@@ -8,6 +8,7 @@ import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { Field } from "@/routes/login";
 import { completeOnboarding } from "@/server/onboarding.functions";
 import { cn } from "@/lib/utils";
+import { IDCCAutocomplete } from "@/components/onboarding/IDCCAutocomplete";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Bienvenue · JurisAI" }] }),
@@ -209,7 +210,7 @@ function OnboardingPage() {
                   <IDCCAutocomplete
                     label="Code IDCC (optionnel)"
                     value={idcc}
-                    onChange={(v) => setIdcc(v)}
+                    onChange={(v: string) => setIdcc(v)}
                     placeholder="Tapez un code (ex. 1486) ou un nom (ex. Syntec)…"
                   />
                   <div className="rounded-xl border border-border bg-secondary/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
