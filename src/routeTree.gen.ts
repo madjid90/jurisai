@@ -30,6 +30,8 @@ import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
+import { Route as AuthenticatedAdminUsageRouteImport } from './routes/_authenticated/admin.usage'
+import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
 import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
 
@@ -139,6 +141,17 @@ const AuthenticatedAnalysesIdRoute = AuthenticatedAnalysesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AuthenticatedAnalysesRoute,
 } as any)
+const AuthenticatedAdminUsageRoute = AuthenticatedAdminUsageRouteImport.update({
+  id: '/admin/usage',
+  path: '/admin/usage',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminTenantsRoute =
+  AuthenticatedAdminTenantsRouteImport.update({
+    id: '/admin/tenants',
+    path: '/admin/tenants',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminLegalSourcesRoute =
   AuthenticatedAdminLegalSourcesRouteImport.update({
     id: '/admin/legal-sources',
@@ -171,6 +184,8 @@ export interface FileRoutesByFullPath {
   '/team': typeof AuthenticatedTeamRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
+  '/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -195,6 +210,8 @@ export interface FileRoutesByTo {
   '/team': typeof AuthenticatedTeamRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
+  '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
+  '/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -221,6 +238,8 @@ export interface FileRoutesById {
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
+  '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
+  '/_authenticated/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -247,6 +266,8 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/connectors'
     | '/admin/legal-sources'
+    | '/admin/tenants'
+    | '/admin/usage'
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
@@ -271,6 +292,8 @@ export interface FileRouteTypes {
     | '/team'
     | '/admin/connectors'
     | '/admin/legal-sources'
+    | '/admin/tenants'
+    | '/admin/usage'
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
@@ -296,6 +319,8 @@ export interface FileRouteTypes {
     | '/_authenticated/team'
     | '/_authenticated/admin/connectors'
     | '/_authenticated/admin/legal-sources'
+    | '/_authenticated/admin/tenants'
+    | '/_authenticated/admin/usage'
     | '/_authenticated/analyses/$id'
     | '/_authenticated/documents/$id'
     | '/_authenticated/dossiers/$id'
@@ -465,6 +490,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalysesIdRouteImport
       parentRoute: typeof AuthenticatedAnalysesRoute
     }
+    '/_authenticated/admin/usage': {
+      id: '/_authenticated/admin/usage'
+      path: '/admin/usage'
+      fullPath: '/admin/usage'
+      preLoaderRoute: typeof AuthenticatedAdminUsageRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/tenants': {
+      id: '/_authenticated/admin/tenants'
+      path: '/admin/tenants'
+      fullPath: '/admin/tenants'
+      preLoaderRoute: typeof AuthenticatedAdminTenantsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/legal-sources': {
       id: '/_authenticated/admin/legal-sources'
       path: '/admin/legal-sources'
@@ -517,6 +556,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
+  AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
+  AuthenticatedAdminUsageRoute: typeof AuthenticatedAdminUsageRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
   AuthenticatedDocumentsIndexRoute: typeof AuthenticatedDocumentsIndexRoute
 }
@@ -530,6 +571,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
+  AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
+  AuthenticatedAdminUsageRoute: AuthenticatedAdminUsageRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
   AuthenticatedDocumentsIndexRoute: AuthenticatedDocumentsIndexRoute,
 }
