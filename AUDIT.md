@@ -269,3 +269,22 @@ PISTE_SANDBOX=1              # optionnel (env test)
 ---
 
 **Verdict global** : Architecture solide, RAG fonctionnel, sécurité multi-tenant correcte. **Bloquants prod** = index pgvector + credentials PISTE + rate limit + RGPD delete. Une fois ces 4 points résolus, le MVP est livrable.
+
+---
+
+## Annexe C — Warnings Supabase Linter (snapshot)
+
+14 warnings détectés (non bloquants mais à traiter en Sprint 1) :
+
+- **1× Extension in Public** — `pgvector` installé dans `public` schema. À déplacer vers schema dédié ou ignorer (pratique standard).
+- **12× SECURITY DEFINER callable** — fonctions exposées via PostgREST (anon ou authenticated). Revoir `EXECUTE` privileges :
+  - `REVOKE EXECUTE ... FROM anon, authenticated` sur les fonctions internes (`handle_new_user`, `set_updated_at`).
+  - Garder accessible : `has_role`, `is_member_of_tenant`, `is_super_admin`, `current_tenant_id`, `increment_questions_used`, `hybrid_search` (utilisées dans RLS et RPC).
+- **1× autre** — voir dashboard Supabase Linter.
+
+**Action Sprint 1** :
+```sql
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM anon, authenticated;
+-- garder le reste accessible
+```
