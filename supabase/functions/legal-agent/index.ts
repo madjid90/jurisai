@@ -312,18 +312,22 @@ async function toolCreateTask(args: Record<string, unknown>, ctx: AgentContext) 
     .from("dossiers").select("id").eq("id", dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!d) return { error: "Dossier introuvable" };
 
+  const allowed = new Set(["low", "normal", "high", "urgent"]);
+  const priority = typeof args.priority === "string" && allowed.has(args.priority)
+    ? args.priority : "normal";
+
   const { data, error } = await (ctx.supabase as any)
     .from("dossier_tasks")
     .insert({
       tenant_id: ctx.tenantId,
       dossier_id,
       title,
-      priority: typeof args.priority === "string" ? args.priority : "medium",
-      due_at: typeof args.due_at === "string" ? args.due_at : null,
+      priority,
+      due_date: typeof args.due_date === "string" ? args.due_date : null,
       created_by: ctx.userId,
       status: "todo",
     })
-    .select("id, title, priority, due_at")
+    .select("id, title, priority, due_date")
     .single();
   if (error) return { error: error.message };
   return { task: data };
@@ -332,17 +336,17 @@ async function toolCreateTask(args: Record<string, unknown>, ctx: AgentContext) 
 async function toolCreateDeadline(args: Record<string, unknown>, ctx: AgentContext) {
   const dossier_id = String(args.dossier_id ?? "");
   const title = String(args.title ?? "").slice(0, 200);
-  const due_at = String(args.due_at ?? "");
-  if (!dossier_id || !title || !due_at) return { error: "champs requis manquants" };
+  const due_date = String(args.due_date ?? "");
+  if (!dossier_id || !title || !due_date) return { error: "champs requis manquants" };
 
   const { data: d } = await ctx.supabase
     .from("dossiers").select("id").eq("id", dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!d) return { error: "Dossier introuvable" };
 
   const { data, error } = await (ctx.supabase as any)
-    .from("deadlines")
-    .insert({ tenant_id: ctx.tenantId, dossier_id, title, due_at })
-    .select("id, title, due_at")
+    .from("dossier_deadlines")
+    .insert({ tenant_id: ctx.tenantId, dossier_id, title, due_date, created_by: ctx.userId })
+    .select("id, title, due_date")
     .single();
   if (error) return { error: error.message };
   return { deadline: data };
