@@ -6,6 +6,7 @@
 // 5. Persist citations linking each used chunk to the assistant message
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sanitizeQuery, mmrRerank, logEvent } from "../_shared/rag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,6 +88,13 @@ Deno.serve(async (req) => {
       return jsonErr("Missing conversationId or message", 400);
     }
 
+    // Sanitize: anti prompt-injection + length cap. Used for embedding & retrieval.
+    // Original `message` is still persisted as-is (user's literal input).
+    const safeQuery = sanitizeQuery(message);
+    if (!safeQuery) return jsonErr("Question vide après filtrage.", 400);
+
+    const t0 = Date.now();
+
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -150,8 +158,11 @@ Deno.serve(async (req) => {
       await supabaseAdmin.from("conversations").update({ title }).eq("id", conversationId);
     }
 
-    // 8. RAG: embed the question + hybrid_search
+    // 8. RAG: embed the (sanitized) question + hybrid_search + MMR re-rank
     let chunks: ChunkResult[] = [];
+    const tEmbStart = Date.now();
+    let embedMs = 0;
+    let searchMs = 0;
     try {
       const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
         method: "POST",
@@ -159,20 +170,30 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ model: EMBED_MODEL, input: [message] }),
+        body: JSON.stringify({ model: EMBED_MODEL, input: [safeQuery] }),
       });
+      embedMs = Date.now() - tEmbStart;
       if (embRes.ok) {
         const embJson = await embRes.json();
         const embedding: number[] = embJson.data?.[0]?.embedding ?? [];
         if (embedding.length > 0) {
+          const tSearch = Date.now();
+          // Over-fetch (16) then MMR-rerank to 8 for diversity.
           const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
             query_embedding: embedding as unknown as string,
-            query_text: message,
-            match_count: 8,
+            query_text: safeQuery,
+            match_count: 16,
             idcc_filter: idccFilter,
           });
+          searchMs = Date.now() - tSearch;
           if (searchErr) console.error("hybrid_search error:", searchErr);
-          chunks = (results ?? []) as ChunkResult[];
+          const raw = (results ?? []) as ChunkResult[];
+          // No chunk-level embeddings returned → MMR falls back to score sort, capped to 8.
+          chunks = mmrRerank(
+            raw.map((c) => ({ ...c, score: c.score ?? 0 })),
+            8,
+            0.7,
+          );
         }
       } else {
         console.error("Embedding failed:", await embRes.text());
@@ -181,6 +202,17 @@ Deno.serve(async (req) => {
       console.error("RAG retrieval failed:", e);
       // Continue without RAG context — degrade gracefully
     }
+
+    logEvent("rag.retrieve", {
+      user_id: userId,
+      tenant_id: convo.tenant_id,
+      conversation_id: conversationId,
+      idcc: idccFilter,
+      embed_ms: embedMs,
+      search_ms: searchMs,
+      chunks_count: chunks.length,
+      query_len: safeQuery.length,
+    });
 
     // 9. Build system prompt with sources
     let systemPrompt = BASE_PROMPT;
