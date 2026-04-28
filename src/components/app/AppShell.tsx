@@ -197,6 +197,12 @@ function Sidebar() {
               to="/admin/rag-quality"
               active={currentPath === "/admin/rag-quality"}
             />
+            <NavItem
+              label="Audit"
+              icon={ScrollText}
+              to="/admin/audit"
+              active={currentPath === "/admin/audit"}
+            />
           </nav>
         </>
       )}
