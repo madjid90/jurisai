@@ -33,6 +33,19 @@ type Template = {
   variables: Array<{ key: string; label: string; type?: string }>;
 };
 
+type PublicTemplate = {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  content_md: string;
+  variables: Array<{ key: string; label: string; type?: string }>;
+  source_url: string | null;
+  disclaimer: string | null;
+  quality_level: string | null;
+  legal_basis: string[] | null;
+};
+
 type DocRow = {
   id: string;
   title: string;
