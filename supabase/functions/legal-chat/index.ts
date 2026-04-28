@@ -156,24 +156,73 @@ Deno.serve(async (req) => {
     }
 
     // 8. RAG: embed the (sanitized) question + hybrid_search + MMR re-rank
+    // S2 — embedding cache: hash sanitized query, look up cached vector first.
     let chunks: ChunkResult[] = [];
     const tEmbStart = Date.now();
     let embedMs = 0;
     let searchMs = 0;
+    let cacheHit = false;
+    let embedding: number[] = [];
+
+    // Compute SHA-256 hash of the sanitized query (lowercased, trimmed).
+    const normalized = safeQuery.toLowerCase().trim();
+    const hashBuf = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(normalized),
+    );
+    const queryHash = Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
     try {
-      const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ model: EMBED_MODEL, input: [safeQuery] }),
-      });
-      embedMs = Date.now() - tEmbStart;
-      if (embRes.ok) {
-        const embJson = await embRes.json();
-        const embedding: number[] = embJson.data?.[0]?.embedding ?? [];
-        if (embedding.length > 0) {
+      // Cache lookup
+      const { data: cached } = await supabaseAdmin
+        .from("embedding_cache")
+        .select("embedding")
+        .eq("query_hash", queryHash)
+        .maybeSingle();
+      if (cached?.embedding) {
+        const parsed = parseEmbedding(cached.embedding as never);
+        if (parsed && parsed.length > 0) {
+          embedding = parsed;
+          cacheHit = true;
+          embedMs = Date.now() - tEmbStart;
+          // Bump hit counter (fire & forget)
+          void supabaseAdmin
+            .from("embedding_cache")
+            .update({ hit_count: 1, last_hit_at: new Date().toISOString() })
+            .eq("query_hash", queryHash);
+        }
+      }
+
+      if (!cacheHit) {
+        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: EMBED_MODEL, input: [safeQuery] }),
+        });
+        embedMs = Date.now() - tEmbStart;
+        if (embRes.ok) {
+          const embJson = await embRes.json();
+          embedding = embJson.data?.[0]?.embedding ?? [];
+          // Persist in cache (ignore conflicts)
+          if (embedding.length > 0) {
+            void supabaseAdmin
+              .from("embedding_cache")
+              .insert({
+                query_hash: queryHash,
+                embedding: embedding as unknown as string,
+              });
+          }
+        } else {
+          console.error("Embedding failed:", await embRes.text());
+        }
+      }
+
+      if (embedding.length > 0) {
           const tSearch = Date.now();
           // Over-fetch (16) then MMR-rerank to 8 for diversity.
           const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
