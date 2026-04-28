@@ -22,15 +22,6 @@ type StepDef = {
   title: string;
   description?: string;
   type?: string;
-  legal_refs?: string[];
-  delay_days?: number;
-};
-
-type StepDef = {
-  key: string;
-  title: string;
-  description?: string;
-  type?: string;
   kind?: string;
   template_slug?: string;
   legal_refs?: string[];
