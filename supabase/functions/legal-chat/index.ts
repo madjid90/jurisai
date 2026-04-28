@@ -111,10 +111,12 @@ Deno.serve(async (req) => {
     // 4. Tenant IDCC for filtering
     const { data: tenant } = await supabaseAdmin
       .from("tenants")
-      .select("idcc")
+      .select("idcc, rag_mode")
       .eq("id", convo.tenant_id)
       .single();
     const idccFilter = tenant?.idcc ?? null;
+    const ragMode: RagMode =
+      (tenant?.rag_mode as RagMode | undefined) ?? "strict";
 
     // 4.5 Rate limit (10 req/min/user) — protection coût IA + DoS
     const { data: rl, error: rlErr } = await supabaseAdmin.rpc("check_rate_limit", {
@@ -187,9 +189,13 @@ Deno.serve(async (req) => {
           searchMs = Date.now() - tSearch;
           if (searchErr) console.error("hybrid_search error:", searchErr);
           const raw = (results ?? []) as ChunkResult[];
-          // No chunk-level embeddings returned → MMR falls back to score sort, capped to 8.
+          // hybrid_search now returns embeddings → MMR can truly diversify.
           chunks = mmrRerank(
-            raw.map((c) => ({ ...c, score: c.score ?? 0 })),
+            raw.map((c) => ({
+              ...c,
+              score: c.score ?? 0,
+              embedding: parseEmbedding(c.embedding),
+            })),
             8,
             0.7,
           );
@@ -213,8 +219,8 @@ Deno.serve(async (req) => {
       query_len: safeQuery.length,
     });
 
-    // 9. Build system prompt with sources
-    let systemPrompt = BASE_PROMPT;
+    // 9. Build system prompt with sources (mode-aware)
+    let systemPrompt = PROMPTS_BY_MODE[ragMode];
     if (chunks.length > 0) {
       const sourcesBlock = chunks
         .map((c, i) => {
@@ -225,7 +231,7 @@ Deno.serve(async (req) => {
         .join("\n\n---\n\n");
       systemPrompt += `\n\n<SOURCES>\n${sourcesBlock}\n</SOURCES>`;
     } else {
-      systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée — le LLM doit le signaler.)\n</SOURCES>`;
+      systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée.)\n</SOURCES>`;
     }
 
     // 10. Call AI Gateway streaming with timeout (60s) + 1 retry on transient errors
