@@ -2,8 +2,17 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://yuvysjsyumxpekzvlzsx.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dnlzanN5dW14cGVrenZsenN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMjQ2NzMsImV4cCI6MjA5MjgwMDY3M30.--88Kb73IMdi24MRQ0SYl1WSiihMIiei0O880fKGwcY";
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ?? "https://yuvysjsyumxpekzvlzsx.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1dnlzanN5dW14cGVrenZsenN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMjQ2NzMsImV4cCI6MjA5MjgwMDY3M30.--88Kb73IMdi24MRQ0SYl1WSiihMIiei0O880fKGwcY";
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    "Missing Supabase config: define VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY",
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
