@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -71,6 +72,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 function DocumentsIndex() {
+  const confirmAsync = useConfirm();
   const { user } = useAuth();
   const navigate = useNavigate();
   const createFn = useServerFn(createDocument);
@@ -171,7 +173,7 @@ function DocumentsIndex() {
   };
 
   const onDelete = async (id: string) => {
-    if (!confirm("Supprimer définitivement ce document ?")) return;
+    if (!(await confirmAsync("Supprimer définitivement ce document ?"))) return;
     try {
       await deleteFn({ data: { id } });
       setDocs((d) => d.filter((x) => x.id !== id));

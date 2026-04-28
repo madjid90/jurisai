@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -37,6 +38,7 @@ type AnalysisRow = {
 };
 
 function AnalysesPage() {
+  const confirmAsync = useConfirm();
   const { user } = useAuth();
   const navigate = useNavigate();
   const listFn = useServerFn(listAnalyses);
@@ -109,7 +111,7 @@ function AnalysesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer cette analyse ?")) return;
+    if (!(await confirmAsync("Supprimer cette analyse ?"))) return;
     try {
       await deleteFn({ data: { id } });
       toast.success("Analyse supprimée");

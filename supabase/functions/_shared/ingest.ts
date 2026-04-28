@@ -2,7 +2,8 @@
 // Handles: source upsert, chunking + embeddings batch, jobs tracking, error logging.
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chunkText, embedTexts } from "./embeddings.ts";
+import { embedTexts } from "./embeddings.ts";
+import { smartChunk } from "./smart-chunk.ts";
 
 export type ConnectorName =
   | "legifrance"
@@ -137,8 +138,8 @@ export async function ingestSource(
   const { error: delErr } = await db.from("legal_chunks").delete().eq("source_id", sourceId);
   if (delErr) throw delErr;
 
-  // 3. Chunk
-  const chunks = chunkText(src.content);
+  // 3. Chunk (smart hierarchical, adapté au type de source)
+  const chunks = smartChunk(src.content, src.source_type);
   if (chunks.length === 0) return { source_id: sourceId, chunks: 0 };
 
   // 4. Embed in batches of 64

@@ -7,6 +7,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sanitizeQuery, mmrRerank, logEvent } from "../_shared/rag.ts";
+import { PROMPTS_BY_MODE, type RagMode } from "../_shared/rag-prompts.ts";
+import { validateAnswerCitations } from "../_shared/citation-validator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,36 +18,6 @@ const corsHeaders = {
 
 const EMBED_MODEL = "openai/text-embedding-3-small";
 const CHAT_MODEL = "google/gemini-3-flash-preview";
-
-const BASE_PROMPT = `Tu es **JurisAI**, assistant expert en droit du travail français pour juristes, RH et dirigeants.
-
-## Règles ABSOLUES
-1. **Tu RÉPONDS UNIQUEMENT à partir des SOURCES OFFICIELLES fournies ci-dessous** sous la balise <SOURCES>. Tu n'inventes JAMAIS d'article ni d'arrêt.
-2. **À chaque affirmation juridique** tu cites la source via la syntaxe \`[source:N]\` où N est le numéro indiqué dans <SOURCES>. Plusieurs sources possibles : \`[source:1][source:3]\`.
-3. Si **aucune source pertinente n'est fournie**, réponds une réponse générale en précisant en début : « ⚠️ Réponse générale — aucune source officielle n'a été trouvée pour votre question, vérifiez auprès d'un professionnel. »
-4. Tu ne donnes jamais de consultation juridique se substituant à un avocat.
-
-## Format
-- Commence par une **réponse synthétique en 2-3 phrases**
-- Section **"📚 Cadre juridique"** avec les références citées
-- Section **"✅ En pratique"** avec les étapes concrètes
-- Section **"⚠️ Points de vigilance"** si pertinent
-- Markdown : titres ##, listes à puces, **gras** sur points clés
-- Ton professionnel mais accessible
-
-## Bloc META obligatoire en fin de réponse
-Termine TOUJOURS par un bloc \`\`\`json caché entre balises HTML <!--META--> et <!--/META--> au format strict :
-<!--META-->
-\`\`\`json
-{"short_answer":"...une phrase synthétique...","confidence":0.0-1.0,"needs_more_info":false,"legal_basis":["Art. L1234-1 Code du travail","..."]}
-\`\`\`
-<!--/META-->
-- \`confidence\` : 0.9+ si sources directes, 0.6-0.8 si interprétation, <0.5 si peu de sources.
-- \`needs_more_info: true\` si la question manque de contexte (secteur, IDCC, ancienneté…).
-- \`legal_basis\` : liste des articles/arrêts effectivement cités.
-
-## Date
-Nous sommes en 2026. Base-toi sur le droit en vigueur actuellement.`;
 
 interface ChunkResult {
   chunk_id: string;
@@ -57,6 +29,22 @@ interface ChunkResult {
   reference_code: string | null;
   official_url: string | null;
   score: number;
+  embedding?: number[] | string | null;
+}
+
+function parseEmbedding(e: ChunkResult["embedding"]): number[] | undefined {
+  if (!e) return undefined;
+  if (Array.isArray(e)) return e as number[];
+  if (typeof e === "string") {
+    // Postgres vector text repr: "[0.1,0.2,...]"
+    try {
+      const arr = JSON.parse(e);
+      return Array.isArray(arr) ? (arr as number[]) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 Deno.serve(async (req) => {
@@ -123,10 +111,12 @@ Deno.serve(async (req) => {
     // 4. Tenant IDCC for filtering
     const { data: tenant } = await supabaseAdmin
       .from("tenants")
-      .select("idcc")
+      .select("idcc, rag_mode")
       .eq("id", convo.tenant_id)
       .single();
     const idccFilter = tenant?.idcc ?? null;
+    const ragMode: RagMode =
+      (tenant?.rag_mode as RagMode | undefined) ?? "strict";
 
     // 4.5 Rate limit (10 req/min/user) — protection coût IA + DoS
     const { data: rl, error: rlErr } = await supabaseAdmin.rpc("check_rate_limit", {
@@ -199,9 +189,13 @@ Deno.serve(async (req) => {
           searchMs = Date.now() - tSearch;
           if (searchErr) console.error("hybrid_search error:", searchErr);
           const raw = (results ?? []) as ChunkResult[];
-          // No chunk-level embeddings returned → MMR falls back to score sort, capped to 8.
+          // hybrid_search now returns embeddings → MMR can truly diversify.
           chunks = mmrRerank(
-            raw.map((c) => ({ ...c, score: c.score ?? 0 })),
+            raw.map((c) => ({
+              ...c,
+              score: c.score ?? 0,
+              embedding: parseEmbedding(c.embedding),
+            })),
             8,
             0.7,
           );
@@ -225,8 +219,8 @@ Deno.serve(async (req) => {
       query_len: safeQuery.length,
     });
 
-    // 9. Build system prompt with sources
-    let systemPrompt = BASE_PROMPT;
+    // 9. Build system prompt with sources (mode-aware)
+    let systemPrompt = PROMPTS_BY_MODE[ragMode];
     if (chunks.length > 0) {
       const sourcesBlock = chunks
         .map((c, i) => {
@@ -237,7 +231,7 @@ Deno.serve(async (req) => {
         .join("\n\n---\n\n");
       systemPrompt += `\n\n<SOURCES>\n${sourcesBlock}\n</SOURCES>`;
     } else {
-      systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée — le LLM doit le signaler.)\n</SOURCES>`;
+      systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée.)\n</SOURCES>`;
     }
 
     // 10. Call AI Gateway streaming with timeout (60s) + 1 retry on transient errors
@@ -389,6 +383,19 @@ Deno.serve(async (req) => {
               },
             });
 
+            // Validate citation coverage of the final answer
+            const validation = validateAnswerCitations(assistantContent, chunks.length);
+            if (validation.should_warn) {
+              logEvent("rag.citation_warning", {
+                user_id: userId,
+                tenant_id: convo.tenant_id,
+                conversation_id: conversationId,
+                coverage: validation.citation_coverage_score,
+                invalid_citations: validation.invalid_citations,
+                unsupported_count: validation.unsupported_claims.length,
+              });
+            }
+
             logEvent("rag.complete", {
               user_id: userId,
               tenant_id: convo.tenant_id,
@@ -397,6 +404,8 @@ Deno.serve(async (req) => {
               answer_len: assistantContent.length,
               chunks_used: chunks.length,
               citations: [...new Set([...assistantContent.matchAll(/\[source:(\d+)\]/g)].map(m => m[1]))].length,
+              citation_coverage: validation.citation_coverage_score,
+              rag_mode: ragMode,
             });
           }
         }

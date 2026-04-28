@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -64,6 +65,7 @@ const SOURCE_TYPES = [
 ];
 
 function LegalSourcesAdminPage() {
+  const confirmAsync = useConfirm();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
@@ -191,8 +193,8 @@ function LegalSourcesAdminPage() {
                     onToggle={(active) =>
                       toggleMut.mutate({ id: s.id, is_active: active })
                     }
-                    onDelete={() => {
-                      if (confirm(`Supprimer définitivement « ${s.title} » ?`)) {
+                    onDelete={async () => {
+                      if (await confirmAsync(`Supprimer définitivement « ${s.title} » ?`)) {
                         deleteMut.mutate(s.id);
                       }
                     }}

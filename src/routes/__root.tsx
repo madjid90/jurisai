@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieBanner } from "@/components/public/CookieBanner";
+import { ConfirmProvider } from "@/components/shared/ConfirmProvider";
 
 import appCss from "../styles.css?url";
 
@@ -77,9 +78,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <AuthProvider>
-      <Outlet />
-      <Toaster richColors position="top-right" />
-      <CookieBanner />
+      <ConfirmProvider>
+        <Outlet />
+        <Toaster richColors position="top-right" />
+        <CookieBanner />
+      </ConfirmProvider>
     </AuthProvider>
   );
 }
