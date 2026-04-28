@@ -434,10 +434,17 @@ export type Database = {
           icon: string | null
           id: string
           is_public: boolean
+          legal_basis: Json
           name: string
+          risk_level: string
+          slug: string | null
+          status: Database["public"]["Enums"]["template_status"]
           tenant_id: string | null
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
           variables: Json
+          version: number
         }
         Insert: {
           body: string
@@ -448,10 +455,17 @@ export type Database = {
           icon?: string | null
           id?: string
           is_public?: boolean
+          legal_basis?: Json
           name: string
+          risk_level?: string
+          slug?: string | null
+          status?: Database["public"]["Enums"]["template_status"]
           tenant_id?: string | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
           variables?: Json
+          version?: number
         }
         Update: {
           body?: string
@@ -462,10 +476,17 @@ export type Database = {
           icon?: string | null
           id?: string
           is_public?: boolean
+          legal_basis?: Json
           name?: string
+          risk_level?: string
+          slug?: string | null
+          status?: Database["public"]["Enums"]["template_status"]
           tenant_id?: string | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
           variables?: Json
+          version?: number
         }
         Relationships: [
           {
@@ -725,6 +746,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      embedding_cache: {
+        Row: {
+          created_at: string
+          embedding: string
+          hit_count: number
+          last_hit_at: string
+          query_hash: string
+        }
+        Insert: {
+          created_at?: string
+          embedding: string
+          hit_count?: number
+          last_hit_at?: string
+          query_hash: string
+        }
+        Update: {
+          created_at?: string
+          embedding?: string
+          hit_count?: number
+          last_hit_at?: string
+          query_hash?: string
+        }
+        Relationships: []
       }
       ingestion_errors: {
         Row: {
@@ -1254,6 +1299,8 @@ export type Database = {
           job_title: string | null
           onboarded: boolean
           phone: string | null
+          preferred_rag_mode: string | null
+          profile_kind: Database["public"]["Enums"]["user_profile_kind"] | null
           tenant_id: string | null
           updated_at: string
         }
@@ -1266,6 +1313,8 @@ export type Database = {
           job_title?: string | null
           onboarded?: boolean
           phone?: string | null
+          preferred_rag_mode?: string | null
+          profile_kind?: Database["public"]["Enums"]["user_profile_kind"] | null
           tenant_id?: string | null
           updated_at?: string
         }
@@ -1278,6 +1327,8 @@ export type Database = {
           job_title?: string | null
           onboarded?: boolean
           phone?: string | null
+          preferred_rag_mode?: string | null
+          profile_kind?: Database["public"]["Enums"]["user_profile_kind"] | null
           tenant_id?: string | null
           updated_at?: string
         }
@@ -1765,6 +1816,179 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_definitions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          estimated_duration_days: number | null
+          id: string
+          legal_refs: Json
+          slug: string
+          status: Database["public"]["Enums"]["template_status"]
+          steps: Json
+          tenant_id: string | null
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          estimated_duration_days?: number | null
+          id?: string
+          legal_refs?: Json
+          slug: string
+          status?: Database["public"]["Enums"]["template_status"]
+          steps?: Json
+          tenant_id?: string | null
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          estimated_duration_days?: number | null
+          id?: string
+          legal_refs?: Json
+          slug?: string
+          status?: Database["public"]["Enums"]["template_status"]
+          steps?: Json
+          tenant_id?: string | null
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_instances: {
+        Row: {
+          client_id: string | null
+          completed_at: string | null
+          context: Json
+          created_at: string
+          current_step_index: number
+          definition_id: string
+          dossier_id: string | null
+          id: string
+          started_by: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          completed_at?: string | null
+          context?: Json
+          created_at?: string
+          current_step_index?: number
+          definition_id: string
+          dossier_id?: string | null
+          id?: string
+          started_by: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          completed_at?: string | null
+          context?: Json
+          created_at?: string
+          current_step_index?: number
+          definition_id?: string
+          dossier_id?: string | null
+          id?: string
+          started_by?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_instances_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_instances_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_step_runs: {
+        Row: {
+          created_at: string
+          executed_at: string | null
+          executed_by: string | null
+          id: string
+          instance_id: string
+          notes: string | null
+          output: Json | null
+          status: string
+          step_index: number
+          step_key: string
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          instance_id: string
+          notes?: string | null
+          output?: Json | null
+          status?: string
+          step_index: number
+          step_key: string
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          instance_id?: string
+          notes?: string | null
+          output?: Json | null
+          status?: string
+          step_index?: number
+          step_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_step_runs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1848,6 +2072,13 @@ export type Database = {
     Enums: {
       app_role: "admin" | "manager" | "user" | "super_admin"
       plan_type: "starter" | "pro" | "business"
+      template_status: "draft" | "review" | "validated" | "deprecated"
+      user_profile_kind:
+        | "dirigeant"
+        | "rh"
+        | "juriste"
+        | "expert_comptable"
+        | "manager_multi_sites"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1977,6 +2208,14 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "manager", "user", "super_admin"],
       plan_type: ["starter", "pro", "business"],
+      template_status: ["draft", "review", "validated", "deprecated"],
+      user_profile_kind: [
+        "dirigeant",
+        "rh",
+        "juriste",
+        "expert_comptable",
+        "manager_multi_sites",
+      ],
     },
   },
 } as const
