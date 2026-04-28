@@ -7,7 +7,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { getWorkflowInstance, completeWorkflowStep } from "@/server/workflows.functions";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/workflows_.$id")({
+export const Route = createFileRoute("/_authenticated/workflows_/$id")({
   head: () => ({ meta: [{ title: "Procédure · JurisAI" }] }),
   component: WorkflowDetailPage,
 });
