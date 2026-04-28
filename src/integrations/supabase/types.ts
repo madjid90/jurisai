@@ -1947,6 +1947,7 @@ export type Database = {
           created_at: string
           executed_at: string | null
           executed_by: string | null
+          generated_document_id: string | null
           id: string
           instance_id: string
           notes: string | null
@@ -1959,6 +1960,7 @@ export type Database = {
           created_at?: string
           executed_at?: string | null
           executed_by?: string | null
+          generated_document_id?: string | null
           id?: string
           instance_id: string
           notes?: string | null
@@ -1971,6 +1973,7 @@ export type Database = {
           created_at?: string
           executed_at?: string | null
           executed_by?: string | null
+          generated_document_id?: string | null
           id?: string
           instance_id?: string
           notes?: string | null
@@ -1980,6 +1983,13 @@ export type Database = {
           step_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workflow_step_runs_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workflow_step_runs_instance_id_fkey"
             columns: ["instance_id"]
