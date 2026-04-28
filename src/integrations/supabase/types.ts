@@ -131,7 +131,15 @@ export type Database = {
           stripe_event_id?: string | null
           tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "billing_events_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chat_citations: {
         Row: {
@@ -955,7 +963,15 @@ export type Database = {
           source_id?: string
           version_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_article_versions_source_fk"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sources"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_chunks: {
         Row: {
@@ -1000,6 +1016,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      legal_chunks_staging: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string | null
+          embedding: string | null
+          heading: string | null
+          id: string
+          job_id: string
+          source_id: string
+          token_count: number | null
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          heading?: string | null
+          id?: string
+          job_id: string
+          source_id: string
+          token_count?: number | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          heading?: string | null
+          id?: string
+          job_id?: string
+          source_id?: string
+          token_count?: number | null
+        }
+        Relationships: []
       }
       legal_sources: {
         Row: {
@@ -1101,7 +1153,22 @@ export type Database = {
           tenant_id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "message_feedback_message_fk"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_feedback_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -1297,7 +1364,15 @@ export type Database = {
           ran_at?: string
           retrieved_sources?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rag_eval_runs_case_fk"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "rag_eval_cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rate_limits: {
         Row: {
@@ -1543,6 +1618,7 @@ export type Database = {
           questions_used: number
           quota_questions: number
           quota_reset_at: string
+          rag_mode: string | null
           sector: string | null
           siret: string | null
           slug: string
@@ -1557,6 +1633,7 @@ export type Database = {
           questions_used?: number
           quota_questions?: number
           quota_reset_at?: string
+          rag_mode?: string | null
           sector?: string | null
           siret?: string | null
           slug: string
@@ -1571,6 +1648,7 @@ export type Database = {
           questions_used?: number
           quota_questions?: number
           quota_reset_at?: string
+          rag_mode?: string | null
           sector?: string | null
           siret?: string | null
           slug?: string
@@ -1737,6 +1815,7 @@ export type Database = {
         Returns: {
           chunk_id: string
           content: string
+          embedding: string
           heading: string
           official_url: string
           reference_code: string
@@ -1755,6 +1834,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
       run_data_quality_checks: { Args: never; Returns: undefined }
       validate_api_key: {
         Args: { _key_hash: string }
