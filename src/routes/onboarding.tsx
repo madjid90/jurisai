@@ -133,7 +133,7 @@ function OnboardingPage() {
         <div className="glass-panel rounded-3xl p-8 shadow-[var(--shadow-elevated)]">
           {/* Stepper */}
           <div className="flex items-center justify-center gap-3">
-            {[0, 1, 2].map((i) => (
+            {[0, 1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-3">
                 <div
                   className={cn(
@@ -147,7 +147,7 @@ function OnboardingPage() {
                 >
                   {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
                 </div>
-                {i < 2 && (
+                {i < 3 && (
                   <div
                     className={cn(
                       "h-px w-10 transition",
@@ -162,6 +162,38 @@ function OnboardingPage() {
           {/* Step content */}
           <div className="mt-8">
             {step === 0 && (
+              <StepBlock
+                title="Quel est votre profil ?"
+                subtitle="Pour adapter l'interface, les modèles et les procédures à vos besoins."
+              >
+                <div className="grid gap-2.5">
+                  {PROFILE_KINDS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setProfileKind(p.key)}
+                      className={cn(
+                        "flex items-start gap-3 rounded-2xl border p-3.5 text-left transition",
+                        profileKind === p.key
+                          ? "border-accent bg-accent-soft shadow-[var(--shadow-glow)]"
+                          : "border-border bg-background hover:border-accent/40",
+                      )}
+                    >
+                      <span className="text-[22px] leading-none">{p.emoji}</span>
+                      <span className="flex-1">
+                        <span className="block text-[14px] font-semibold text-foreground">
+                          {p.label}
+                        </span>
+                        <span className="block text-[12px] text-muted-foreground">{p.desc}</span>
+                      </span>
+                      {profileKind === p.key && <Check className="h-4 w-4 text-accent" />}
+                    </button>
+                  ))}
+                </div>
+              </StepBlock>
+            )}
+
+            {step === 1 && (
               <StepBlock title="Faisons connaissance" subtitle="Quelques infos sur vous.">
                 <div className="space-y-4">
                   <Field label="Nom complet" required value={fullName} onChange={setFullName} />
@@ -181,7 +213,7 @@ function OnboardingPage() {
               </StepBlock>
             )}
 
-            {step === 1 && (
+            {step === 2 && (
               <StepBlock title="Votre entreprise" subtitle="Pour personnaliser vos réponses.">
                 <div className="space-y-4">
                   <Field
@@ -217,7 +249,7 @@ function OnboardingPage() {
               </StepBlock>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <StepBlock
                 title="Convention collective"
                 subtitle="Pour des réponses adaptées à votre secteur. Vous pourrez la modifier plus tard."
