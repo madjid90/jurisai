@@ -223,35 +223,50 @@ Deno.serve(async (req) => {
       }
 
       if (embedding.length > 0) {
-          const tSearch = Date.now();
-          // Over-fetch (16) then MMR-rerank to 8 for diversity.
-          const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
-            query_embedding: embedding as unknown as string,
-            query_text: safeQuery,
-            match_count: 16,
-            idcc_filter: idccFilter,
-          });
-          searchMs = Date.now() - tSearch;
-          if (searchErr) console.error("hybrid_search error:", searchErr);
-          const raw = (results ?? []) as ChunkResult[];
-          // hybrid_search now returns embeddings → MMR can truly diversify.
-          chunks = mmrRerank(
-            raw.map((c) => ({
-              ...c,
-              score: c.score ?? 0,
-              embedding: parseEmbedding(c.embedding),
-            })),
-            8,
-            0.7,
-          );
-        }
-      } else {
-        console.error("Embedding failed:", await embRes.text());
+        const tSearch = Date.now();
+        // Over-fetch (16) then MMR-rerank to 8 for diversity.
+        const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
+          query_embedding: embedding as unknown as string,
+          query_text: safeQuery,
+          match_count: 16,
+          idcc_filter: idccFilter,
+        });
+        searchMs = Date.now() - tSearch;
+        if (searchErr) console.error("hybrid_search error:", searchErr);
+        const raw = (results ?? []) as ChunkResult[];
+        // hybrid_search now returns embeddings → MMR can truly diversify.
+        chunks = mmrRerank(
+          raw.map((c) => ({
+            ...c,
+            score: c.score ?? 0,
+            embedding: parseEmbedding(c.embedding),
+          })),
+          8,
+          0.7,
+        );
       }
     } catch (e) {
       console.error("RAG retrieval failed:", e);
       // Continue without RAG context — degrade gracefully
     }
+
+    // S2 — Trust score: agrégation simple basée sur les sources retrouvées.
+    // - Plus de sources distinctes = plus fiable
+    // - Top score élevé = forte pertinence
+    // - Au moins 1 source de niveau autorité haute = bonus
+    const distinctSources = new Set(chunks.map((c) => c.source_id)).size;
+    const topScore = chunks[0]?.score ?? 0;
+    const trustScore = Math.min(
+      1,
+      Math.max(
+        0,
+        chunks.length === 0
+          ? 0
+          : 0.4 * Math.min(1, distinctSources / 3) +
+              0.4 * Math.min(1, topScore / 0.05) +
+              0.2 * Math.min(1, chunks.length / 8),
+      ),
+    );
 
     logEvent("rag.retrieve", {
       user_id: userId,
@@ -262,6 +277,9 @@ Deno.serve(async (req) => {
       search_ms: searchMs,
       chunks_count: chunks.length,
       query_len: safeQuery.length,
+      cache_hit: cacheHit,
+      trust_score: Number(trustScore.toFixed(3)),
+      distinct_sources: distinctSources,
     });
 
     // 9. Build system prompt with sources (mode-aware)
