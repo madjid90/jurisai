@@ -120,6 +120,43 @@ function DocumentsIndex() {
     );
   }, [templates, search]);
 
+  const filteredPublic = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return publicTpls;
+    return publicTpls.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.description ?? "").toLowerCase().includes(q),
+    );
+  }, [publicTpls, search]);
+
+  const onUsePublic = async (p: PublicTemplate) => {
+    // Convert markdown-ish content to a minimal HTML body and open editor.
+    const html =
+      "<p>" +
+      (p.content_md || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\r\n/g, "\n")
+        .split(/\n\n+/)
+        .map((p) => p.replace(/\n/g, "<br/>"))
+        .join("</p><p>") +
+      "</p>" +
+      (p.disclaimer
+        ? `<p><em style="color:#92400e">⚠ ${p.disclaimer.replace(/</g, "&lt;")}</em></p>`
+        : "");
+    try {
+      const { id } = await createFn({ data: { title: p.title, content: html } });
+      toast.success("Modèle importé");
+      void navigate({ to: "/documents/$id", params: { id } });
+    } catch (err) {
+      toast.error("Import impossible", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
   const onCreateBlank = async () => {
     try {
       const { id } = await createFn({
