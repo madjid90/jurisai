@@ -78,6 +78,7 @@ function DocumentsIndex() {
   const deleteFn = useServerFn(deleteDocument);
 
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [publicTpls, setPublicTpls] = useState<PublicTemplate[]>([]);
   const [docs, setDocs] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -86,11 +87,16 @@ function DocumentsIndex() {
   useEffect(() => {
     if (!user) return;
     void (async () => {
-      const [{ data: tpl }, { data: dl }] = await Promise.all([
+      const [{ data: tpl }, { data: pub }, { data: dl }] = await Promise.all([
         supabase
           .from("document_templates")
           .select("id, name, description, category, icon, body, variables")
           .order("name"),
+        supabase
+          .from("templates_public")
+          .select("id, title, description, category, content_md, variables, source_url, disclaimer, quality_level, legal_basis")
+          .order("title")
+          .limit(60),
         supabase
           .from("documents")
           .select("id, title, status, updated_at, template_id")
@@ -98,6 +104,7 @@ function DocumentsIndex() {
           .limit(50),
       ]);
       setTemplates((tpl as unknown as Template[]) ?? []);
+      setPublicTpls((pub as unknown as PublicTemplate[]) ?? []);
       setDocs((dl as unknown as DocRow[]) ?? []);
       setLoading(false);
     })();
