@@ -105,6 +105,15 @@ export async function logError(
 
 /**
  * Upsert one legal source + (re)generate its chunks + embeddings.
+ *
+ * Uses STAGING + PROMOTE pattern:
+ *  1. Upsert legal_source row
+ *  2. Insert chunks + embeddings into legal_chunks_staging (linked to job_id)
+ *  3. Call promote_ingestion_job(job_id) which atomically swaps staging → live
+ *
+ * This guarantees the live legal_chunks table is never in a partial state
+ * (vs old "delete-then-insert" which could leave a source with 0 chunks if embedding failed).
+ *
  * Idempotent on (connector, external_id).
  */
 export async function ingestSource(
@@ -112,7 +121,8 @@ export async function ingestSource(
   apiKey: string,
   connector: ConnectorName,
   src: SourceInput,
-): Promise<{ source_id: string; chunks: number }> {
+  jobId?: string,
+): Promise<{ source_id: string; chunks: number; promoted: boolean }> {
   // 1. Upsert source
   const { data: srcRow, error: upErr } = await db
     .from("legal_sources")
@@ -134,15 +144,46 @@ export async function ingestSource(
   if (upErr) throw upErr;
   const sourceId = srcRow.id as string;
 
-  // 2. Replace existing chunks (simple strategy: delete-then-insert)
+  // 2. Chunk
+  const chunks = smartChunk(src.content, src.source_type);
+  if (chunks.length === 0) return { source_id: sourceId, chunks: 0, promoted: false };
+
+  // 3. STAGING path (when we have a job_id) — atomic swap via promote_ingestion_job
+  if (jobId) {
+    // Link source to job (so promote knows which source to swap)
+    await db.from("ingestion_jobs").update({ source_id: sourceId }).eq("id", jobId);
+
+    // Clear any prior staging rows for this job (defensive — re-runs)
+    await db.from("legal_chunks_staging").delete().eq("job_id", jobId);
+
+    // Embed + insert staging in batches
+    const BATCH = 64;
+    for (let i = 0; i < chunks.length; i += BATCH) {
+      const slice = chunks.slice(i, i + BATCH);
+      const embeds = await embedTexts(apiKey, slice.map((c) => c.content));
+      const rows = slice.map((c, idx) => ({
+        job_id: jobId,
+        source_id: sourceId,
+        chunk_index: i + idx,
+        heading: c.heading,
+        content: c.content,
+        embedding: embeds[idx] ?? null,
+      }));
+      const { error: stagErr } = await db.from("legal_chunks_staging").insert(rows);
+      if (stagErr) throw stagErr;
+    }
+
+    // Atomic promote (deletes live chunks for source_id + inserts staging + clears staging)
+    const { error: promErr } = await db.rpc("promote_ingestion_job", { p_job_id: jobId });
+    if (promErr) throw promErr;
+
+    return { source_id: sourceId, chunks: chunks.length, promoted: true };
+  }
+
+  // 4. LEGACY path (no job_id) — delete-then-insert (kept for ad-hoc seeding)
   const { error: delErr } = await db.from("legal_chunks").delete().eq("source_id", sourceId);
   if (delErr) throw delErr;
 
-  // 3. Chunk (smart hierarchical, adapté au type de source)
-  const chunks = smartChunk(src.content, src.source_type);
-  if (chunks.length === 0) return { source_id: sourceId, chunks: 0 };
-
-  // 4. Embed in batches of 64
   const BATCH = 64;
   const rows: Array<Record<string, unknown>> = [];
   for (let i = 0; i < chunks.length; i += BATCH) {
@@ -158,11 +199,10 @@ export async function ingestSource(
       });
     });
   }
-
   const { error: insErr } = await db.from("legal_chunks").insert(rows);
   if (insErr) throw insErr;
 
-  return { source_id: sourceId, chunks: rows.length };
+  return { source_id: sourceId, chunks: rows.length, promoted: false };
 }
 
 // CORS helpers — re-exported from _shared/cors.ts (allowlist-based).
