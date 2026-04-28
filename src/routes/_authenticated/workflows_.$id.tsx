@@ -59,6 +59,82 @@ function WorkflowDetailPage() {
   const [advancing, setAdvancing] = useState(false);
   const [notes, setNotes] = useState("");
 
+  // Doc-generation modal state
+  const [docModalOpen, setDocModalOpen] = useState(false);
+  const [docModalStep, setDocModalStep] = useState<{ step: StepDef; index: number } | null>(null);
+  const [docTplLoading, setDocTplLoading] = useState(false);
+  const [docVarsSchema, setDocVarsSchema] = useState<TemplateVar[]>([]);
+  const [docVarsValues, setDocVarsValues] = useState<Record<string, string>>({});
+  const [docTplName, setDocTplName] = useState<string>("");
+  const [docGenerating, setDocGenerating] = useState(false);
+
+  const openDocModal = async (step: StepDef, index: number) => {
+    if (!step.template_slug) {
+      toast.error("Aucun modèle associé à cette étape");
+      return;
+    }
+    setDocModalStep({ step, index });
+    setDocModalOpen(true);
+    setDocTplLoading(true);
+    setDocVarsValues({});
+    try {
+      const tpl = await fetchTpl({ data: { slug: step.template_slug } });
+      const vars: TemplateVar[] = (tpl?.variables ?? []) as TemplateVar[];
+      setDocVarsSchema(vars);
+      setDocTplName(tpl?.name ?? step.template_slug);
+      // Pre-fill from instance.context
+      const ctx = (data?.instance?.context ?? {}) as Record<string, unknown>;
+      const prefill: Record<string, string> = {};
+      for (const v of vars) {
+        const fromCtx = ctx[v.key];
+        if (fromCtx != null && (typeof fromCtx === "string" || typeof fromCtx === "number")) {
+          prefill[v.key] = String(fromCtx);
+        }
+      }
+      setDocVarsValues(prefill);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur chargement modèle");
+      setDocModalOpen(false);
+    } finally {
+      setDocTplLoading(false);
+    }
+  };
+
+  const handleGenerateDoc = async () => {
+    if (!docModalStep) return;
+    // Required fields validation
+    const missing = docVarsSchema.filter((v) => v.required && !docVarsValues[v.key]?.trim());
+    if (missing.length > 0) {
+      toast.error(`Champs requis : ${missing.map((m) => m.label).join(", ")}`);
+      return;
+    }
+    setDocGenerating(true);
+    try {
+      const res = await genDoc({
+        data: {
+          instanceId: id,
+          stepIndex: docModalStep.index,
+          stepKey: docModalStep.step.key,
+          templateSlug: docModalStep.step.template_slug!,
+          variables: docVarsValues,
+          autoComplete: true,
+        },
+      });
+      toast.success(res.completed ? "Document généré – procédure terminée 🎉" : "Document généré ✓");
+      setDocModalOpen(false);
+      setDocModalStep(null);
+      await reload();
+      // Open the generated document in a new tab
+      if (res.documentId) {
+        window.open(`/documents/${res.documentId}`, "_blank");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur génération");
+    } finally {
+      setDocGenerating(false);
+    }
+  };
+
   const reload = async () => {
     try {
       const r = await get({ data: { instanceId: id } });
