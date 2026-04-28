@@ -2,9 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, CheckCircle2, Circle, ExternalLink, BookOpen } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, Circle, ExternalLink, BookOpen, FileText, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-import { getWorkflowInstance, completeWorkflowStep } from "@/server/workflows.functions";
+import {
+  getWorkflowInstance,
+  completeWorkflowStep,
+  generateDocFromWorkflowStep,
+  getTemplateBySlug,
+} from "@/server/workflows.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/workflows_/$id")({
