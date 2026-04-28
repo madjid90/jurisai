@@ -1,5 +1,29 @@
 import { createRouter, useRouter } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { routeTree } from "./routeTree.gen";
+
+/**
+ * Detect "Failed to fetch dynamically imported module" errors.
+ * These happen when the user has an old version of the app loaded
+ * and the route chunks have been replaced by a new deploy.
+ * The only fix is a hard reload.
+ */
+function isStaleChunkError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg)
+  );
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", () => {
+    window.location.reload();
+  });
+}
+
 
 function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
