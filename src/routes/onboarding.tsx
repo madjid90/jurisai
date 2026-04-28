@@ -28,6 +28,16 @@ const SECTORS = [
   "Autre",
 ] as const;
 
+type ProfileKind = "dirigeant" | "rh" | "juriste" | "expert_comptable" | "manager_multi_sites";
+
+const PROFILE_KINDS: Array<{ key: ProfileKind; label: string; desc: string; emoji: string }> = [
+  { key: "dirigeant", label: "Dirigeant·e", desc: "Décisions stratégiques, contrats, risques.", emoji: "👔" },
+  { key: "rh", label: "RH / Paie", desc: "Embauches, contrats, procédures disciplinaires.", emoji: "👥" },
+  { key: "juriste", label: "Juriste interne", desc: "Analyse de risques, contentieux, conformité.", emoji: "⚖️" },
+  { key: "expert_comptable", label: "Expert-comptable", desc: "Multi-clients, paie, social.", emoji: "📊" },
+  { key: "manager_multi_sites", label: "Manager multi-sites", desc: "Gestion d'équipes distribuées.", emoji: "🏢" },
+];
+
 function OnboardingPage() {
   const navigate = useNavigate();
   const { session, profile, loading, refreshProfile } = useAuth();
@@ -47,6 +57,7 @@ function OnboardingPage() {
   }, [loading, session, profile, navigate]);
 
   // Form state
+  const [profileKind, setProfileKind] = useState<ProfileKind | "">("");
   const [fullName, setFullName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [phone, setPhone] = useState("");
@@ -60,15 +71,19 @@ function OnboardingPage() {
   }, [profile, fullName]);
 
   const next = () => {
-    if (step === 0 && !fullName.trim()) {
+    if (step === 0 && !profileKind) {
+      toast.error("Choisissez votre profil");
+      return;
+    }
+    if (step === 1 && !fullName.trim()) {
       toast.error("Renseignez votre nom");
       return;
     }
-    if (step === 1 && !companyName.trim()) {
+    if (step === 2 && !companyName.trim()) {
       toast.error("Renseignez le nom de votre entreprise");
       return;
     }
-    setStep((s) => Math.min(s + 1, 2));
+    setStep((s) => Math.min(s + 1, 3));
   };
 
   const back = () => setStep((s) => Math.max(s - 1, 0));
@@ -85,6 +100,7 @@ function OnboardingPage() {
           siret: siret.trim() || null,
           sector: sector || null,
           idcc: idcc.trim() || null,
+          profileKind: (profileKind || null) as ProfileKind | null,
         },
       });
       await refreshProfile();
