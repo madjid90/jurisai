@@ -355,6 +355,103 @@ function WorkflowDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Doc generation modal */}
+      {docModalOpen && docModalStep && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-elevated)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[16px] font-bold">Générer : {docTplName}</h2>
+                <p className="mt-1 text-[12px] text-muted-foreground">
+                  Étape {docModalStep.index + 1} – {docModalStep.step.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Fermer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {docTplLoading ? (
+              <div className="flex h-32 items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-accent" />
+              </div>
+            ) : (
+              <div className="mt-4 max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+                {docVarsSchema.length === 0 && (
+                  <p className="text-[12.5px] text-muted-foreground">
+                    Ce modèle n'a aucune variable à renseigner.
+                  </p>
+                )}
+                {docVarsSchema.map((v) => (
+                  <div key={v.key} className="space-y-1">
+                    <label className="block text-[12px] font-medium">
+                      {v.label} {v.required && <span className="text-destructive">*</span>}
+                    </label>
+                    {v.type === "textarea" ? (
+                      <textarea
+                        rows={3}
+                        value={docVarsValues[v.key] ?? ""}
+                        onChange={(e) =>
+                          setDocVarsValues((s) => ({ ...s, [v.key]: e.target.value }))
+                        }
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    ) : v.type === "select" ? (
+                      <select
+                        value={docVarsValues[v.key] ?? ""}
+                        onChange={(e) =>
+                          setDocVarsValues((s) => ({ ...s, [v.key]: e.target.value }))
+                        }
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      >
+                        <option value="">— Sélectionner —</option>
+                        {(v.options ?? []).map((o) => (
+                          <option key={o} value={o}>{o}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={v.type === "date" ? "date" : v.type === "number" ? "number" : "text"}
+                        value={docVarsValues[v.key] ?? ""}
+                        onChange={(e) =>
+                          setDocVarsValues((s) => ({ ...s, [v.key]: e.target.value }))
+                        }
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-[13px] focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={() => setDocModalOpen(false)}
+                className="inline-flex h-9 items-center rounded-xl border border-border bg-secondary px-4 text-[12.5px] font-medium hover:bg-secondary/70"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleGenerateDoc()}
+                disabled={docGenerating || docTplLoading}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-br from-primary to-accent px-4 text-[12.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] hover:opacity-95 disabled:opacity-60"
+              >
+                {docGenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <Sparkles className="h-3.5 w-3.5" />
+                Générer & valider
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
