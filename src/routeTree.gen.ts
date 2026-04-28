@@ -20,7 +20,9 @@ import { Route as CguRouteImport } from './routes/cgu'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWorkflowsRouteImport } from './routes/_authenticated/workflows'
 import { Route as AuthenticatedVeilleRouteImport } from './routes/_authenticated/veille'
+import { Route as AuthenticatedTemplatesRouteImport } from './routes/_authenticated/templates'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
@@ -30,6 +32,7 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedAnalysesRouteImport } from './routes/_authenticated/analyses'
 import { Route as AuthenticatedAgentRouteImport } from './routes/_authenticated/agent'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents.index'
+import { Route as AuthenticatedWorkflowsIdRouteImport } from './routes/_authenticated/workflows_.$id'
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
@@ -100,9 +103,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWorkflowsRoute = AuthenticatedWorkflowsRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedVeilleRoute = AuthenticatedVeilleRouteImport.update({
   id: '/veille',
   path: '/veille',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTemplatesRoute = AuthenticatedTemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
@@ -149,6 +162,12 @@ const AuthenticatedDocumentsIndexRoute =
   AuthenticatedDocumentsIndexRouteImport.update({
     id: '/documents/',
     path: '/documents/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedWorkflowsIdRoute =
+  AuthenticatedWorkflowsIdRouteImport.update({
+    id: '/workflows_/$id',
+    path: '/workflows/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedDossiersIdRoute = AuthenticatedDossiersIdRouteImport.update({
@@ -252,7 +271,9 @@ export interface FileRoutesByFullPath {
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/templates': typeof AuthenticatedTemplatesRoute
   '/veille': typeof AuthenticatedVeilleRoute
+  '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
@@ -263,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
+  '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
@@ -289,7 +311,9 @@ export interface FileRoutesByTo {
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/templates': typeof AuthenticatedTemplatesRoute
   '/veille': typeof AuthenticatedVeilleRoute
+  '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
@@ -300,6 +324,7 @@ export interface FileRoutesByTo {
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
+  '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
@@ -328,7 +353,9 @@ export interface FileRoutesById {
   '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/templates': typeof AuthenticatedTemplatesRoute
   '/_authenticated/veille': typeof AuthenticatedVeilleRoute
+  '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
@@ -339,6 +366,7 @@ export interface FileRoutesById {
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
+  '/_authenticated/workflows_/$id': typeof AuthenticatedWorkflowsIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
@@ -367,7 +395,9 @@ export interface FileRouteTypes {
     | '/scan'
     | '/settings'
     | '/team'
+    | '/templates'
     | '/veille'
+    | '/workflows'
     | '/admin/audit'
     | '/admin/connectors'
     | '/admin/data-quality'
@@ -378,6 +408,7 @@ export interface FileRouteTypes {
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
+    | '/workflows/$id'
     | '/documents/'
     | '/api/public/calendar/$token'
     | '/api/public/v1/clients'
@@ -404,7 +435,9 @@ export interface FileRouteTypes {
     | '/scan'
     | '/settings'
     | '/team'
+    | '/templates'
     | '/veille'
+    | '/workflows'
     | '/admin/audit'
     | '/admin/connectors'
     | '/admin/data-quality'
@@ -415,6 +448,7 @@ export interface FileRouteTypes {
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
+    | '/workflows/$id'
     | '/documents'
     | '/api/public/calendar/$token'
     | '/api/public/v1/clients'
@@ -442,7 +476,9 @@ export interface FileRouteTypes {
     | '/_authenticated/scan'
     | '/_authenticated/settings'
     | '/_authenticated/team'
+    | '/_authenticated/templates'
     | '/_authenticated/veille'
+    | '/_authenticated/workflows'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/connectors'
     | '/_authenticated/admin/data-quality'
@@ -453,6 +489,7 @@ export interface FileRouteTypes {
     | '/_authenticated/analyses/$id'
     | '/_authenticated/documents/$id'
     | '/_authenticated/dossiers/$id'
+    | '/_authenticated/workflows_/$id'
     | '/_authenticated/documents/'
     | '/api/public/calendar/$token'
     | '/api/public/v1/clients'
@@ -559,11 +596,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/workflows': {
+      id: '/_authenticated/workflows'
+      path: '/workflows'
+      fullPath: '/workflows'
+      preLoaderRoute: typeof AuthenticatedWorkflowsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/veille': {
       id: '/_authenticated/veille'
       path: '/veille'
       fullPath: '/veille'
       preLoaderRoute: typeof AuthenticatedVeilleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/templates': {
+      id: '/_authenticated/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof AuthenticatedTemplatesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/team': {
@@ -627,6 +678,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/documents/'
       preLoaderRoute: typeof AuthenticatedDocumentsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/workflows_/$id': {
+      id: '/_authenticated/workflows_/$id'
+      path: '/workflows/$id'
+      fullPath: '/workflows/$id'
+      preLoaderRoute: typeof AuthenticatedWorkflowsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dossiers/$id': {
@@ -772,7 +830,9 @@ interface AuthenticatedRouteChildren {
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedTemplatesRoute: typeof AuthenticatedTemplatesRoute
   AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
+  AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedAdminDataQualityRoute: typeof AuthenticatedAdminDataQualityRoute
@@ -781,6 +841,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
   AuthenticatedAdminUsageRoute: typeof AuthenticatedAdminUsageRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
+  AuthenticatedWorkflowsIdRoute: typeof AuthenticatedWorkflowsIdRoute
   AuthenticatedDocumentsIndexRoute: typeof AuthenticatedDocumentsIndexRoute
 }
 
@@ -793,7 +854,9 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedTemplatesRoute: AuthenticatedTemplatesRoute,
   AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
+  AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedAdminDataQualityRoute: AuthenticatedAdminDataQualityRoute,
@@ -802,6 +865,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
   AuthenticatedAdminUsageRoute: AuthenticatedAdminUsageRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
+  AuthenticatedWorkflowsIdRoute: AuthenticatedWorkflowsIdRoute,
   AuthenticatedDocumentsIndexRoute: AuthenticatedDocumentsIndexRoute,
 }
 

@@ -28,6 +28,16 @@ const SECTORS = [
   "Autre",
 ] as const;
 
+type ProfileKind = "dirigeant" | "rh" | "juriste" | "expert_comptable" | "manager_multi_sites";
+
+const PROFILE_KINDS: Array<{ key: ProfileKind; label: string; desc: string; emoji: string }> = [
+  { key: "dirigeant", label: "Dirigeant·e", desc: "Décisions stratégiques, contrats, risques.", emoji: "👔" },
+  { key: "rh", label: "RH / Paie", desc: "Embauches, contrats, procédures disciplinaires.", emoji: "👥" },
+  { key: "juriste", label: "Juriste interne", desc: "Analyse de risques, contentieux, conformité.", emoji: "⚖️" },
+  { key: "expert_comptable", label: "Expert-comptable", desc: "Multi-clients, paie, social.", emoji: "📊" },
+  { key: "manager_multi_sites", label: "Manager multi-sites", desc: "Gestion d'équipes distribuées.", emoji: "🏢" },
+];
+
 function OnboardingPage() {
   const navigate = useNavigate();
   const { session, profile, loading, refreshProfile } = useAuth();
@@ -47,6 +57,7 @@ function OnboardingPage() {
   }, [loading, session, profile, navigate]);
 
   // Form state
+  const [profileKind, setProfileKind] = useState<ProfileKind | "">("");
   const [fullName, setFullName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [phone, setPhone] = useState("");
@@ -60,15 +71,19 @@ function OnboardingPage() {
   }, [profile, fullName]);
 
   const next = () => {
-    if (step === 0 && !fullName.trim()) {
+    if (step === 0 && !profileKind) {
+      toast.error("Choisissez votre profil");
+      return;
+    }
+    if (step === 1 && !fullName.trim()) {
       toast.error("Renseignez votre nom");
       return;
     }
-    if (step === 1 && !companyName.trim()) {
+    if (step === 2 && !companyName.trim()) {
       toast.error("Renseignez le nom de votre entreprise");
       return;
     }
-    setStep((s) => Math.min(s + 1, 2));
+    setStep((s) => Math.min(s + 1, 3));
   };
 
   const back = () => setStep((s) => Math.max(s - 1, 0));
@@ -85,6 +100,7 @@ function OnboardingPage() {
           siret: siret.trim() || null,
           sector: sector || null,
           idcc: idcc.trim() || null,
+          profileKind: (profileKind || null) as ProfileKind | null,
         },
       });
       await refreshProfile();
@@ -117,7 +133,7 @@ function OnboardingPage() {
         <div className="glass-panel rounded-3xl p-8 shadow-[var(--shadow-elevated)]">
           {/* Stepper */}
           <div className="flex items-center justify-center gap-3">
-            {[0, 1, 2].map((i) => (
+            {[0, 1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-3">
                 <div
                   className={cn(
@@ -131,7 +147,7 @@ function OnboardingPage() {
                 >
                   {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
                 </div>
-                {i < 2 && (
+                {i < 3 && (
                   <div
                     className={cn(
                       "h-px w-10 transition",
@@ -146,6 +162,38 @@ function OnboardingPage() {
           {/* Step content */}
           <div className="mt-8">
             {step === 0 && (
+              <StepBlock
+                title="Quel est votre profil ?"
+                subtitle="Pour adapter l'interface, les modèles et les procédures à vos besoins."
+              >
+                <div className="grid gap-2.5">
+                  {PROFILE_KINDS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setProfileKind(p.key)}
+                      className={cn(
+                        "flex items-start gap-3 rounded-2xl border p-3.5 text-left transition",
+                        profileKind === p.key
+                          ? "border-accent bg-accent-soft shadow-[var(--shadow-glow)]"
+                          : "border-border bg-background hover:border-accent/40",
+                      )}
+                    >
+                      <span className="text-[22px] leading-none">{p.emoji}</span>
+                      <span className="flex-1">
+                        <span className="block text-[14px] font-semibold text-foreground">
+                          {p.label}
+                        </span>
+                        <span className="block text-[12px] text-muted-foreground">{p.desc}</span>
+                      </span>
+                      {profileKind === p.key && <Check className="h-4 w-4 text-accent" />}
+                    </button>
+                  ))}
+                </div>
+              </StepBlock>
+            )}
+
+            {step === 1 && (
               <StepBlock title="Faisons connaissance" subtitle="Quelques infos sur vous.">
                 <div className="space-y-4">
                   <Field label="Nom complet" required value={fullName} onChange={setFullName} />
@@ -165,7 +213,7 @@ function OnboardingPage() {
               </StepBlock>
             )}
 
-            {step === 1 && (
+            {step === 2 && (
               <StepBlock title="Votre entreprise" subtitle="Pour personnaliser vos réponses.">
                 <div className="space-y-4">
                   <Field
@@ -201,7 +249,7 @@ function OnboardingPage() {
               </StepBlock>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <StepBlock
                 title="Convention collective"
                 subtitle="Pour des réponses adaptées à votre secteur. Vous pourrez la modifier plus tard."
@@ -244,7 +292,7 @@ function OnboardingPage() {
               Précédent
             </button>
 
-            {step < 2 ? (
+            {step < 3 ? (
               <button
                 type="button"
                 onClick={next}

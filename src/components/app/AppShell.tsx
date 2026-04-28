@@ -19,6 +19,8 @@ import {
   X,
   Activity,
   ShieldCheck,
+  Workflow,
+  Library,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -32,6 +34,8 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/chat", label: "Assistant IA", icon: MessageSquare },
   { to: "/agent", label: "Agent IA", icon: Sparkles },
+  { to: "/workflows", label: "Procédures", icon: Workflow },
+  { to: "/templates", label: "Modèles", icon: Library },
   { to: "/scan", label: "OCR & scan", icon: ScanLine },
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/analyses", label: "Analyses", icon: ScanSearch },
