@@ -26,6 +26,17 @@ type StepDef = {
   delay_days?: number;
 };
 
+type StepDef = {
+  key: string;
+  title: string;
+  description?: string;
+  type?: string;
+  kind?: string;
+  template_slug?: string;
+  legal_refs?: string[];
+  delay_days?: number;
+};
+
 type StepRun = {
   id: string;
   step_index: number;
@@ -33,6 +44,15 @@ type StepRun = {
   status: string;
   notes: string | null;
   executed_at: string | null;
+  generated_document_id?: string | null;
+};
+
+type TemplateVar = {
+  key: string;
+  label: string;
+  type?: "text" | "date" | "number" | "select" | "textarea";
+  required?: boolean;
+  options?: string[];
 };
 
 function WorkflowDetailPage() {
@@ -40,6 +60,8 @@ function WorkflowDetailPage() {
   const navigate = useNavigate();
   const get = useServerFn(getWorkflowInstance);
   const complete = useServerFn(completeWorkflowStep);
+  const genDoc = useServerFn(generateDocFromWorkflowStep);
+  const fetchTpl = useServerFn(getTemplateBySlug);
 
   const [data, setData] = useState<{ instance: any; runs: StepRun[] } | null>(null);
   const [loading, setLoading] = useState(true);
