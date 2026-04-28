@@ -6,12 +6,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { logEvent } from "../_shared/rag.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
+import { corsHeadersFor } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

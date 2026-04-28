@@ -10,12 +10,7 @@ import { sanitizeQuery, mmrRerank, logEvent } from "../_shared/rag.ts";
 import { PROMPTS_BY_MODE, type RagMode } from "../_shared/rag-prompts.ts";
 import { validateAnswerCitations } from "../_shared/citation-validator.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+import { corsHeadersFor } from "../_shared/cors.ts";
 const EMBED_MODEL = "openai/text-embedding-3-small";
 const CHAT_MODEL = "google/gemini-3-flash-preview";
 
@@ -48,6 +43,7 @@ function parseEmbedding(e: ChunkResult["embedding"]): number[] | undefined {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
