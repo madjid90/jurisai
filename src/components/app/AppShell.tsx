@@ -20,6 +20,7 @@ import {
   Activity,
   ShieldCheck,
   Workflow,
+  ScrollText,
   Library,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
