@@ -262,6 +262,48 @@ function DocumentsIndex() {
         )}
       </section>
 
+      {/* Public template library (CDTN) */}
+      {filteredPublic.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-[16px] font-semibold text-foreground">Bibliothèque publique</h2>
+              <p className="text-[12px] text-muted-foreground">
+                Modèles issus de sources officielles (Code du travail numérique). À adapter avant envoi.
+              </p>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              {filteredPublic.length} modèle{filteredPublic.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredPublic.slice(0, 24).map((p) => (
+              <article key={p.id} className="flex h-full flex-col gap-2 rounded-2xl border border-border bg-background p-4 shadow-sm">
+                <div className="flex items-start gap-2">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                  <h3 className="text-[13.5px] font-semibold text-foreground">{p.title}</h3>
+                </div>
+                {p.description && (
+                  <p className="line-clamp-3 text-[12.5px] text-muted-foreground">{p.description}</p>
+                )}
+                <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {p.category}
+                  </span>
+                  <button
+                    onClick={() => void onUsePublic(p)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-secondary px-3 text-[12px] font-medium text-foreground transition hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Utiliser
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Recent docs */}
       <section className="space-y-3">
         <h2 className="text-[16px] font-semibold text-foreground">Mes documents récents</h2>
