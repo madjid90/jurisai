@@ -3,9 +3,22 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://yuvysjsyumxpekzvlzsx.supabase.co";
+// Browser uses VITE_* (replaced at build time). Server uses process.env (read at runtime).
+// We resolve lazily so missing server env throws at first use, not at module load.
+const SUPABASE_URL =
+  (typeof window !== "undefined"
+    ? import.meta.env.VITE_SUPABASE_URL
+    : process.env.SUPABASE_URL) ?? "";
 const SUPABASE_PUBLISHABLE_KEY =
-  process.env.SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_TYnoA8I5fLvsIfth34kcUg_WEzx2SsB";
+  (typeof window !== "undefined"
+    ? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    : process.env.SUPABASE_PUBLISHABLE_KEY) ?? "";
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    "[auth-middleware] Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY env var",
+  );
+}
 
 /**
  * Server function middleware that:

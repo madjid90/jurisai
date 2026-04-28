@@ -20,6 +20,7 @@ import {
   Activity,
   ShieldCheck,
   Workflow,
+  ScrollText,
   Library,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
@@ -195,6 +196,12 @@ function Sidebar() {
               icon={Activity}
               to="/admin/rag-quality"
               active={currentPath === "/admin/rag-quality"}
+            />
+            <NavItem
+              label="Audit"
+              icon={ScrollText}
+              to="/admin/audit"
+              active={currentPath === "/admin/audit"}
             />
           </nav>
         </>
