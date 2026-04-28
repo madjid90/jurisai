@@ -11,12 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { embedTexts, chunkText } from "../_shared/embeddings.ts";
 import { smartChunk } from "../_shared/smart-chunk.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+import { corsHeadersFor } from "../_shared/cors.ts";
 function stripHtml(html: string): string {
   return html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
@@ -36,6 +31,7 @@ function stripHtml(html: string): string {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

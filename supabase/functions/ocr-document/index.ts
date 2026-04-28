@@ -5,12 +5,7 @@
 // 3. Persist result in document_analyses
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
+import { corsHeadersFor } from "../_shared/cors.ts";
 const VISION_MODEL = "google/gemini-3-flash-preview";
 
 const OCR_PROMPT = `Tu es un OCR juridique. Pour ce document :
@@ -20,6 +15,7 @@ const OCR_PROMPT = `Tu es un OCR juridique. Pour ce document :
 Format Markdown propre, pas de commentaire superflu.`;
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

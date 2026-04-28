@@ -165,8 +165,5 @@ export async function ingestSource(
   return { source_id: sourceId, chunks: rows.length };
 }
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// CORS helpers — re-exported from _shared/cors.ts (allowlist-based).
+export { corsHeaders, corsHeadersFor } from "./cors.ts";

@@ -4,7 +4,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
-  corsHeaders,
+  corsHeadersFor,
   finishJob,
   getAdminClient,
   logError,
@@ -26,6 +26,7 @@ interface GhEntry {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

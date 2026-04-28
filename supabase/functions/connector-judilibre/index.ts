@@ -14,7 +14,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
-  corsHeaders,
+  corsHeadersFor,
   finishJob,
   getAdminClient,
   getLovableApiKey,
@@ -77,6 +77,7 @@ async function judilibreGet<T>(path: string, params: Record<string, string>): Pr
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
