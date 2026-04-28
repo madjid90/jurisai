@@ -13,6 +13,10 @@ const completeOnboardingSchema = z.object({
   siret: z.string().max(20).optional().nullable(),
   sector: z.string().max(120).optional().nullable(),
   idcc: z.string().max(20).optional().nullable(),
+  profileKind: z
+    .enum(["dirigeant", "rh", "juriste", "expert_comptable", "manager_multi_sites"])
+    .optional()
+    .nullable(),
 });
 
 function slugify(input: string): string {
@@ -89,6 +93,7 @@ export const completeOnboarding = createServerFn({ method: "POST" })
         full_name: data.fullName,
         job_title: data.jobTitle ?? null,
         phone: data.phone ?? null,
+        profile_kind: data.profileKind ?? null,
         onboarded: true,
         email: userEmail ?? "",
       })
