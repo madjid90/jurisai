@@ -292,7 +292,7 @@ function OnboardingPage() {
               Précédent
             </button>
 
-            {step < 2 ? (
+            {step < 3 ? (
               <button
                 type="button"
                 onClick={next}
