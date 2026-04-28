@@ -193,7 +193,7 @@ function LegalSourcesAdminPage() {
                     onToggle={(active) =>
                       toggleMut.mutate({ id: s.id, is_active: active })
                     }
-                    onDelete={() => {
+                    onDelete={async () => {
                       if (await confirmAsync(`Supprimer définitivement « ${s.title} » ?`)) {
                         deleteMut.mutate(s.id);
                       }
