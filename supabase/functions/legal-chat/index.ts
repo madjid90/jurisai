@@ -156,53 +156,117 @@ Deno.serve(async (req) => {
     }
 
     // 8. RAG: embed the (sanitized) question + hybrid_search + MMR re-rank
+    // S2 — embedding cache: hash sanitized query, look up cached vector first.
     let chunks: ChunkResult[] = [];
     const tEmbStart = Date.now();
     let embedMs = 0;
     let searchMs = 0;
+    let cacheHit = false;
+    let embedding: number[] = [];
+
+    // Compute SHA-256 hash of the sanitized query (lowercased, trimmed).
+    const normalized = safeQuery.toLowerCase().trim();
+    const hashBuf = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(normalized),
+    );
+    const queryHash = Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
     try {
-      const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ model: EMBED_MODEL, input: [safeQuery] }),
-      });
-      embedMs = Date.now() - tEmbStart;
-      if (embRes.ok) {
-        const embJson = await embRes.json();
-        const embedding: number[] = embJson.data?.[0]?.embedding ?? [];
-        if (embedding.length > 0) {
-          const tSearch = Date.now();
-          // Over-fetch (16) then MMR-rerank to 8 for diversity.
-          const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
-            query_embedding: embedding as unknown as string,
-            query_text: safeQuery,
-            match_count: 16,
-            idcc_filter: idccFilter,
-          });
-          searchMs = Date.now() - tSearch;
-          if (searchErr) console.error("hybrid_search error:", searchErr);
-          const raw = (results ?? []) as ChunkResult[];
-          // hybrid_search now returns embeddings → MMR can truly diversify.
-          chunks = mmrRerank(
-            raw.map((c) => ({
-              ...c,
-              score: c.score ?? 0,
-              embedding: parseEmbedding(c.embedding),
-            })),
-            8,
-            0.7,
-          );
+      // Cache lookup
+      const { data: cached } = await supabaseAdmin
+        .from("embedding_cache")
+        .select("embedding")
+        .eq("query_hash", queryHash)
+        .maybeSingle();
+      if (cached?.embedding) {
+        const parsed = parseEmbedding(cached.embedding as never);
+        if (parsed && parsed.length > 0) {
+          embedding = parsed;
+          cacheHit = true;
+          embedMs = Date.now() - tEmbStart;
+          // Bump hit counter (fire & forget)
+          void supabaseAdmin
+            .from("embedding_cache")
+            .update({ hit_count: 1, last_hit_at: new Date().toISOString() })
+            .eq("query_hash", queryHash);
         }
-      } else {
-        console.error("Embedding failed:", await embRes.text());
+      }
+
+      if (!cacheHit) {
+        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: EMBED_MODEL, input: [safeQuery] }),
+        });
+        embedMs = Date.now() - tEmbStart;
+        if (embRes.ok) {
+          const embJson = await embRes.json();
+          embedding = embJson.data?.[0]?.embedding ?? [];
+          // Persist in cache (ignore conflicts)
+          if (embedding.length > 0) {
+            void supabaseAdmin
+              .from("embedding_cache")
+              .insert({
+                query_hash: queryHash,
+                embedding: embedding as unknown as string,
+              });
+          }
+        } else {
+          console.error("Embedding failed:", await embRes.text());
+        }
+      }
+
+      if (embedding.length > 0) {
+        const tSearch = Date.now();
+        // Over-fetch (16) then MMR-rerank to 8 for diversity.
+        const { data: results, error: searchErr } = await supabaseAdmin.rpc("hybrid_search", {
+          query_embedding: embedding as unknown as string,
+          query_text: safeQuery,
+          match_count: 16,
+          idcc_filter: idccFilter,
+        });
+        searchMs = Date.now() - tSearch;
+        if (searchErr) console.error("hybrid_search error:", searchErr);
+        const raw = (results ?? []) as ChunkResult[];
+        // hybrid_search now returns embeddings → MMR can truly diversify.
+        chunks = mmrRerank(
+          raw.map((c) => ({
+            ...c,
+            score: c.score ?? 0,
+            embedding: parseEmbedding(c.embedding),
+          })),
+          8,
+          0.7,
+        );
       }
     } catch (e) {
       console.error("RAG retrieval failed:", e);
       // Continue without RAG context — degrade gracefully
     }
+
+    // S2 — Trust score: agrégation simple basée sur les sources retrouvées.
+    // - Plus de sources distinctes = plus fiable
+    // - Top score élevé = forte pertinence
+    // - Au moins 1 source de niveau autorité haute = bonus
+    const distinctSources = new Set(chunks.map((c) => c.source_id)).size;
+    const topScore = chunks[0]?.score ?? 0;
+    const trustScore = Math.min(
+      1,
+      Math.max(
+        0,
+        chunks.length === 0
+          ? 0
+          : 0.4 * Math.min(1, distinctSources / 3) +
+              0.4 * Math.min(1, topScore / 0.05) +
+              0.2 * Math.min(1, chunks.length / 8),
+      ),
+    );
 
     logEvent("rag.retrieve", {
       user_id: userId,
@@ -213,6 +277,9 @@ Deno.serve(async (req) => {
       search_ms: searchMs,
       chunks_count: chunks.length,
       query_len: safeQuery.length,
+      cache_hit: cacheHit,
+      trust_score: Number(trustScore.toFixed(3)),
+      distinct_sources: distinctSources,
     });
 
     // 9. Build system prompt with sources (mode-aware)
@@ -295,10 +362,21 @@ Deno.serve(async (req) => {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        // Prelude with sources (custom event)
+        // Prelude with sources + trust score (custom events)
         controller.enqueue(
           encoder.encode(`event: sources\ndata: ${JSON.stringify(sourcesPayload)}\n\n`),
         );
+        controller.enqueue(
+          encoder.encode(
+            `event: trust\ndata: ${JSON.stringify({
+              score: Number(trustScore.toFixed(3)),
+              distinct_sources: distinctSources,
+              chunks: chunks.length,
+              cache_hit: cacheHit,
+            })}\n\n`,
+          ),
+        );
+
 
         const reader = aiResponse.body!.getReader();
         const decoder = new TextDecoder();
