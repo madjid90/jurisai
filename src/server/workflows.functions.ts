@@ -35,11 +35,7 @@ export const listWorkflowDefinitions = createServerFn({ method: "GET" })
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
       .order("title", { ascending: true });
     if (error) throw new Error(error.message);
-    return (data ?? []) as Array<{
-      id: string; slug: string; title: string; description: string | null;
-      category: string; status: string; version: number; steps: WorkflowStep[];
-      legal_refs: unknown; estimated_duration_days: number | null; tenant_id: string | null;
-    }>;
+    return (data ?? []) as any[];
   });
 
 // ─── List active instances for tenant ──────────────────────────────────────
