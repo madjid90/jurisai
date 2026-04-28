@@ -362,10 +362,21 @@ Deno.serve(async (req) => {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
-        // Prelude with sources (custom event)
+        // Prelude with sources + trust score (custom events)
         controller.enqueue(
           encoder.encode(`event: sources\ndata: ${JSON.stringify(sourcesPayload)}\n\n`),
         );
+        controller.enqueue(
+          encoder.encode(
+            `event: trust\ndata: ${JSON.stringify({
+              score: Number(trustScore.toFixed(3)),
+              distinct_sources: distinctSources,
+              chunks: chunks.length,
+              cache_hit: cacheHit,
+            })}\n\n`,
+          ),
+        );
+
 
         const reader = aiResponse.body!.getReader();
         const decoder = new TextDecoder();
