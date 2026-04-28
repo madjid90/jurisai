@@ -29,6 +29,22 @@ interface ChunkResult {
   reference_code: string | null;
   official_url: string | null;
   score: number;
+  embedding?: number[] | string | null;
+}
+
+function parseEmbedding(e: ChunkResult["embedding"]): number[] | undefined {
+  if (!e) return undefined;
+  if (Array.isArray(e)) return e as number[];
+  if (typeof e === "string") {
+    // Postgres vector text repr: "[0.1,0.2,...]"
+    try {
+      const arr = JSON.parse(e);
+      return Array.isArray(arr) ? (arr as number[]) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 Deno.serve(async (req) => {
