@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useEffect, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -65,6 +66,7 @@ const CATEGORIES = [
 ];
 
 function DossierDetailPage() {
+  const confirmAsync = useConfirm();
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const getFn = useServerFn(getDossier);
@@ -151,7 +153,7 @@ function DossierDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Supprimer ce dossier et toutes ses échéances ?")) return;
+    if (!(await confirmAsync("Supprimer ce dossier et toutes ses échéances ?"))) return;
     try {
       await deleteFn({ data: { id } });
       toast.success("Dossier supprimé");

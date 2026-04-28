@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, MessageCircle, ListTodo, Trash2, Plus, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +67,7 @@ function TabButton({ active, onClick, icon: Icon, label }: {
 // ─── COMMENTS ───────────────────────────────────────────────────────────────
 
 function CommentsTab({ dossierId }: { dossierId: string }) {
+  const confirmAsync = useConfirm();
   const listFn = useServerFn(listComments);
   const addFn = useServerFn(addComment);
   const delFn = useServerFn(deleteComment);
@@ -99,7 +101,7 @@ function CommentsTab({ dossierId }: { dossierId: string }) {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Supprimer ce commentaire ?")) return;
+    if (!(await confirmAsync("Supprimer ce commentaire ?"))) return;
     try { await delFn({ data: { commentId: id } }); await refresh(); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
   };
@@ -172,6 +174,7 @@ function Avatar({ member }: { member: Member | null }) {
 // ─── TASKS ──────────────────────────────────────────────────────────────────
 
 function TasksTab({ dossierId }: { dossierId: string }) {
+  const confirmAsync = useConfirm();
   const listFn = useServerFn(listTasks);
   const createFn = useServerFn(createTask);
   const updateFn = useServerFn(updateTask);
@@ -202,7 +205,7 @@ function TasksTab({ dossierId }: { dossierId: string }) {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Supprimer cette tâche ?")) return;
+    if (!(await confirmAsync("Supprimer cette tâche ?"))) return;
     try { await deleteFn({ data: { taskId: id } }); await refresh(); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
   };

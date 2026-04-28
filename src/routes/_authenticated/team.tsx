@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useEffect, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -62,6 +63,7 @@ const ROLE_ICONS: Record<AppRole, typeof Crown> = {
 };
 
 function TeamPage() {
+  const confirmAsync = useConfirm();
   const { profile, user } = useAuth();
   const sendFn = useServerFn(sendInvitation);
   const revokeFn = useServerFn(revokeInvitation);
@@ -149,7 +151,7 @@ function TeamPage() {
   };
 
   const handleRevoke = async (id: string) => {
-    if (!confirm("Révoquer cette invitation ?")) return;
+    if (!(await confirmAsync("Révoquer cette invitation ?"))) return;
     try {
       await revokeFn({ data: { invitationId: id } });
       toast.success("Invitation révoquée");
@@ -162,7 +164,7 @@ function TeamPage() {
   };
 
   const handleRemove = async (member: Member) => {
-    if (!confirm(`Retirer ${member.full_name ?? member.email} de l'équipe ?`)) return;
+    if (!(await confirmAsync(`Retirer ${member.full_name ?? member.email} de l'équipe ?`))) return;
     try {
       await removeFn({ data: { memberId: member.id } });
       toast.success("Membre retiré");

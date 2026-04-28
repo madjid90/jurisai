@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Plug, Loader2, Plus, Trash2, Copy, KeyRound, Webhook, Calendar, MessageSquare, RefreshCw, Send,
@@ -18,6 +19,7 @@ const EVENT_OPTIONS = [
 ] as const;
 
 export function IntegrationsPanel() {
+  const confirmAsync = useConfirm();
   const getIntFn = useServerFn(getIntegrations);
   const updateIntFn = useServerFn(updateIntegrations);
   const rotateTokenFn = useServerFn(rotateCalendarToken);
@@ -61,7 +63,7 @@ export function IntegrationsPanel() {
   };
 
   const rotateToken = async () => {
-    if (!confirm("Régénérer le lien iCal ? L'ancien sera invalidé.")) return;
+    if (!(await confirmAsync("Régénérer le lien iCal ? L'ancien sera invalidé."))) return;
     try {
       const res = await rotateTokenFn();
       setInteg((p) => p ? { ...p, calendar_token: res.calendar_token } : p);
@@ -165,6 +167,7 @@ export function IntegrationsPanel() {
 // ─── API KEYS ──────────────────────────────────────────────────────────────
 
 function ApiKeysSection() {
+  const confirmAsync = useConfirm();
   const listFn = useServerFn(listApiKeys);
   const createFn = useServerFn(createApiKey);
   const revokeFn = useServerFn(revokeApiKey);
@@ -198,7 +201,7 @@ function ApiKeysSection() {
   };
 
   const revoke = async (id: string) => {
-    if (!confirm("Révoquer cette clé ? Les appels en cours échoueront.")) return;
+    if (!(await confirmAsync("Révoquer cette clé ? Les appels en cours échoueront."))) return;
     try { await revokeFn({ data: { id } }); void refresh(); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
   };
@@ -295,6 +298,7 @@ function ApiKeysSection() {
 // ─── WEBHOOKS ──────────────────────────────────────────────────────────────
 
 function WebhooksSection() {
+  const confirmAsync = useConfirm();
   const listFn = useServerFn(listWebhooks);
   const createFn = useServerFn(createWebhook);
   const toggleFn = useServerFn(toggleWebhook);
@@ -335,7 +339,7 @@ function WebhooksSection() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Supprimer ce webhook ?")) return;
+    if (!(await confirmAsync("Supprimer ce webhook ?"))) return;
     try { await delFn({ data: { id } }); void refresh(); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
   };
