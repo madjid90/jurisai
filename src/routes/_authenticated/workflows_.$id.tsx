@@ -301,9 +301,29 @@ function WorkflowDetailPage() {
                         {run.notes}
                       </div>
                     )}
+                    {run?.generated_document_id && (
+                      <a
+                        href={`/documents/${run.generated_document_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-accent hover:underline"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Ouvrir le document généré
+                      </a>
+                    )}
 
                     {isCurrent && (
                       <div className="mt-4 space-y-3 border-t border-border pt-4">
+                        {s.kind === "generate_doc" && s.template_slug && (
+                          <button
+                            type="button"
+                            onClick={() => void openDocModal(s, idx)}
+                            className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-br from-primary to-accent px-4 text-[12.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            Générer le document
+                          </button>
+                        )}
                         <textarea
                           value={notes}
                           onChange={(e) => setNotes(e.target.value)}
@@ -315,10 +335,10 @@ function WorkflowDetailPage() {
                           type="button"
                           onClick={handleComplete}
                           disabled={advancing}
-                          className="inline-flex h-9 items-center gap-2 rounded-xl bg-gradient-to-br from-primary to-accent px-4 text-[12.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95 disabled:opacity-60"
+                          className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-secondary px-4 text-[12.5px] font-semibold text-foreground transition hover:bg-secondary/70 disabled:opacity-60"
                         >
                           {advancing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                          Valider l'étape
+                          {s.kind === "generate_doc" ? "Marquer faite (sans générer)" : "Valider l'étape"}
                         </button>
                       </div>
                     )}
