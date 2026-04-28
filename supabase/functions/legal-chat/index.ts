@@ -383,6 +383,19 @@ Deno.serve(async (req) => {
               },
             });
 
+            // Validate citation coverage of the final answer
+            const validation = validateAnswerCitations(assistantContent, chunks.length);
+            if (validation.should_warn) {
+              logEvent("rag.citation_warning", {
+                user_id: userId,
+                tenant_id: convo.tenant_id,
+                conversation_id: conversationId,
+                coverage: validation.citation_coverage_score,
+                invalid_citations: validation.invalid_citations,
+                unsupported_count: validation.unsupported_claims.length,
+              });
+            }
+
             logEvent("rag.complete", {
               user_id: userId,
               tenant_id: convo.tenant_id,
@@ -391,6 +404,8 @@ Deno.serve(async (req) => {
               answer_len: assistantContent.length,
               chunks_used: chunks.length,
               citations: [...new Set([...assistantContent.matchAll(/\[source:(\d+)\]/g)].map(m => m[1]))].length,
+              citation_coverage: validation.citation_coverage_score,
+              rag_mode: ragMode,
             });
           }
         }
