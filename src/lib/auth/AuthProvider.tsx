@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
     setValidatedAccessToken(nextSession?.access_token ?? null);
+    validatedUserIdRef.current = nextSession?.user?.id ?? null;
     invalidateAccessCache();
     if (nextSession?.user) {
       setTimeout(() => {
@@ -52,6 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 1. Subscribe FIRST (per Supabase guidance)
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       const nextUserId = newSession?.user?.id ?? null;
+
+      if (newSession?.access_token) {
+        setValidatedAccessToken(newSession.access_token);
+      }
 
       if (!nextUserId) {
         validatedUserIdRef.current = null;
