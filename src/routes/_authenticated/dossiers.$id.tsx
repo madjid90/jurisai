@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { DossierCollab } from "@/components/app/DossierCollab";
+import { Dossier360Tabs } from "@/components/app/Dossier360Tabs";
 import { cn } from "@/lib/utils";
 import {
   createDeadline,
@@ -418,6 +419,10 @@ function DossierDetailPage() {
             </MetaItem>
           </aside>
         </div>
+      </div>
+
+      <div className="px-1">
+        <Dossier360Tabs dossierId={id} />
       </div>
 
       {showDeadlineForm && (
