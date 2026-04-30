@@ -302,7 +302,7 @@ function MemberRow({
   canRemove: boolean;
   onRemove: () => void;
 }) {
-  const RoleIcon = ROLE_ICONS[member.role];
+  const RoleIcon = roleIcon(member.role);
   const initials =
     (member.full_name ?? member.email)
       .split(" ")
@@ -334,13 +334,11 @@ function MemberRow({
       <div
         className={cn(
           "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11.5px] font-semibold",
-          member.role === "admin" && "bg-primary/10 text-primary",
-          member.role === "manager" && "bg-accent/10 text-accent",
-          member.role === "user" && "bg-secondary text-foreground/70",
+          roleToneClass(member.role),
         )}
       >
         <RoleIcon className="h-3 w-3" />
-        {ROLE_LABELS[member.role]}
+        {roleLabel(member.role)}
       </div>
       {canRemove && (
         <button
