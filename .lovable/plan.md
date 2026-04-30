@@ -13,16 +13,17 @@
 
 ---
 
-## Priorité 1 — Agent central (cœur produit)
+## Priorité 1 — Agent central ✅ (livré)
 
 **Objectif** : transformer l'agent en routeur d'intentions structuré.
 
-- [ ] **Schéma de sortie agent** : `{intent, domain, topic, confidence, requires_rag, requires_document_upload, requires_form, suggested_actions[], missing_information[]}` (cf. spec §3.4)
-- [ ] **Détecteur d'intentions** (11 intentions) et **détecteur de domaines** (9 domaines) — prompt + validateur Zod
-- [ ] **Routeur d'outils** (table `agent_tool_runs`) : RAG, OCR, génération doc, workflow, dossier, rappel, notification, rapport
-- [ ] **Mémoire dossier** : injection automatique du contexte du dossier actif dans le prompt
-- [ ] **Garde-fous** : actions sensibles → création auto d'une `validation_requests` ; jamais d'exécution autonome
-- [ ] **Migrer `legal-agent` edge function vers `createServerFn`** (Core rule)
+- [x] **Schéma de sortie agent** structuré (`intent`, `domain`, `topic`, `confidence`, `requires_rag/upload/form/validation`, `suggested_actions[]`, `missing_information[]`, `refused`, `refusal_reason`)
+- [x] **Détecteur d'intentions** (11 intentions) + **détecteur de domaines** (9 domaines) via classification IA JSON stricte
+- [x] **Tables `agent_runs` + `agent_tool_runs`** : trace exhaustive (input, classification, outils, sensibilité, durée, succès)
+- [x] **Mémoire dossier** : injection auto du `dossier_id` dans le préambule + outil `dossier_context`
+- [x] **Garde-fous** : `SENSITIVE_DOC_TYPES` (licenciement, MED, transaction, contentieux, dépôt) → `validation_requests` créée auto + jamais d'exécution autonome
+- [x] **`legal-agent` edge function migrée vers `createServerFn`** — edge function supprimée
+- [x] **UI `/agent`** : intent/domain/topic, flags structurels, refus motivés, actions suggérées, infos manquantes, trace outils, sources
 
 ## Priorité 2 — Dossiers + historique métier
 
