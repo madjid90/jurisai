@@ -739,16 +739,16 @@ async function toolLogTimeline(args: Record<string, unknown>, ctx: AgentContext)
   return { ok: true };
 }
 
-async function logEvent(ctx: AgentContext, dossier_id: string, event_type: string, summary: string, payload: Record<string, unknown> = {}) {
+async function logEvent(ctx: AgentContext, dossier_id: string, event_type: string, title: string, metadata: Record<string, unknown> = {}) {
   try {
     await (ctx.supabase as any).from("case_timeline_events").insert({
       tenant_id: ctx.tenantId,
       dossier_id,
       actor_id: ctx.userId,
-      actor_type: "agent",
       event_type,
-      summary,
-      payload,
+      title,
+      description: null,
+      metadata: { ...metadata, source: "agent" },
     });
   } catch (e) {
     console.error("timeline log failed:", e);
