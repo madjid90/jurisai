@@ -21,6 +21,13 @@ import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 import {
+  CASE_STATUS_OPTIONS,
+  CASE_TYPE_OPTIONS,
+  STATUS_TONE_CLASS,
+  getCaseStatusMeta,
+  getCaseTypeMeta,
+} from "@/lib/dossiers/case-meta";
+import {
   createClient,
   createDeadline,
   createDossier,
@@ -469,15 +476,20 @@ function DossiersList({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="truncate text-[14px] font-semibold text-foreground">{d.title}</p>
-                <span className={cn("rounded-md px-2 py-0.5 text-[10.5px] font-semibold", STATUS_COLOR[d.status])}>
-                  {STATUS_LABEL[d.status]}
+                <span
+                  className={cn(
+                    "rounded-md border px-2 py-0.5 text-[10.5px] font-semibold",
+                    STATUS_TONE_CLASS[getCaseStatusMeta(d.status).tone],
+                  )}
+                >
+                  {getCaseStatusMeta(d.status).label}
                 </span>
                 <span className={cn("rounded-md px-2 py-0.5 text-[10.5px] font-semibold", RISK_COLOR[d.risk_level])}>
                   Risque {RISK_LABEL[d.risk_level]}
                 </span>
               </div>
               <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-                {d.client?.full_name ?? "Sans client"} · {CATEGORIES.find((c) => c.value === d.category)?.label ?? d.category}
+                {d.client?.full_name ?? "Sans client"} · {getCaseTypeMeta(d.category).label}
               </p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -767,9 +779,9 @@ function DossierFormModal({
           </select>
         </Field>
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Catégorie">
+          <Field label="Type">
             <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={inputCls}>
-              {CATEGORIES.map((c) => (
+              {CASE_TYPE_OPTIONS.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>
@@ -777,10 +789,12 @@ function DossierFormModal({
             </select>
           </Field>
           <Field label="Statut">
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as DossierRow["status"] })} className={inputCls}>
-              <option value="open">Ouvert</option>
-              <option value="in_progress">En cours</option>
-              <option value="closed">Clôturé</option>
+            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputCls}>
+              {CASE_STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Risque">
