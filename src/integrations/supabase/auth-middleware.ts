@@ -29,19 +29,18 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
  */
 export const requireSupabaseAuth = createMiddleware({ type: "function" })
   .client(async ({ next }) => {
-    // Forward the user's access token to the server
+    // Forward the user's access token to the server.
+    // IMPORTANT: use supabase.auth.getSession() — it auto-refreshes the token
+    // when expired. Reading the raw localStorage entry would send a stale JWT
+    // and trigger "UNAUTHORIZED: invalid token" on every server function call.
     let token: string | null = null;
     if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem(
-        `sb-${new URL(SUPABASE_URL).hostname.split(".")[0]}-auth-token`,
-      );
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as { access_token?: string };
-          token = parsed.access_token ?? null;
-        } catch {
-          token = null;
-        }
+      try {
+        const { supabase } = await import("./client");
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token ?? null;
+      } catch {
+        token = null;
       }
     }
     return next({
