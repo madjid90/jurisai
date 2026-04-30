@@ -26,6 +26,19 @@ type Template = {
   variables: unknown;
   icon: string | null;
   is_public: boolean;
+  body?: string;
+  requires_upload?: boolean;
+  upload_optional?: boolean;
+  requires_form?: boolean;
+  requires_rag?: boolean;
+  requires_validation?: boolean;
+  archive_to_case?: boolean;
+  can_create_reminder?: boolean;
+  reminder_days_default?: number | null;
+  output_formats?: string[];
+  prefill_sources?: string[];
+  guidance?: string | null;
+  validation_threshold?: "auto" | "always" | "never";
 };
 
 const RISK_STYLES: Record<string, string> = {
