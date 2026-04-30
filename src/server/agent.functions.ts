@@ -202,6 +202,16 @@ async function runTool(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AgentSuggestedAction = { kind: string; label: string; payload?: any };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AgentTraceItem = {
+  tool: string;
+  args: any;
+  sensitive: boolean;
+  succeeded: boolean;
+  validation_request_id: string | null;
+};
 export type AgentRunOutput = {
   run_id: string;
   intent: string;
@@ -212,19 +222,13 @@ export type AgentRunOutput = {
   requires_document_upload: boolean;
   requires_form: boolean;
   requires_validation: boolean;
-  suggested_actions: Array<{ kind: string; label: string; payload?: Record<string, unknown> }>;
+  suggested_actions: AgentSuggestedAction[];
   missing_information: string[];
   answer: string;
   refused: boolean;
   refusal_reason: string | null;
   sources: Array<{ n: number; title: string; ref: string | null; url: string | null }>;
-  trace: Array<{
-    tool: string;
-    args: unknown;
-    sensitive: boolean;
-    succeeded: boolean;
-    validation_request_id: string | null;
-  }>;
+  trace: AgentTraceItem[];
 };
 
 export const runLegalAgent = createServerFn({ method: "POST" })
