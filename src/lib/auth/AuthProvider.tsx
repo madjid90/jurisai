@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/database.types";
@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const validatedUserIdRef = useRef<string | null>(null);
 
   const applyAuthState = (nextSession: Session | null) => {
     setSession(nextSession);
@@ -47,9 +48,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 1. Subscribe FIRST (per Supabase guidance)
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      applyAuthState(newSession);
-      setLoading(false);
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const nextUserId = newSession?.user?.id ?? null;
+
+      if (!nextUserId) {
+        validatedUserIdRef.current = null;
+        applyAuthState(null);
+        setLoading(false);
+        return;
+      }
+
+      if (validatedUserIdRef.current === nextUserId) {
+        applyAuthState(newSession);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const {
+          data: { user: verifiedUser },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !verifiedUser || verifiedUser.id !== nextUserId) {
+          validatedUserIdRef.current = null;
+          applyAuthState(null);
+          setLoading(false);
+          return;
+        }
+
+        validatedUserIdRef.current = verifiedUser.id;
+        const {
+          data: { session: verifiedSession },
+        } = await supabase.auth.getSession();
+        applyAuthState(verifiedSession ?? newSession);
+      } catch {
+        validatedUserIdRef.current = null;
+        applyAuthState(null);
+      } finally {
+        setLoading(false);
+      }
     });
 
     // 2. Then check existing session
@@ -57,10 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .getUser()
       .then(async ({ data: { user: existingUser }, error }) => {
         if (error || !existingUser) {
+          validatedUserIdRef.current = null;
           applyAuthState(null);
           setLoading(false);
           return;
         }
+
+        validatedUserIdRef.current = existingUser.id;
 
         const {
           data: { session: existingSession },
@@ -69,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       })
       .catch(() => {
+        validatedUserIdRef.current = null;
         applyAuthState(null);
         setLoading(false);
       });
