@@ -113,14 +113,17 @@ export const listNotifications = createServerFn({ method: "GET" })
 
 export const markNotificationRead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ notificationId: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ notificationId: z.string().uuid().optional(), all: z.boolean().optional() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
-    const { error } = await (supabaseAdmin as any)
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("id", data.notificationId)
-      .eq("user_id", userId);
+    const now = new Date().toISOString();
+    let q = (supabaseAdmin as any).from("notifications").update({ read_at: now }).eq("user_id", userId);
+    if (data.notificationId) q = q.eq("id", data.notificationId);
+    else if (data.all) q = q.is("read_at", null);
+    else throw new Error("Provide notificationId or all=true");
+    const { error } = await q;
     if (error) throw new Error(error.message);
     return { ok: true };
   });

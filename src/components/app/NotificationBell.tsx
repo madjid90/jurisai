@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Bell, Check, CheckCheck, Loader2 } from "lucide-react";
-import { listNotifications, markNotificationRead } from "@/server/collaboration.functions";
+import { listNotifications, markNotificationRead } from "@/server/notifications.functions";
 import { cn } from "@/lib/utils";
 
 type Notif = {

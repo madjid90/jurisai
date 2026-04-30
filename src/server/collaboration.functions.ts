@@ -223,41 +223,7 @@ export const listTenantMembers = createServerFn({ method: "GET" })
     return (profs ?? []) as Array<{ id: string; full_name: string | null; email: string; avatar_url: string | null }>;
   });
 
-// ─── NOTIFICATIONS ─────────────────────────────────────────────────────────
-
-export const listNotifications = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { userId } = context as { userId: string };
-    const { data, error } = await supabaseAdmin
-      .from("notifications")
-      .select("id, kind, title, body, link, read_at, created_at, metadata")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) throw new Error(error.message);
-    return (data ?? []) as Array<{
-      id: string; kind: string; title: string; body: string | null; link: string | null;
-      read_at: string | null; created_at: string; metadata: Record<string, any>;
-    }>;
-  });
-
-export const markNotificationRead = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ notificationId: z.string().uuid().optional(), all: z.boolean().optional() }).parse(i),
-  )
-  .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const now = new Date().toISOString();
-    let q = (supabaseAdmin as any).from("notifications").update({ read_at: now }).eq("user_id", userId);
-    if (data.notificationId) q = q.eq("id", data.notificationId);
-    else if (data.all) q = q.is("read_at", null);
-    else throw new Error("Provide notificationId or all=true");
-    const { error } = await q;
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
+// ─── NOTIFICATIONS : déplacées vers src/server/notifications.functions.ts ──
 
 // ─── GLOBAL SEARCH ─────────────────────────────────────────────────────────
 
