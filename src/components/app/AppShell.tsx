@@ -183,54 +183,26 @@ function Sidebar() {
             Admin
           </div>
           <nav className="mt-2 flex flex-col gap-1">
-            <NavItem
-              label="Connecteurs data"
-              icon={Database}
-              to="/admin/connectors"
-              active={currentPath === "/admin/connectors"}
-            />
-            <NavItem
-              label="Sources légales"
-              icon={BookMarked}
-              to="/admin/legal-sources"
-              active={currentPath === "/admin/legal-sources"}
-            />
-            <NavItem
-              label="Tenants"
-              icon={Users}
-              to="/admin/tenants"
-              active={currentPath === "/admin/tenants"}
-            />
-            <NavItem
-              label="Usage"
-              icon={Sparkles}
-              to="/admin/usage"
-              active={currentPath === "/admin/usage"}
-            />
-            <NavItem
-              label="Qualité données"
-              icon={ShieldCheck}
-              to="/admin/data-quality"
-              active={currentPath === "/admin/data-quality"}
-            />
-            <NavItem
-              label="Évaluation RAG"
-              icon={Activity}
-              to="/admin/rag-quality"
-              active={currentPath === "/admin/rag-quality"}
-            />
-            <NavItem
-              label="Erreurs serveur"
-              icon={ServerCrash}
-              to="/admin/server-errors"
-              active={currentPath === "/admin/server-errors"}
-            />
-            <NavItem
-              label="Audit"
-              icon={ScrollText}
-              to="/admin/audit"
-              active={currentPath === "/admin/audit"}
-            />
+            {isSuperAdmin && (
+              <>
+                <NavItem label="Connecteurs data" icon={Database} to="/admin/connectors" active={currentPath === "/admin/connectors"} />
+                <NavItem label="Sources légales" icon={BookMarked} to="/admin/legal-sources" active={currentPath === "/admin/legal-sources"} />
+                <NavItem label="Tenants" icon={Users} to="/admin/tenants" active={currentPath === "/admin/tenants"} />
+                <NavItem label="Usage" icon={Sparkles} to="/admin/usage" active={currentPath === "/admin/usage"} />
+              </>
+            )}
+            {hasPermission(access, "data_quality.view") && (
+              <NavItem label="Qualité données" icon={ShieldCheck} to="/admin/data-quality" active={currentPath === "/admin/data-quality"} />
+            )}
+            {hasPermission(access, "rag_quality.view") && (
+              <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} />
+            )}
+            {hasPermission(access, "monitoring.view") && (
+              <NavItem label="Erreurs serveur" icon={ServerCrash} to="/admin/server-errors" active={currentPath === "/admin/server-errors"} />
+            )}
+            {hasPermission(access, "audit.view") && (
+              <NavItem label="Audit" icon={ScrollText} to="/admin/audit" active={currentPath === "/admin/audit"} />
+            )}
           </nav>
         </>
       )}
