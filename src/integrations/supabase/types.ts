@@ -556,6 +556,42 @@ export type Database = {
         }
         Relationships: []
       }
+      digest_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          frequency: string
+          id: string
+          items_count: number
+          metadata: Json
+          status: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          frequency: string
+          id?: string
+          items_count?: number
+          metadata?: Json
+          status?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          frequency?: string
+          id?: string
+          items_count?: number
+          metadata?: Json
+          status?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       document_analyses: {
         Row: {
           analysis: Json | null
@@ -3367,6 +3403,7 @@ export type Database = {
         | "cabinet_comptable_admin"
         | "collaborateur_cabinet"
         | "admin_tenant"
+        | "rh"
       plan_type: "starter" | "pro" | "business"
       template_status: "draft" | "review" | "validated" | "deprecated"
       user_profile_kind:
@@ -3516,6 +3553,7 @@ export const Constants = {
         "cabinet_comptable_admin",
         "collaborateur_cabinet",
         "admin_tenant",
+        "rh",
       ],
       plan_type: ["starter", "pro", "business"],
       template_status: ["draft", "review", "validated", "deprecated"],
