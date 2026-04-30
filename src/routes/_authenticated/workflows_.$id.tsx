@@ -165,6 +165,9 @@ function WorkflowDetailPage() {
     }
     setDocGenerating(true);
     try {
+      const selected = sources
+        .filter((s) => selectedSourceIds.has(s.chunk_id))
+        .map((s, i) => ({ ...s, n: i + 1 })); // renumérote pour citations consécutives
       const res = await genDoc({
         data: {
           instanceId: id,
@@ -173,9 +176,14 @@ function WorkflowDetailPage() {
           templateSlug: docModalStep.step.template_slug!,
           variables: docVarsValues,
           autoComplete: true,
+          legalSources: selected,
         },
       });
-      toast.success(res.completed ? "Document généré – procédure terminée 🎉" : "Document généré ✓");
+      toast.success(
+        res.completed
+          ? `Document généré (${selected.length} source${selected.length > 1 ? "s" : ""}) – procédure terminée 🎉`
+          : `Document généré ✓ ${selected.length ? `(${selected.length} source${selected.length > 1 ? "s" : ""})` : "sans source"}`,
+      );
       setDocModalOpen(false);
       setDocModalStep(null);
       await reload();
