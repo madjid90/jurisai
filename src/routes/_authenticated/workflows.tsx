@@ -292,7 +292,7 @@ function WorkflowsPage() {
             )}
           </div>
         )}
-      </div>
+        </div>
     </AppShell>
   );
 }
