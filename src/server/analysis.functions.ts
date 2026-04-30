@@ -391,6 +391,7 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         .from("document_analyses")
         .update({ status: "failed", error_message: msg })
         .eq("id", record.id);
+      await captureServerError("analysis.analyzeDocument", { userId: ctx.userId, tenantId, extra: { analysisId: record.id, filename: data.filename } }, err);
       throw new Error(msg);
     }
   });
