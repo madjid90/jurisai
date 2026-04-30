@@ -186,44 +186,45 @@ function WorkflowsPage() {
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              {filteredDefs.length === 0 && (
+              {filteredDefs.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-[13px] text-muted-foreground">
                   Aucune procédure ne correspond à vos filtres.
                 </div>
+              ) : (
+                filteredDefs.map((d) => (
+                  <article key={d.id} className="glass-panel flex flex-col gap-3 rounded-2xl p-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-[15px] font-semibold">{d.title}</h3>
+                        <span className="mt-1 inline-block rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-medium text-accent">
+                          {d.category}
+                        </span>
+                      </div>
+                      {d.estimated_duration_days != null && (
+                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {d.estimated_duration_days}j
+                        </span>
+                      )}
+                    </div>
+                    {d.description && (
+                      <p className="text-[12.5px] leading-relaxed text-muted-foreground">{d.description}</p>
+                    )}
+                    <div className="text-[11.5px] text-muted-foreground">
+                      {d.steps?.length ?? 0} étape{(d.steps?.length ?? 0) > 1 ? "s" : ""}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleStart(d)}
+                      disabled={starting === d.id}
+                      className="mt-auto inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary to-accent px-4 text-[12.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95 disabled:opacity-60"
+                    >
+                      {starting === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                      Démarrer
+                    </button>
+                  </article>
+                ))
               )}
-              {filteredDefs.map((d) => (
-              <article key={d.id} className="glass-panel flex flex-col gap-3 rounded-2xl p-5">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-[15px] font-semibold">{d.title}</h3>
-                    <span className="mt-1 inline-block rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-medium text-accent">
-                      {d.category}
-                    </span>
-                  </div>
-                  {d.estimated_duration_days != null && (
-                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {d.estimated_duration_days}j
-                    </span>
-                  )}
-                </div>
-                {d.description && (
-                  <p className="text-[12.5px] leading-relaxed text-muted-foreground">{d.description}</p>
-                )}
-                <div className="text-[11.5px] text-muted-foreground">
-                  {d.steps?.length ?? 0} étape{(d.steps?.length ?? 0) > 1 ? "s" : ""}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleStart(d)}
-                  disabled={starting === d.id}
-                  className="mt-auto inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-primary to-accent px-4 text-[12.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95 disabled:opacity-60"
-                >
-                  {starting === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  Démarrer
-                </button>
-              </article>
-            ))}
             </div>
           </div>
         ) : (
@@ -292,7 +293,7 @@ function WorkflowsPage() {
             )}
           </div>
         )}
-      </div>
+        </div>
     </AppShell>
   );
 }

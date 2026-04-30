@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/database.types";
+import { invalidateAccessCache } from "@/lib/auth/useAccess";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -36,8 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
+      // Invalidate role/permission cache on any auth change to avoid stale UI.
+      invalidateAccessCache();
       if (newSession?.user) {
-        // defer profile fetch to avoid deadlock inside the callback
         setTimeout(() => {
           void fetchProfile(newSession.user.id);
         }, 0);
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    invalidateAccessCache();
     await supabase.auth.signOut();
   };
 

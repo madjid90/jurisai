@@ -17,18 +17,30 @@ type ProfileRow = { tenant_id: string | null };
  * Lève une erreur explicite si l'onboarding n'est pas complété.
  */
 export async function getTenantId(userId: string): Promise<string> {
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .maybeSingle();
+  // PostgREST may transiently fail with "Could not query the database for the
+  // schema cache. Retrying." right after a migration. Retry up to 3 times with
+  // a small backoff before surfacing the error to the user.
+  let lastError: string | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .select("tenant_id")
+      .eq("id", userId)
+      .maybeSingle();
 
-  if (error) throw new Error(`Profil introuvable: ${error.message}`);
-  const tenantId = (data as ProfileRow | null)?.tenant_id;
-  if (!tenantId) {
-    throw new Error("Vous devez d'abord compléter l'onboarding");
+    if (!error) {
+      const tenantId = (data as ProfileRow | null)?.tenant_id;
+      if (!tenantId) {
+        throw new Error("Vous devez d'abord compléter l'onboarding");
+      }
+      return tenantId;
+    }
+    lastError = error.message;
+    const transient = /schema cache|temporarily|timeout|ECONN/i.test(error.message);
+    if (!transient) break;
+    await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
   }
-  return tenantId;
+  throw new Error(`Profil introuvable: ${lastError ?? "unknown error"}`);
 }
 
 /**
