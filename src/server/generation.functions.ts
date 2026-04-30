@@ -109,8 +109,8 @@ export const startGenerationSession = createServerFn({ method: "POST" })
     }
     return {
       session_id: session.id as string,
-      prefilled_data: prefill.data,
-      prefill_metadata: prefill.metadata,
+      prefilled_data: prefill.data as Record<string, any>,
+      prefill_metadata: prefill.metadata as Record<string, any>,
       uncertain_fields: prefill.uncertain,
     };
   });
