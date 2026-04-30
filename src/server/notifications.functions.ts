@@ -143,6 +143,5 @@ export const markAllNotificationsRead = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// notifyUser a été déplacé vers ./_shared/notify.server.ts (server-only).
-export { notifyUser } from "./_shared/notify.server";
+// notifyUser a été déplacé vers ./_shared/notify.server.ts (importer directement de là).
 
