@@ -180,6 +180,24 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
       count: data.reminders.filter((r) => !r.dismissed_at).length,
       icon: Bell,
     },
+    {
+      key: "documents",
+      label: "Documents",
+      count: data.generatedDocuments.length,
+      icon: FileText,
+    },
+    {
+      key: "workflows",
+      label: "Workflows",
+      count: data.workflows.filter((w) => w.status !== "completed" && w.status !== "cancelled").length,
+      icon: GitBranch,
+    },
+    {
+      key: "sources",
+      label: "Sources",
+      count: data.sources.length,
+      icon: BookOpen,
+    },
     { key: "agent", label: "Agent IA", icon: Sparkles },
   ];
 
