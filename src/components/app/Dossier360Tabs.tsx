@@ -594,7 +594,7 @@ function AgentDossierPanel({ dossierId, onActed }: { dossierId: string; onActed:
       setExchange({
         answer: res.answer,
         sources: res.sources,
-        intent: res.intent,
+        intent: { intent: res.intent, domain: res.domain, confidence: res.confidence },
         trace: res.trace.map((t) => ({ tool: t.tool })),
       });
       setInput("");
