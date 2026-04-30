@@ -41,6 +41,8 @@ function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<string | null>(null);
   const [tab, setTab] = useState<"actives" | "catalogue" | "completed">("actives");
+  const [domain, setDomain] = useState<string>("all");
+  const [query, setQuery] = useState("");
 
   const reload = async () => {
     try {
