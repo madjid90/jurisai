@@ -3,14 +3,23 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
+import {
+  searchLegalSources,
+  renderLegalBasisBlock,
+  type LegalSource,
+} from "@/server/_shared/legal-rag.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 export type WorkflowStep = {
   key: string;
   title: string;
   description?: string;
   type?: "action" | "document" | "decision" | "wait";
+  kind?: string;
+  template_slug?: string;
   legal_refs?: string[];
   delay_days?: number;
+  requires_sourcing?: boolean;
 };
 
 // ─── List workflow definitions (public + tenant) ───────────────────────────
@@ -179,6 +188,77 @@ export const cancelWorkflow = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ─── Helpers internes ─────────────────────────────────────────────────────
+
+async function loadInstanceAndStep(
+  tenantId: string,
+  instanceId: string,
+  stepIndex: number,
+): Promise<{ inst: any; def: any; step: WorkflowStep }> {
+  const { data: inst, error: instErr } = await supabaseAdmin
+    .from("workflow_instances")
+    .select("id, tenant_id, definition_id, dossier_id, current_step_index, context, title, workflow_definitions(id, title, steps, requires_sourcing)")
+    .eq("id", instanceId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (instErr) throw new Error(instErr.message);
+  if (!inst) throw new Error("Instance introuvable");
+  const def = (inst as any).workflow_definitions;
+  const steps = ((def?.steps ?? []) as WorkflowStep[]);
+  const step = steps[stepIndex];
+  if (!step) throw new Error("Étape introuvable");
+  return { inst, def, step };
+}
+
+function buildSourcingQuery(step: WorkflowStep, inst: any, def: any): string {
+  const parts: string[] = [];
+  if (step.title) parts.push(step.title);
+  if (step.description) parts.push(step.description);
+  if (Array.isArray(step.legal_refs) && step.legal_refs.length > 0) {
+    parts.push(step.legal_refs.join(" "));
+  }
+  if (def?.title) parts.push(def.title);
+  // Champs de contexte utiles (motif, client, type de contrat…)
+  const ctx = (inst?.context ?? {}) as Record<string, unknown>;
+  for (const k of ["motif", "type_contrat", "domaine", "secteur", "idcc"]) {
+    if (typeof ctx[k] === "string" && (ctx[k] as string).length > 0) {
+      parts.push(String(ctx[k]));
+    }
+  }
+  return parts.join(" — ").slice(0, 500);
+}
+
+// ─── Sourcer une étape (RAG) ──────────────────────────────────────────────
+
+export const sourceWorkflowStep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({
+      instanceId: z.string().uuid(),
+      stepIndex: z.number().int().min(0),
+      query: z.string().trim().max(500).optional(),
+      idcc: z.string().trim().max(20).nullable().optional(),
+    }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { userId } = context as { userId: string };
+    const tenantId = await getTenantId(userId);
+    const { inst, def, step } = await loadInstanceAndStep(tenantId, data.instanceId, data.stepIndex);
+
+    const ctx = (inst.context ?? {}) as Record<string, unknown>;
+    const idcc = data.idcc ?? (typeof ctx.idcc === "string" ? (ctx.idcc as string) : null);
+    const query = data.query?.trim() || buildSourcingQuery(step, inst, def);
+
+    const result = await searchLegalSources(query, { idcc, limit: 6 });
+
+    return {
+      ok: result.ok,
+      reason: result.reason ?? null,
+      query: result.query,
+      sources: result.sources,
+    };
+  });
+
 // ─── Generate a document from a workflow step (template_slug + variables) ──
 
 export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
@@ -191,21 +271,38 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
       templateSlug: z.string().min(1),
       variables: z.record(z.string(), z.string()).default({}),
       autoComplete: z.boolean().default(true),
+      /** Sources légales sélectionnées par l'utilisateur (issues de sourceWorkflowStep). */
+      legalSources: z
+        .array(
+          z.object({
+            n: z.number().int(),
+            chunk_id: z.string(),
+            source_id: z.string(),
+            title: z.string(),
+            reference: z.string().nullable().optional(),
+            url: z.string().nullable().optional(),
+            source_type: z.string().nullable().optional(),
+            heading: z.string().nullable().optional(),
+            excerpt: z.string(),
+            score: z.number(),
+          }),
+        )
+        .default([]),
     }).parse(i),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
 
-    // Load instance (RLS via tenant)
-    const { data: inst, error: instErr } = await supabaseAdmin
-      .from("workflow_instances")
-      .select("id, tenant_id, definition_id, dossier_id, current_step_index, context, title")
-      .eq("id", data.instanceId)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (instErr) throw new Error(instErr.message);
-    if (!inst) throw new Error("Instance introuvable");
+    const { inst, def, step } = await loadInstanceAndStep(tenantId, data.instanceId, data.stepIndex);
+
+    // Politique sourcing : si la def OU l'étape exige sourcing → ≥ 1 source obligatoire
+    const requiresSourcing = Boolean(def?.requires_sourcing || step.requires_sourcing);
+    if (requiresSourcing && data.legalSources.length === 0) {
+      throw new Error(
+        "Sources légales requises : utilisez « Sourcer cette étape » avant de générer le document.",
+      );
+    }
 
     // Load template
     const { data: tpl, error: tplErr } = await supabaseAdmin
@@ -219,20 +316,36 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
 
     // Merge variables: instance.context (string-coerced) ⊕ caller-provided (wins)
     const ctxVars: Record<string, string> = {};
-    const ctx = ((inst as any).context ?? {}) as Record<string, unknown>;
-    for (const [k, v] of Object.entries(ctx)) {
+    const ctxData = ((inst as any).context ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(ctxData)) {
       if (v != null && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
         ctxVars[k] = String(v);
       }
     }
     const merged: Record<string, string> = { ...ctxVars, ...data.variables };
 
-    // Render {{var}} placeholders, leaving unknown ones visible as [var]
+    // Render {{var}} placeholders
     const body = String((tpl as any).body ?? "");
     const rendered = body.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key: string) => {
       const v = merged[key];
       return v != null && v !== "" ? v : `[${key}]`;
     });
+
+    // Append "Bases légales" block + footer marqueur citations
+    const sources: LegalSource[] = data.legalSources.map((s) => ({
+      n: s.n,
+      chunk_id: s.chunk_id,
+      source_id: s.source_id,
+      title: s.title,
+      reference: s.reference ?? null,
+      url: s.url ?? null,
+      source_type: s.source_type ?? null,
+      heading: s.heading ?? null,
+      excerpt: s.excerpt,
+      score: s.score,
+    }));
+    const legalBlock = renderLegalBasisBlock(sources);
+    const finalContent = `${rendered}${legalBlock}`;
 
     // Title
     const title = `${(tpl as any).name} – ${(inst as any).title ?? "Procédure"}`;
@@ -245,29 +358,51 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
         user_id: userId,
         template_id: (tpl as any).id,
         title,
-        content: rendered,
+        content: finalContent,
         variables: merged,
       })
       .select("id")
       .single();
     if (docErr || !doc) throw new Error(docErr?.message ?? "Échec création document");
 
+    // Timeline (dossier)
+    if ((inst as any).dossier_id) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: (inst as any).dossier_id,
+          actorId: userId,
+          eventType: "workflow.document_generated",
+          title: `Document généré (étape « ${step.title} ») — ${sources.length} source${sources.length > 1 ? "s" : ""}`,
+          metadata: {
+            document_id: doc.id,
+            template_slug: data.templateSlug,
+            workflow_instance_id: data.instanceId,
+            step_index: data.stepIndex,
+            sources_count: sources.length,
+            source_ids: sources.map((s) => s.source_id),
+          },
+        });
+      } catch (e) {
+        console.warn("[workflow] timeline log failed:", e);
+      }
+    }
+
     // Link via step_run + (optionally) advance the workflow
     if (data.autoComplete) {
-      const { data: def } = await supabaseAdmin
-        .from("workflow_definitions").select("steps").eq("id", (inst as any).definition_id).maybeSingle();
-      const steps = (((def as any)?.steps ?? []) as WorkflowStep[]);
+      const steps = ((def?.steps ?? []) as WorkflowStep[]);
 
       await (supabaseAdmin as any).from("workflow_step_runs").insert({
         instance_id: data.instanceId,
         step_index: data.stepIndex,
         step_key: data.stepKey,
         status: "done",
-        notes: `Document généré : ${title}`,
+        notes: `Document généré : ${title}${sources.length ? ` · ${sources.length} source(s)` : ""}`,
         output: { document_id: doc.id, template_slug: data.templateSlug },
         executed_by: userId,
         executed_at: new Date().toISOString(),
         generated_document_id: doc.id,
+        legal_sources: sources,
       });
 
       const nextIndex = data.stepIndex + 1;
@@ -281,10 +416,10 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
         })
         .eq("id", data.instanceId);
 
-      return { ok: true, documentId: doc.id as string, advanced: true, completed: isComplete };
+      return { ok: true, documentId: doc.id as string, advanced: true, completed: isComplete, sources_used: sources.length };
     }
 
-    return { ok: true, documentId: doc.id as string, advanced: false, completed: false };
+    return { ok: true, documentId: doc.id as string, advanced: false, completed: false, sources_used: sources.length };
   });
 
 // ─── Get template variable schema by slug (for the form) ──────────────────

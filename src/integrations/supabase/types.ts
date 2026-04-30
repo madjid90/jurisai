@@ -3109,6 +3109,7 @@ export type Database = {
           estimated_duration_days: number | null
           id: string
           legal_refs: Json
+          requires_sourcing: boolean
           slug: string
           status: Database["public"]["Enums"]["template_status"]
           steps: Json
@@ -3124,6 +3125,7 @@ export type Database = {
           estimated_duration_days?: number | null
           id?: string
           legal_refs?: Json
+          requires_sourcing?: boolean
           slug: string
           status?: Database["public"]["Enums"]["template_status"]
           steps?: Json
@@ -3139,6 +3141,7 @@ export type Database = {
           estimated_duration_days?: number | null
           id?: string
           legal_refs?: Json
+          requires_sourcing?: boolean
           slug?: string
           status?: Database["public"]["Enums"]["template_status"]
           steps?: Json
@@ -3235,6 +3238,7 @@ export type Database = {
           generated_document_id: string | null
           id: string
           instance_id: string
+          legal_sources: Json
           notes: string | null
           output: Json | null
           status: string
@@ -3248,6 +3252,7 @@ export type Database = {
           generated_document_id?: string | null
           id?: string
           instance_id: string
+          legal_sources?: Json
           notes?: string | null
           output?: Json | null
           status?: string
@@ -3261,6 +3266,7 @@ export type Database = {
           generated_document_id?: string | null
           id?: string
           instance_id?: string
+          legal_sources?: Json
           notes?: string | null
           output?: Json | null
           status?: string

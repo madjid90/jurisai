@@ -11,6 +11,7 @@ import { prefillSession } from "@/server/_shared/prefill.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
 import { shouldRequestValidation, type TemplateField, type PrefillSource } from "@/lib/templates/template-config";
+import { searchLegalSources } from "@/server/_shared/legal-rag.server";
 
 const db = supabaseAdmin as unknown as { from: (t: string) => any };
 
@@ -183,19 +184,17 @@ export const fetchTemplateLegalSources = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!session) throw new Error("Session introuvable");
 
-    // Recherche hybrid simple via legal_chunks (texte). L'embedding-search est géré ailleurs.
-    const { data: rows } = await db
-      .from("legal_chunks")
-      .select("id, title, source_label, source_url, content")
-      .textSearch("content", data.query.split(" ").slice(0, 6).join(" | "), { type: "plain" })
-      .limit(5);
-
-    const sources = (rows ?? []).map((r: any) => ({
-      id: r.id,
-      title: r.title,
-      label: r.source_label,
-      url: r.source_url,
-      excerpt: (r.content ?? "").slice(0, 240),
+    // Recherche hybride via le helper RAG partagé (vecteur + FTS + boost autorité)
+    const result = await searchLegalSources(data.query, { limit: 6 });
+    const sources = result.sources.map((s) => ({
+      id: s.chunk_id,
+      source_id: s.source_id,
+      n: s.n,
+      title: s.title,
+      label: s.reference,
+      url: s.url,
+      excerpt: s.excerpt,
+      score: s.score,
     }));
 
     await db
@@ -203,7 +202,7 @@ export const fetchTemplateLegalSources = createServerFn({ method: "POST" })
       .update({ legal_sources_used: sources, updated_at: new Date().toISOString() })
       .eq("id", data.session_id);
 
-    return { sources };
+    return { sources, ok: result.ok, reason: result.reason ?? null };
   });
 
 // ─── Génération du document final ───────────────────────────────────────────
