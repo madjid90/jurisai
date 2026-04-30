@@ -76,6 +76,21 @@ function RagQualityPage() {
           <Stat label="Taux hallucination" value={(halluRate * 100).toFixed(1) + "%"} tone={halluRate > 0.05 ? "bad" : "good"} />
         </div>
 
+        {agg && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 text-sm font-semibold">Métriques avancées (200 derniers runs)</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Mini label="Retrieval acc." value={pct(agg.avg_retrieval_accuracy)} />
+              <Mini label="Citation cov." value={pct(agg.avg_citation_coverage)} />
+              <Mini label="Answer correct." value={pct(agg.avg_answer_correctness)} />
+              <Mini label="Source authority" value={agg.avg_source_authority !== null ? agg.avg_source_authority.toFixed(2) : "—"} />
+              <Mini label="Refusal quality" value={pct(agg.avg_refusal_quality)} />
+              <Mini label="User feedback" value={pct(agg.avg_user_feedback)} />
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">Latence moyenne: {Math.round(agg.avg_latency_ms)} ms · {agg.total_runs} runs</p>
+          </div>
+        )}
+
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Ajouter un cas d'évaluation</h2>
           <div className="flex gap-2">
