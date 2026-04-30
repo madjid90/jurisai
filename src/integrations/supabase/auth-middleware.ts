@@ -26,6 +26,12 @@ function isUnauthorizedError(status: number | undefined, message: string) {
   return status === 401 || /invalid token|invalid jwt|jwt|expired|unauthorized/i.test(message);
 }
 
+function isJwtVerificationUnauthorized(message: string) {
+  return /signature verification failed|token missing sub claim|exp|expired|invalid|malformed|unexpected "(?:iss|aud|nbf)"/i.test(
+    message,
+  );
+}
+
 async function refreshBrowserAccessToken() {
   if (refreshSessionPromise) return refreshSessionPromise;
 
@@ -119,30 +125,31 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
     });
 
-    let {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(accessToken);
+    let verifiedUserId: string;
+    let verifiedUserEmail: string | null;
 
-    if (error && !isUnauthorizedError(error.status, error.message ?? "")) {
-      const retry = await supabase.auth.getUser(accessToken);
-      user = retry.data.user;
-      error = retry.error;
-    }
+    try {
+      const { verifySupabaseAccessToken } = await import("./jwt.server");
+      const verified = await verifySupabaseAccessToken(accessToken);
+      verifiedUserId = verified.userId;
+      verifiedUserEmail = verified.userEmail;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
 
-    if (error || !user) {
-      if (error && !isUnauthorizedError(error.status, error.message ?? "")) {
-        throw new Error(`AUTH_SERVICE_UNAVAILABLE: ${error.message || "failed to verify session"}`);
+      if (isJwtVerificationUnauthorized(message)) {
+        throw new Error("UNAUTHORIZED: invalid token");
       }
 
-      throw new Error("UNAUTHORIZED: invalid token");
+      throw new Error(
+        `AUTH_SERVICE_UNAVAILABLE: ${message.replace(/^JWT_VERIFICATION_FAILED:\s*/i, "") || "failed to verify session"}`,
+      );
     }
 
     return next({
       context: {
         supabase,
-        userId: user.id,
-        userEmail: user.email ?? null,
+        userId: verifiedUserId,
+        userEmail: verifiedUserEmail,
       },
     });
   });

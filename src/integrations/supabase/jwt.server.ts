@@ -22,11 +22,16 @@ function parseSupabaseJwks(raw: string | undefined): JSONWebKeySet | null {
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw) as { keys?: JWK[] } | JWK;
-    if ("keys" in parsed && Array.isArray(parsed.keys)) {
-      return { keys: parsed.keys };
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "keys" in parsed &&
+      Array.isArray((parsed as { keys?: unknown }).keys)
+    ) {
+      return { keys: (parsed as { keys: JWK[] }).keys };
     }
-    return { keys: [parsed] };
+    return { keys: [parsed as JWK] };
   } catch {
     return null;
   }
