@@ -29,7 +29,8 @@ export type TimelineEvent = {
 
 export async function logTimelineEvent(ev: TimelineEvent): Promise<void> {
   try {
-    await supabaseAdmin.from("case_timeline_events").insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin as any).from("case_timeline_events").insert({
       tenant_id: ev.tenantId,
       dossier_id: ev.dossierId,
       actor_id: ev.actorId,
