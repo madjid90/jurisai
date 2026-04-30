@@ -129,6 +129,9 @@ function WorkflowDetailPage() {
     setDocModalOpen(true);
     setDocTplLoading(true);
     setDocVarsValues({});
+    setSources([]);
+    setSelectedSourceIds(new Set());
+    setSourcesError(null);
     try {
       const tpl = await fetchTpl({ data: { slug: step.template_slug } });
       const vars: TemplateVar[] = (tpl?.variables ?? []) as TemplateVar[];
