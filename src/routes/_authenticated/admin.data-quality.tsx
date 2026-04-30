@@ -148,3 +148,28 @@ function CheckCard({ check }: { check: Check }) {
     </div>
   );
 }
+
+function SnapStat({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "good" | "warn" | "bad" | "neutral";
+}) {
+  const color =
+    tone === "good"
+      ? "text-emerald-500"
+      : tone === "warn"
+      ? "text-amber-500"
+      : tone === "bad"
+      ? "text-rose-500"
+      : "text-foreground";
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/50 p-3">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
