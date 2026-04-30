@@ -1,10 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
   Bell,
+  BookOpen,
   CheckCircle2,
   Clock,
+  FileText,
+  GitBranch,
   Loader2,
   Plus,
   Shield,
