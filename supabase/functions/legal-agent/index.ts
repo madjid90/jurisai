@@ -524,12 +524,12 @@ async function toolListDossiers(args: Record<string, unknown>, ctx: AgentContext
   const limit = Math.min(Number(args.limit) || 20, 50);
   let q = ctx.supabase
     .from("dossiers")
-    .select("id, title, status, domain, created_at")
+    .select("id, title, status, category, risk_level, created_at")
     .eq("tenant_id", ctx.tenantId)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (typeof args.status === "string") q = q.eq("status", args.status);
-  if (typeof args.domain === "string") q = q.eq("domain", args.domain);
+  if (typeof args.domain === "string") q = q.eq("category", args.domain);
   const { data, error } = await q;
   if (error) return { error: error.message };
   return { dossiers: data ?? [] };
@@ -544,21 +544,28 @@ async function toolProposeDocument(args: Record<string, unknown>, ctx: AgentCont
     .select("id").eq("id", dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!d) return { error: "Dossier introuvable" };
 
+  // document_generation_sessions stocke doc_type/domain/params dans collected_data
+  const collected = {
+    doc_type,
+    domain: typeof args.domain === "string" ? args.domain : null,
+    params: typeof args.params === "object" ? args.params : {},
+  };
+
   const { data, error } = await (ctx.supabase as any).from("document_generation_sessions")
     .insert({
       tenant_id: ctx.tenantId,
+      user_id: ctx.userId,
       dossier_id,
-      document_type: doc_type,
-      domain: typeof args.domain === "string" ? args.domain : null,
-      status: "draft",
-      params: typeof args.params === "object" ? args.params : {},
-      created_by: ctx.userId,
+      scenario: "no_upload",
+      status: "in_progress",
+      current_step: "agent_proposed",
+      collected_data: collected,
     })
-    .select("id, document_type, status").single();
+    .select("id, status, current_step").single();
   if (error) return { error: error.message };
 
-  await logEvent(ctx, dossier_id, "document.proposed", `Document proposé : ${doc_type}`, { session_id: data.id });
-  return { session: data, next_step: "L'utilisateur doit compléter les paramètres puis valider." };
+  await logEvent(ctx, dossier_id, "document.proposed", `Document proposé : ${doc_type}`, { session_id: data.id, doc_type });
+  return { session: data, doc_type, next_step: "L'utilisateur doit compléter les paramètres puis valider." };
 }
 
 async function toolIdentifyRisk(args: Record<string, unknown>, ctx: AgentContext) {
@@ -571,21 +578,29 @@ async function toolIdentifyRisk(args: Record<string, unknown>, ctx: AgentContext
     .select("id").eq("id", dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!d) return { error: "Dossier introuvable" };
 
+  const legalBasisRaw = args.legal_basis;
+  const legal_basis = Array.isArray(legalBasisRaw)
+    ? legalBasisRaw
+    : typeof legalBasisRaw === "string"
+      ? [{ source: legalBasisRaw }]
+      : [];
+
   const { data, error } = await (ctx.supabase as any).from("identified_risks")
     .insert({
       tenant_id: ctx.tenantId,
       dossier_id,
       title,
       severity,
-      legal_basis: typeof args.legal_basis === "string" ? args.legal_basis : null,
+      legal_basis,
       description: typeof args.description === "string" ? args.description : null,
       status: "open",
-      identified_by: ctx.userId,
+      detected_by: ctx.userId,
+      category: typeof args.category === "string" ? args.category : "general",
     })
     .select("id, title, severity").single();
   if (error) return { error: error.message };
 
-  await logEvent(ctx, dossier_id, "risk.identified", `Risque identifié (${severity}) : ${title}`, { risk_id: data.id });
+  await logEvent(ctx, dossier_id, "risk.detected", `Risque identifié (${severity}) : ${title}`, { risk_id: data.id });
   return { risk: data };
 }
 
@@ -598,17 +613,28 @@ async function toolRequestValidation(args: Record<string, unknown>, ctx: AgentCo
     .select("id").eq("id", dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!d) return { error: "Dossier introuvable" };
 
+  // Assigner à un admin du tenant par défaut
+  const { data: admins } = await ctx.supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("role", "admin")
+    .limit(1);
+  const assigned_to = (admins?.[0] as { user_id: string } | undefined)?.user_id ?? ctx.userId;
+
   const { data, error } = await (ctx.supabase as any).from("validation_requests")
     .insert({
       tenant_id: ctx.tenantId,
       dossier_id,
-      action_type,
-      payload: typeof args.payload === "object" ? args.payload : {},
-      reason: typeof args.reason === "string" ? args.reason : null,
-      status: "pending",
       requested_by: ctx.userId,
+      assigned_to,
+      subject_type: action_type,
+      subject_id: typeof (args.payload as Record<string, unknown> | undefined)?.subject_id === "string"
+        ? (args.payload as Record<string, string>).subject_id : null,
+      comment: typeof args.reason === "string" ? args.reason : null,
+      status: "pending",
     })
-    .select("id, action_type, status").single();
+    .select("id, subject_type, status").single();
   if (error) return { error: error.message };
 
   await logEvent(ctx, dossier_id, "validation.requested", `Validation demandée : ${action_type}`, { validation_id: data.id });
@@ -631,17 +657,17 @@ async function toolScheduleReminder(args: Record<string, unknown>, ctx: AgentCon
     .insert({
       tenant_id: ctx.tenantId,
       user_id: ctx.userId,
+      created_by: ctx.userId,
       dossier_id,
       title,
       remind_at,
-      channel: typeof args.channel === "string" ? args.channel : "in_app",
-      status: "pending",
+      metadata: { channel: typeof args.channel === "string" ? args.channel : "in_app" },
     })
     .select("id, title, remind_at").single();
   if (error) return { error: error.message };
 
   if (dossier_id) {
-    await logEvent(ctx, dossier_id, "reminder.scheduled", `Rappel programmé : ${title}`, { remind_at });
+    await logEvent(ctx, dossier_id, "reminder.created", `Rappel programmé : ${title}`, { remind_at });
   }
   return { reminder: data };
 }
