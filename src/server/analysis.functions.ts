@@ -10,15 +10,7 @@ const db = supabaseAdmin as unknown as {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_TEXT_CHARS = 60_000; // ~15-20 pages, on tronque pour l'IA
 
-async function getTenantId(userId: string): Promise<string> {
-  const { data: profile } = await db
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .single();
-  if (!profile?.tenant_id) throw new Error("Onboarding requis");
-  return profile.tenant_id as string;
-}
+import { getTenantId } from "@/server/_shared/tenant.server";
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 

@@ -32,19 +32,8 @@ const generateSchema = z.object({
   prompt: z.string().max(2000).optional(),
 });
 
-// ─── Resolve tenant ─────────────────────────────────────────────────────────
-
-async function getTenantId(userId: string): Promise<string> {
-  const { data: profile } = await db
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .single();
-  if (!profile?.tenant_id) {
-    throw new Error("Vous devez d'abord compléter l'onboarding");
-  }
-  return profile.tenant_id as string;
-}
+// ─── Resolve tenant (centralized) ───────────────────────────────────────────
+import { getTenantId } from "@/server/_shared/tenant.server";
 
 // ─── Create document ────────────────────────────────────────────────────────
 

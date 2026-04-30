@@ -3,28 +3,7 @@ import { z } from "zod";
 import { createHash, randomBytes } from "crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-type ProfileRow = { tenant_id: string | null };
-
-async function requireAdmin(userId: string) {
-  const { data: profile } = await supabaseAdmin
-    .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
-  const tenantId = (profile as ProfileRow | null)?.tenant_id;
-  if (!tenantId) throw new Error("No tenant");
-  const { data: role } = await supabaseAdmin
-    .from("user_roles").select("role")
-    .eq("user_id", userId).eq("tenant_id", tenantId).eq("role", "admin").maybeSingle();
-  if (!role) throw new Error("Forbidden — admin only");
-  return tenantId;
-}
-
-async function getTenantId(userId: string) {
-  const { data: profile } = await supabaseAdmin
-    .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
-  const tenantId = (profile as ProfileRow | null)?.tenant_id;
-  if (!tenantId) throw new Error("No tenant");
-  return tenantId;
-}
+import { getTenantId, requireAdmin } from "@/server/_shared/tenant.server";
 
 // ─── INTEGRATIONS SETTINGS ──────────────────────────────────────────────────
 

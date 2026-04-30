@@ -2,21 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getTenantId } from "@/server/_shared/tenant.server";
 
 type Ctx = { userId: string; supabase: SupabaseClient };
-
-async function getTenantId(supabase: SupabaseClient, userId: string): Promise<string> {
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) throw new Error(`Profil introuvable: ${error.message}`);
-  if (!profile?.tenant_id) {
-    throw new Error("Vous devez d'abord compléter l'onboarding");
-  }
-  return profile.tenant_id as string;
-}
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
