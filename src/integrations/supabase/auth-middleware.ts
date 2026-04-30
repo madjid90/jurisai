@@ -53,10 +53,9 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
   })
-  .server(async ({ next, context }) => {
-    const ctx = context as { accessToken?: string | null };
+  .server(async ({ next }) => {
     const headerToken = getRequestHeader("authorization")?.replace(/^Bearer\s+/i, "");
-    const accessToken = ctx.accessToken ?? headerToken ?? null;
+    const accessToken = headerToken ?? null;
 
     if (!accessToken) {
       throw new Error("UNAUTHORIZED: missing access token");
