@@ -958,6 +958,74 @@ export type Database = {
         }
         Relationships: []
       }
+      employees: {
+        Row: {
+          contract_type: string | null
+          created_at: string
+          email: string | null
+          end_date: string | null
+          external_ref: string | null
+          first_name: string
+          id: string
+          job_title: string | null
+          last_name: string
+          metadata: Json
+          phone: string | null
+          site_id: string | null
+          start_date: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          contract_type?: string | null
+          created_at?: string
+          email?: string | null
+          end_date?: string | null
+          external_ref?: string | null
+          first_name: string
+          id?: string
+          job_title?: string | null
+          last_name: string
+          metadata?: Json
+          phone?: string | null
+          site_id?: string | null
+          start_date?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          contract_type?: string | null
+          created_at?: string
+          email?: string | null
+          end_date?: string | null
+          external_ref?: string | null
+          first_name?: string
+          id?: string
+          job_title?: string | null
+          last_name?: string
+          metadata?: Json
+          phone?: string | null
+          site_id?: string | null
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       extracted_fields: {
         Row: {
           confidence: number | null
@@ -1843,6 +1911,36 @@ export type Database = {
         }
         Relationships: []
       }
+      permissions: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_technical: boolean
+          key: string
+          label: string
+          module: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_technical?: boolean
+          key: string
+          label: string
+          module: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_technical?: boolean
+          key?: string
+          label?: string
+          module?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2178,6 +2276,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "dossiers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permissions: {
+        Row: {
+          created_at: string
+          granted: boolean
+          id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission_key?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permissions"
+            referencedColumns: ["key"]
           },
         ]
       }
@@ -2863,10 +2996,21 @@ export type Database = {
         Returns: string
       }
       current_tenant_id: { Args: never; Returns: string }
+      has_permission: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _tenant_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role_any_tenant: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
@@ -2913,7 +3057,20 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "manager" | "user" | "super_admin"
+      app_role:
+        | "admin"
+        | "manager"
+        | "user"
+        | "super_admin"
+        | "operationnel_terrain"
+        | "comptable"
+        | "daf"
+        | "dirigeant"
+        | "juriste"
+        | "avocat_partenaire"
+        | "cabinet_comptable_admin"
+        | "collaborateur_cabinet"
+        | "admin_tenant"
       plan_type: "starter" | "pro" | "business"
       template_status: "draft" | "review" | "validated" | "deprecated"
       user_profile_kind:
@@ -3049,7 +3206,21 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "user", "super_admin"],
+      app_role: [
+        "admin",
+        "manager",
+        "user",
+        "super_admin",
+        "operationnel_terrain",
+        "comptable",
+        "daf",
+        "dirigeant",
+        "juriste",
+        "avocat_partenaire",
+        "cabinet_comptable_admin",
+        "collaborateur_cabinet",
+        "admin_tenant",
+      ],
       plan_type: ["starter", "pro", "business"],
       template_status: ["draft", "review", "validated", "deprecated"],
       user_profile_kind: [

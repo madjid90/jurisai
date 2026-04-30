@@ -1,0 +1,10 @@
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'operationnel_terrain';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'comptable';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'daf';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'dirigeant';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'juriste';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'avocat_partenaire';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'cabinet_comptable_admin';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'collaborateur_cabinet';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'admin_tenant';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'super_admin';
