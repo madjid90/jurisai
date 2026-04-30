@@ -53,7 +53,7 @@ type DossierRow = {
   id: string;
   title: string;
   category: string;
-  status: "open" | "in_progress" | "closed";
+  status: string;
   risk_level: "low" | "medium" | "high";
   updated_at: string;
   client?: { id: string; full_name: string } | null;
@@ -71,18 +71,6 @@ type DeadlineRow = {
   } | null;
 };
 
-const STATUS_LABEL: Record<DossierRow["status"], string> = {
-  open: "Ouvert",
-  in_progress: "En cours",
-  closed: "Clôturé",
-};
-
-const STATUS_COLOR: Record<DossierRow["status"], string> = {
-  open: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  in_progress: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  closed: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-};
-
 const RISK_COLOR: Record<DossierRow["risk_level"], string> = {
   low: "bg-secondary text-muted-foreground",
   medium: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
@@ -94,15 +82,6 @@ const RISK_LABEL: Record<DossierRow["risk_level"], string> = {
   medium: "Moyen",
   high: "Élevé",
 };
-
-const CATEGORIES = [
-  { value: "licenciement", label: "Licenciement" },
-  { value: "rupture-conventionnelle", label: "Rupture conventionnelle" },
-  { value: "contentieux", label: "Contentieux" },
-  { value: "discipline", label: "Discipline" },
-  { value: "contrat", label: "Contrat" },
-  { value: "autre", label: "Autre" },
-];
 
 function DossiersPage() {
   const confirmAsync = useConfirm();
