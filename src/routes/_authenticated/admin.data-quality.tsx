@@ -69,7 +69,44 @@ function DataQualityPage() {
           </Button>
         </div>
 
-        {loading ? (
+        {snapshot && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Database className="h-4 w-4 text-accent" /> Instantané base juridique
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <SnapStat label="Sources actives" value={`${snapshot.sources_active}/${snapshot.sources_total}`} />
+              <SnapStat
+                label="Sources obsolètes (>90j)"
+                value={String(snapshot.sources_stale)}
+                tone={snapshot.sources_stale > 5 ? "bad" : snapshot.sources_stale > 0 ? "warn" : "good"}
+              />
+              <SnapStat label="Chunks total" value={snapshot.chunks_total.toLocaleString("fr-FR")} />
+              <SnapStat
+                label="Chunks sans vecteur"
+                value={String(snapshot.chunks_without_embedding)}
+                tone={snapshot.chunks_without_embedding > 100 ? "bad" : snapshot.chunks_without_embedding > 0 ? "warn" : "good"}
+              />
+              <SnapStat
+                label="Chunks orphelins"
+                value={String(snapshot.orphan_chunks)}
+                tone={snapshot.orphan_chunks > 0 ? "bad" : "good"}
+              />
+              <SnapStat
+                label="Ingestions échouées (24h)"
+                value={String(snapshot.ingestion_failed_24h)}
+                tone={snapshot.ingestion_failed_24h > 0 ? "bad" : "good"}
+              />
+              <SnapStat
+                label="Autorité moyenne"
+                value={snapshot.avg_authority_level !== null ? Number(snapshot.avg_authority_level).toFixed(2) : "—"}
+              />
+              <SnapStat label="Snapshot" value={new Date(snapshot.generated_at).toLocaleTimeString("fr-FR")} />
+            </div>
+          </div>
+        )}
+
+
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
