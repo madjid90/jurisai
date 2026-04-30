@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Database } from "lucide-react";
 import { toast } from "sonner";
+import { getDataQualitySnapshot, type DataQualitySnapshot } from "@/server/quality.functions";
 
 type Check = {
   id: string;
@@ -22,17 +23,18 @@ export const Route = createFileRoute("/_authenticated/admin/data-quality")({
 
 function DataQualityPage() {
   const [checks, setChecks] = useState<Check[]>([]);
+  const [snapshot, setSnapshot] = useState<DataQualitySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("data_quality_checks")
-      .select("*")
-      .order("ran_at", { ascending: false })
-      .limit(40);
+    const [{ data }, snap] = await Promise.all([
+      supabase.from("data_quality_checks").select("*").order("ran_at", { ascending: false }).limit(40),
+      getDataQualitySnapshot().catch(() => null),
+    ]);
     setChecks((data ?? []) as Check[]);
+    setSnapshot(snap);
     setLoading(false);
   };
 
