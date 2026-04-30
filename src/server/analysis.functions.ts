@@ -2,6 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import {
+  CONTRACT_RISKS,
+  CONTRACT_RISK_KEYS,
+  isValidIsoDate,
+  type ContractRiskKey,
+  type DetectedDate,
+} from "@/lib/analysis/contract-risks";
 
 const db = supabaseAdmin as unknown as {
   from: (table: string) => any;
@@ -10,8 +19,6 @@ const db = supabaseAdmin as unknown as {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_TEXT_CHARS = 60_000; // ~15-20 pages, on tronque pour l'IA
 
-import { getTenantId } from "@/server/_shared/tenant.server";
-import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
