@@ -57,7 +57,7 @@ export function invalidateAccessCache() {
 }
 
 export function useAccess(): { access: UserAccess; loading: boolean } {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [, force] = useState(0);
   const mountedRef = useRef(true);
 
@@ -74,14 +74,15 @@ export function useAccess(): { access: UserAccess; loading: boolean } {
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    if (authLoading || !user) {
       cache = null;
       return;
     }
     if (cache?.userId === user.id && Date.now() - cache.fetchedAt < TTL_MS) return;
     void loadAccess(user.id).catch(() => undefined);
-  }, [user]);
+  }, [authLoading, user]);
 
+  if (authLoading) return { access: EMPTY, loading: true };
   if (!user) return { access: EMPTY, loading: false };
   if (cache?.userId === user.id && cache.fetchedAt > 0) {
     return { access: cache.access, loading: !!cache.inflight };
