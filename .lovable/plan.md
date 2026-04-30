@@ -50,14 +50,16 @@
 - [ ] **Rapport d'analyse** structuré (résumé, points importants, risques, clauses sensibles, dates, actions recommandées)
 - [ ] OCR pour documents scannés (étend `ocr-document` edge function existante)
 
-## Priorité 5 — Notifications + veille actionnable
+## Priorité 5 — Notifications + veille actionnable ✅ (livré)
 
-- [ ] Table `notification_preferences` (emails on/off, app on/off, fréquence résumé, types veille, domaines, sites/clients suivis)
-- [ ] Table `email_queue` + worker d'envoi (résumés hebdo/mensuels)
-- [ ] Table `legal_updates` (titre, domaine, résumé, source, dates publication/effet, qui concerné, impact, urgence, actions, docs/workflows impactés)
-- [ ] Table `legal_update_actions` (boutons d'action : créer tâche/rappel, MAJ modèle, note interne, notifier, lancer audit, archiver)
-- [ ] Évolution `notifications` : 10 types (`document_a_valider`, `echeance_proche`, `risque_detecte`…)
-- [ ] 10 types de rappels (renouvellement, préavis, fin essai, entretien, délai réponse, relance facture, fin validité, MAJ régl., échéance RGPD, oblig. déclarative)
+- [x] `notification_preferences` exposée via `getNotificationPreferences` / `updateNotificationPreferences` (canaux, fréquence, domaines suivis, kinds)
+- [x] File `email_queue` alimentée par helper `notifyUser()` (mode realtime; digest cron à venir)
+- [x] `listLegalUpdates` (filtre domaine/urgence) + actions par tenant (`createLegalUpdateAction`, `updateLegalUpdateActionStatus`)
+- [x] UI `/veille` à 2 onglets : Mises à jour réglementaires (RGPD/social/commercial/fiscal/sociétés/contentieux) + Alertes système
+- [x] Panneau "Notifications" dans Réglages
+- [x] Cloche header migrée vers `notifications.functions`
+- [ ] Cron digest quotidien/hebdo (à brancher comme edge function planifiée)
+
 
 ## Priorité 6 — Workflows métier
 
