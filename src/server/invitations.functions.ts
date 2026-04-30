@@ -117,7 +117,7 @@ export const sendInvitation = createServerFn({ method: "POST" })
       id: invite.id as string,
       token: invite.token as string,
       email: invite.email as string,
-      role: invite.role as "admin" | "manager" | "user",
+      role: invite.role as string,
       expiresAt: invite.expires_at as string,
     };
   });
@@ -145,7 +145,7 @@ export const acceptInvitation = createServerFn({ method: "POST" })
       id: string;
       tenant_id: string;
       email: string;
-      role: "admin" | "manager" | "user";
+      role: string;
       accepted_at: string | null;
       expires_at: string;
     };
