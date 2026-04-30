@@ -8,6 +8,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { prefillSession } from "@/server/_shared/prefill.server";
+import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
+import { captureServerError } from "@/server/_shared/error-monitor.server";
 import { shouldRequestValidation, type TemplateField, type PrefillSource } from "@/lib/templates/template-config";
 
 const db = supabaseAdmin as unknown as { from: (t: string) => any };
@@ -221,7 +223,8 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
-
+    await enforceRateLimit(userId, "generation.finalize", 5);
+    try {
     const { data: session, error: sErr } = await db
       .from("document_generation_sessions")
       .select("*, document_templates(*)")
