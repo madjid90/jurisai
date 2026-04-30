@@ -35,8 +35,8 @@ export type UserAccess = {
 export const getMyAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const ctx = context as { user: { id: string } };
-    const userId = ctx.user.id;
+    const ctx = context as { userId: string };
+    const userId = ctx.userId;
     const tenantId = await getTenantId(userId);
 
     const { data: rolesRows } = await supabaseAdmin
