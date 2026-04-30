@@ -33,12 +33,21 @@ export const Route = createFileRoute("/_authenticated/dossiers/$id")({
   component: DossierDetailPage,
 });
 
+import {
+  CASE_STATUS_OPTIONS,
+  CASE_TYPE_OPTIONS,
+  STATUS_TONE_CLASS,
+  getCaseStatusMeta,
+  getCaseTypeMeta,
+  type CaseStatus,
+} from "@/lib/dossiers/case-meta";
+
 type Dossier = {
   id: string;
   title: string;
   description: string | null;
   category: string;
-  status: "open" | "in_progress" | "closed";
+  status: string;
   risk_level: "low" | "medium" | "high";
   client_id: string | null;
   client?: { id: string; full_name: string; job_title: string | null } | null;
@@ -54,17 +63,7 @@ type Deadline = {
   completed: boolean;
 };
 
-const STATUS_LABEL = { open: "Ouvert", in_progress: "En cours", closed: "Clôturé" };
 const RISK_LABEL = { low: "Faible", medium: "Moyen", high: "Élevé" };
-
-const CATEGORIES = [
-  { value: "licenciement", label: "Licenciement" },
-  { value: "rupture-conventionnelle", label: "Rupture conventionnelle" },
-  { value: "contentieux", label: "Contentieux" },
-  { value: "discipline", label: "Discipline" },
-  { value: "contrat", label: "Contrat" },
-  { value: "autre", label: "Autre" },
-];
 
 function DossierDetailPage() {
   const confirmAsync = useConfirm();
