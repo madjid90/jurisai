@@ -31,25 +31,40 @@ import { cn } from "@/lib/utils";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
-import { useAccess } from "@/lib/auth/useAccess";
+import { useAccess, hasPermission } from "@/lib/auth/useAccess";
+import type { UserAccess } from "@/server/permissions.functions";
 
-const NAV_ITEMS = [
+type NavItemDef = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** Permission requise (au moins une) — si vide, toujours visible */
+  perms?: string[];
+};
+
+const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
-  { to: "/chat", label: "Assistant IA", icon: MessageSquare },
-  { to: "/agent", label: "Agent IA", icon: Sparkles },
-  { to: "/workflows", label: "Procédures", icon: Workflow },
-  { to: "/templates", label: "Modèles", icon: Library },
-  { to: "/scan", label: "OCR & scan", icon: ScanLine },
-  { to: "/documents", label: "Documents", icon: FileText },
-  { to: "/analyses", label: "Analyses", icon: ScanSearch },
-  { to: "/dossiers", label: "Dossiers", icon: FolderOpen },
-  { to: "/veille", label: "Veille juridique", icon: Bell },
-] as const;
+  { to: "/chat", label: "Assistant IA", icon: MessageSquare, perms: ["ia.ask"] },
+  { to: "/agent", label: "Agent IA", icon: Sparkles, perms: ["ia.ask"] },
+  { to: "/workflows", label: "Procédures", icon: Workflow, perms: ["workflows.run", "workflows.validate"] },
+  { to: "/templates", label: "Modèles", icon: Library, perms: ["documents.generate"] },
+  { to: "/scan", label: "OCR & scan", icon: ScanLine, perms: ["documents.upload"] },
+  { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
+  { to: "/analyses", label: "Analyses", icon: ScanSearch, perms: ["documents.analyze"] },
+  { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
+  { to: "/veille", label: "Veille juridique", icon: Bell, perms: ["veille.view"] },
+];
 
-const SECONDARY_ITEMS = [
-  { to: "/team", label: "Équipe", icon: Users },
+const SECONDARY_ITEMS: NavItemDef[] = [
+  { to: "/team", label: "Équipe", icon: Users, perms: ["users.manage", "roles.manage"] },
   { to: "/settings", label: "Paramètres", icon: Settings },
-] as const;
+];
+
+function canSee(access: UserAccess, item: NavItemDef): boolean {
+  if (!item.perms || item.perms.length === 0) return true;
+  if (access.isSuperAdmin || access.isTenantAdmin) return true;
+  return item.perms.some((p) => hasPermission(access, p));
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
