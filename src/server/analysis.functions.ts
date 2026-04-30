@@ -53,31 +53,60 @@ function decodeBase64(b64: string): Uint8Array {
 
 // ─── Appel IA ───────────────────────────────────────────────────────────────
 
+type ExtractedField = {
+  key: string;
+  label: string;
+  value: string | null;
+  type?: "text" | "date" | "number" | "money" | "duration";
+  confidence?: number;
+  page?: number;
+  excerpt?: string;
+};
+
 type AnalysisResult = {
+  domain: "rh" | "commercial" | "societes" | "rgpd" | "fiscal" | "contentieux" | "administratif" | "autre";
   document_type: string;
   summary: string;
+  extracted_fields: ExtractedField[];
   key_points: string[];
-  risks: Array<{ severity: "low" | "medium" | "high"; title: string; description: string }>;
+  risks: Array<{
+    severity: "low" | "medium" | "high" | "critical";
+    category?: string;
+    title: string;
+    description: string;
+    legal_basis?: Array<{ label: string; reference?: string }>;
+    mitigation?: string;
+  }>;
   compliance: Array<{ status: "ok" | "warning" | "issue"; title: string; description: string }>;
   recommendations: string[];
 };
 
-const SYSTEM_PROMPT = `Tu es un juriste expert en droit du travail français. Analyse le document juridique fourni (contrat, avenant, lettre RH, etc.) et retourne UNIQUEMENT un JSON valide selon ce schéma exact :
+const SYSTEM_PROMPT = `Tu es un juriste français pluridisciplinaire (RH, commercial, sociétés, RGPD, fiscal, contentieux, administratif).
+Analyse le document fourni et retourne UNIQUEMENT un JSON valide selon ce schéma :
 
 {
-  "document_type": "string (ex: 'Contrat de travail CDI', 'Lettre de licenciement', 'Avenant', 'Rupture conventionnelle')",
-  "summary": "string (résumé en 2-3 phrases)",
-  "key_points": ["string", ...] (5-8 points clés du document),
+  "domain": "rh|commercial|societes|rgpd|fiscal|contentieux|administratif|autre",
+  "document_type": "string court (ex: 'CDI', 'CGV', 'PV d AG', 'Mise en demeure', 'DPA RGPD', 'Assignation TJ')",
+  "summary": "résumé en 2-3 phrases",
+  "extracted_fields": [
+    { "key": "snake_case", "label": "libellé humain", "value": "valeur extraite", "type": "text|date|number|money|duration", "confidence": 0.0-1.0, "excerpt": "extrait textuel court" }
+  ],
+  "key_points": ["8 points clés maximum"],
   "risks": [
-    { "severity": "low|medium|high", "title": "string", "description": "string (1-2 phrases)" }
+    { "severity": "low|medium|high|critical", "category": "clause|delai|conformite|financier|reputationnel", "title": "string", "description": "1-2 phrases", "legal_basis": [{"label":"...","reference":"..."}], "mitigation": "action recommandée" }
   ],
   "compliance": [
-    { "status": "ok|warning|issue", "title": "string (ex: Période d'essai, Clause de non-concurrence)", "description": "string" }
+    { "status": "ok|warning|issue", "title": "ex: Période d essai / Clause RGPD / Délai de paiement", "description": "string" }
   ],
-  "recommendations": ["string", ...] (3-5 actions recommandées)
+  "recommendations": ["3-6 actions priorisées"]
 }
 
-Sois précis, cite les articles du Code du travail si pertinent. Réponds UNIQUEMENT avec le JSON, sans markdown ni texte additionnel.`;
+Règles :
+- Identifie d'abord le domaine et le type de document.
+- Extrait au moins 5 champs structurés clés (parties, dates, montants, durées, clauses notables).
+- Si une clause manque ou est non conforme, génère un risque correspondant avec sa base légale.
+- Cite les articles précis (Code du travail, Code civil, Code de commerce, RGPD, LPF, CPC, etc.).
+- Réponds UNIQUEMENT avec le JSON, sans markdown ni texte additionnel.`;
 
 async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; tokens: number }> {
   const apiKey = process.env.LOVABLE_API_KEY;
@@ -122,6 +151,14 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
   } catch {
     throw new Error("Réponse IA invalide (JSON malformé)");
   }
+
+  // Defaults défensifs
+  parsed.domain = (parsed.domain ?? "autre") as AnalysisResult["domain"];
+  parsed.extracted_fields = Array.isArray(parsed.extracted_fields) ? parsed.extracted_fields : [];
+  parsed.risks = Array.isArray(parsed.risks) ? parsed.risks : [];
+  parsed.compliance = Array.isArray(parsed.compliance) ? parsed.compliance : [];
+  parsed.recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+  parsed.key_points = Array.isArray(parsed.key_points) ? parsed.key_points : [];
 
   return {
     analysis: parsed,
@@ -173,7 +210,7 @@ export const analyzeDocument = createServerFn({ method: "POST" })
       // 2. Analyse IA
       const { analysis, tokens } = await callLovableAI(text);
 
-      // 3. Sauvegarde
+      // 3. Sauvegarde de l'analyse
       await db
         .from("document_analyses")
         .update({
@@ -184,27 +221,70 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         })
         .eq("id", record.id);
 
-      // Log usage
-      await db.from("usage_logs").insert({
-        tenant_id: tenantId,
-        user_id: ctx.userId,
-        action: "document_analysis",
-        tokens_used: tokens,
-        metadata: { filename: data.filename, file_type: data.file_type },
-      });
+      // 4. Persiste les champs structurés extraits
+      if (analysis.extracted_fields.length > 0) {
+        const rows = analysis.extracted_fields.map((f) => ({
+          tenant_id: tenantId,
+          document_analysis_id: record.id,
+          field_key: f.key,
+          field_value: f.value ?? null,
+          field_type: f.type ?? "text",
+          confidence: typeof f.confidence === "number" ? f.confidence : null,
+          page_number: typeof f.page === "number" ? f.page : null,
+          source_excerpt: f.excerpt ? `${f.label}: ${f.excerpt}` : f.label,
+          validated_by_user: false,
+        }));
+        await db.from("extracted_fields").insert(rows);
+      }
 
-      // Timeline (uniquement si rattaché à un dossier)
+      // 5. Si rattaché à un dossier : crée les risques + log timeline
       if (data.dossier_id) {
+        // Crée les risques détectés (medium ou plus)
+        const significantRisks = analysis.risks.filter(
+          (r) => r.severity === "medium" || r.severity === "high" || r.severity === "critical",
+        );
+        if (significantRisks.length > 0) {
+          const riskRows = significantRisks.map((r) => ({
+            tenant_id: tenantId,
+            dossier_id: data.dossier_id,
+            detected_by: ctx.userId,
+            title: r.title,
+            description: r.description,
+            severity: r.severity,
+            category: r.category ?? "general",
+            legal_basis: r.legal_basis ?? [],
+            mitigation: r.mitigation ?? null,
+            status: "open",
+          }));
+          await db.from("identified_risks").insert(riskRows);
+        }
+
         await logTimelineEvent({
           tenantId,
           dossierId: data.dossier_id,
           actorId: ctx.userId,
           eventType: "analysis.completed",
           title: `Analyse : ${data.filename}`,
-          description: `${tokens} tokens`,
-          metadata: { analysis_id: record.id, file_type: data.file_type },
+          description: `${analysis.document_type} (${analysis.domain}) — ${analysis.risks.length} risque(s) détecté(s)`,
+          metadata: {
+            analysis_id: record.id,
+            file_type: data.file_type,
+            domain: analysis.domain,
+            document_type: analysis.document_type,
+            risks_count: analysis.risks.length,
+            tokens,
+          },
         });
       }
+
+      // Log usage
+      await db.from("usage_logs").insert({
+        tenant_id: tenantId,
+        user_id: ctx.userId,
+        action: "document_analysis",
+        tokens_used: tokens,
+        metadata: { filename: data.filename, file_type: data.file_type, domain: analysis.domain },
+      });
 
       return { id: record.id as string, analysis, tokens };
     } catch (err) {
@@ -238,15 +318,47 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const tenantId = await getTenantId(ctx.userId);
-    const { data: row, error } = await db
-      .from("document_analyses")
-      .select("*")
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
+
+    const [{ data: row, error }, { data: fields }] = await Promise.all([
+      db
+        .from("document_analyses")
+        .select("*")
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
+      db
+        .from("extracted_fields")
+        .select("*")
+        .eq("document_analysis_id", data.id)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: true }),
+    ]);
     if (error) throw new Error(error.message);
     if (!row) throw new Error("Analyse introuvable");
-    return { analysis: row };
+    return { analysis: row, extracted_fields: fields ?? [] };
+  });
+
+export const validateExtractedField = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      field_value: z.string().nullable().optional(),
+      validated: z.boolean().default(true),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as { userId: string };
+    const tenantId = await getTenantId(ctx.userId);
+    const update: Record<string, unknown> = { validated_by_user: data.validated };
+    if (data.field_value !== undefined) update.field_value = data.field_value;
+    const { error } = await db
+      .from("extracted_fields")
+      .update(update)
+      .eq("id", data.id)
+      .eq("tenant_id", tenantId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const deleteAnalysis = createServerFn({ method: "POST" })

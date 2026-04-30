@@ -5,7 +5,9 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
+  Database,
   FileText,
   Lightbulb,
   Loader2,
@@ -16,20 +18,51 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { cn } from "@/lib/utils";
-import { deleteAnalysis, getAnalysis } from "@/server/analysis.functions";
+import { deleteAnalysis, getAnalysis, validateExtractedField } from "@/server/analysis.functions";
 
 export const Route = createFileRoute("/_authenticated/analyses/$id")({
   head: () => ({ meta: [{ title: "Analyse · JurisAI" }] }),
   component: AnalysisDetailPage,
 });
 
+const DOMAIN_LABELS: Record<string, string> = {
+  rh: "Ressources humaines",
+  commercial: "Commercial",
+  societes: "Droit des sociétés",
+  rgpd: "RGPD / Données personnelles",
+  fiscal: "Fiscal",
+  contentieux: "Contentieux",
+  administratif: "Administratif",
+  autre: "Autre",
+};
+
+type Risk = {
+  severity: "low" | "medium" | "high" | "critical";
+  category?: string;
+  title: string;
+  description: string;
+  legal_basis?: Array<{ label: string; reference?: string }>;
+  mitigation?: string;
+};
+
 type Analysis = {
+  domain?: string;
   document_type: string;
   summary: string;
   key_points: string[];
-  risks: Array<{ severity: "low" | "medium" | "high"; title: string; description: string }>;
+  risks: Risk[];
   compliance: Array<{ status: "ok" | "warning" | "issue"; title: string; description: string }>;
   recommendations: string[];
+};
+
+type ExtractedField = {
+  id: string;
+  field_key: string;
+  field_value: string | null;
+  field_type: string;
+  confidence: number | null;
+  source_excerpt: string | null;
+  validated_by_user: boolean;
 };
 
 type Row = {
@@ -42,6 +75,7 @@ type Row = {
   error_message: string | null;
   created_at: string;
   extracted_text: string | null;
+  dossier_id: string | null;
 };
 
 function AnalysisDetailPage() {
@@ -50,8 +84,10 @@ function AnalysisDetailPage() {
   const navigate = useNavigate();
   const getFn = useServerFn(getAnalysis);
   const deleteFn = useServerFn(deleteAnalysis);
+  const validateFieldFn = useServerFn(validateExtractedField);
 
   const [row, setRow] = useState<Row | null>(null);
+  const [fields, setFields] = useState<ExtractedField[]>([]);
   const [loading, setLoading] = useState(true);
   const [showText, setShowText] = useState(false);
 
@@ -60,6 +96,7 @@ function AnalysisDetailPage() {
       try {
         const res = await getFn({ data: { id } });
         setRow(res.analysis as Row);
+        setFields((res.extracted_fields ?? []) as ExtractedField[]);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erreur");
         void navigate({ to: "/analyses" });
@@ -69,6 +106,15 @@ function AnalysisDetailPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleValidateField = async (fieldId: string, validated: boolean) => {
+    try {
+      await validateFieldFn({ data: { id: fieldId, validated } });
+      setFields((prev) => prev.map((f) => (f.id === fieldId ? { ...f, validated_by_user: validated } : f)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  };
 
   const handleDelete = async () => {
     if (!(await confirmAsync("Supprimer cette analyse ?"))) return;
@@ -137,10 +183,81 @@ function AnalysisDetailPage() {
           </div>
         ) : (
           <div className="space-y-6 px-8 py-6">
+            {/* Domaine + type */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-accent">
+                {DOMAIN_LABELS[a.domain ?? "autre"] ?? a.domain ?? "Autre"}
+              </span>
+              <span className="rounded-full bg-secondary px-3 py-1 text-[11.5px] font-medium text-muted-foreground">
+                {a.document_type}
+              </span>
+              {row.dossier_id && (
+                <Link
+                  to="/dossiers/$id"
+                  params={{ id: row.dossier_id }}
+                  className="rounded-full border border-border px-3 py-1 text-[11.5px] font-medium text-accent hover:bg-accent/5"
+                >
+                  → Voir le dossier rattaché
+                </Link>
+              )}
+            </div>
+
             {/* Résumé */}
             <Section title="Résumé" icon={FileText}>
               <p className="text-[14px] leading-relaxed text-foreground">{a.summary}</p>
             </Section>
+
+            {/* Champs extraits */}
+            {fields.length > 0 && (
+              <Section title={`Champs extraits (${fields.length})`} icon={Database}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {fields.map((f) => (
+                    <div
+                      key={f.id}
+                      className={cn(
+                        "rounded-xl border p-2.5",
+                        f.validated_by_user
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-border bg-card",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {f.field_key}
+                            {typeof f.confidence === "number" && (
+                              <span className="ml-1 text-[10px] text-muted-foreground/70">
+                                · {Math.round(f.confidence * 100)}%
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 break-words text-[12.5px] font-medium text-foreground">
+                            {f.field_value || <em className="text-amber-600">(vide)</em>}
+                          </p>
+                          {f.source_excerpt && (
+                            <p className="mt-1 line-clamp-2 text-[10.5px] italic text-muted-foreground">
+                              « {f.source_excerpt} »
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleValidateField(f.id, !f.validated_by_user)}
+                          className={cn(
+                            "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border",
+                            f.validated_by_user
+                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              : "border-border text-muted-foreground hover:border-accent hover:text-accent",
+                          )}
+                          title={f.validated_by_user ? "Champ validé" : "Valider ce champ"}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* Points clés */}
             {a.key_points?.length > 0 && (
@@ -239,26 +356,44 @@ function Section({
   );
 }
 
-function RiskCard({
-  risk,
-}: {
-  risk: { severity: "low" | "medium" | "high"; title: string; description: string };
-}) {
+function RiskCard({ risk }: { risk: Risk }) {
   const config = {
     low: { color: "border-border bg-secondary/40", badge: "bg-secondary text-muted-foreground", label: "Faible" },
     medium: { color: "border-amber-500/30 bg-amber-500/5", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300", label: "Moyen" },
     high: { color: "border-destructive/40 bg-destructive/5", badge: "bg-destructive/15 text-destructive", label: "Élevé" },
+    critical: { color: "border-destructive bg-destructive/10", badge: "bg-destructive text-destructive-foreground", label: "Critique" },
   }[risk.severity];
 
   return (
     <div className={cn("rounded-xl border p-3", config.color)}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[13.5px] font-semibold text-foreground">{risk.title}</p>
+        <p className="text-[13.5px] font-semibold text-foreground">
+          {risk.title}
+          {risk.category && (
+            <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-normal uppercase text-muted-foreground">
+              {risk.category}
+            </span>
+          )}
+        </p>
         <span className={cn("rounded-md px-2 py-0.5 text-[10.5px] font-semibold", config.badge)}>
           {config.label}
         </span>
       </div>
       <p className="mt-1.5 text-[12.5px] text-muted-foreground">{risk.description}</p>
+      {risk.mitigation && (
+        <p className="mt-2 text-[12px] text-foreground/80">
+          <strong>Action :</strong> {risk.mitigation}
+        </p>
+      )}
+      {risk.legal_basis && risk.legal_basis.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {risk.legal_basis.map((lb, i) => (
+            <li key={i} className="rounded-md bg-background px-1.5 py-0.5 text-[10.5px] text-muted-foreground">
+              📚 {lb.label}{lb.reference ? ` (${lb.reference})` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
