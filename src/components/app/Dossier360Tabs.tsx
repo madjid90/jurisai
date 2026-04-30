@@ -78,6 +78,31 @@ type Reminder = {
   created_at: string;
 };
 
+type GeneratedDoc = {
+  id: string;
+  title: string;
+  status: string;
+  output_format: string | null;
+  template_id: string | null;
+  created_at: string;
+  validated_at: string | null;
+  document_templates: { name: string; category: string | null; risk_level: string | null } | null;
+};
+
+type WorkflowInstance = {
+  id: string;
+  title: string;
+  status: string;
+  current_step_index: number | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  definition_id: string | null;
+  workflow_definitions: { slug: string; title: string; category: string | null; steps: unknown } | null;
+};
+
+type SourceRef = { citation: string; count: number; lastSeen: string };
+
 const SEVERITY_STYLE: Record<Risk["severity"], string> = {
   low: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   medium: "bg-amber-500/10 text-amber-600 border-amber-500/30",
