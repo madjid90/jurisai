@@ -10,6 +10,8 @@ import {
   generateDocFromWorkflowStep,
   getTemplateBySlug,
 } from "@/server/workflows.functions";
+import { validateWorkflowStep } from "@/server/workflow-validation.functions";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/workflows_/$id")({
@@ -58,6 +60,13 @@ function WorkflowDetailPage() {
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [notes, setNotes] = useState("");
+  const validateFn = useServerFn(validateWorkflowStep);
+  const [validation, setValidation] = useState<{
+    ok: boolean;
+    blockers: string[];
+    warnings: string[];
+    missing_fields: string[];
+  } | null>(null);
 
   // Doc-generation modal state
   const [docModalOpen, setDocModalOpen] = useState(false);
@@ -170,8 +179,39 @@ function WorkflowDetailPage() {
 
   const runByIdx = new Map(data.runs.map((r) => [r.step_index, r]));
 
+  // Pré-validation de l'étape courante (blockers / warnings / champs manquants)
+  useEffect(() => {
+    if (!currentStep || isComplete) {
+      setValidation(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await validateFn({ data: { instanceId: id, stepIndex: currentIdx } });
+        if (!cancelled) {
+          setValidation({
+            ok: res.ok,
+            blockers: res.blockers,
+            warnings: res.warnings,
+            missing_fields: res.missing_fields,
+          });
+        }
+      } catch {
+        if (!cancelled) setValidation(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIdx, isComplete, id]);
+
   const handleComplete = async () => {
     if (!currentStep) return;
+    if (validation && !validation.ok) {
+      toast.error(`Bloqué : ${validation.blockers.join(" · ")}`);
+      return;
+    }
     setAdvancing(true);
     try {
       const res = await complete({
@@ -314,6 +354,27 @@ function WorkflowDetailPage() {
 
                     {isCurrent && (
                       <div className="mt-4 space-y-3 border-t border-border pt-4">
+                        {validation && (validation.blockers.length > 0 || validation.warnings.length > 0) && (
+                          <div className="space-y-2">
+                            {validation.blockers.map((b, i) => (
+                              <div key={`b${i}`} className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-[12px] text-destructive">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{b}</span>
+                              </div>
+                            ))}
+                            {validation.warnings.map((w, i) => (
+                              <div key={`w${i}`} className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-2.5 text-[12px] text-yellow-700">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{w}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {validation?.ok && validation.warnings.length === 0 && (
+                          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-[12px] text-emerald-700">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Pré-requis OK
+                          </div>
+                        )}
                         {s.kind === "generate_doc" && s.template_slug && (
                           <button
                             type="button"

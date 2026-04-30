@@ -61,14 +61,13 @@
 - [ ] Cron digest quotidien/hebdo (à brancher comme edge function planifiée)
 
 
-## Priorité 6 — Workflows métier
+## Priorité 6 — Workflows métier ✅ (socle livré)
 
-- [ ] **Structure workflow étendue** : déclencheurs, étapes, données nécessaires, docs générables, sources juridiques, rappels possibles, validation requise, risques, sorties
-- [ ] **Fonction `validateWorkflowStep()`** retournant `{ok, warnings[], blockers[], missing_fields[], recommended_next_step}`
-- [ ] Workflows RH (16) — absence, retards, avertissement, entretien, mise à pied, licenciement (faute simple/grave), rupture essai, rupture conv, AT, inaptitude, congés, heures sup, modif contrat, abandon poste, affichages
-- [ ] Workflows commerciaux (9) — relance, mise en demeure, analyse/rupture fournisseur, vérif CGV, litige, retard livraison, clause risquée, négociation
-- [ ] Workflows sociétés (8) — PV AG, décision associé unique, gérant, cession parts, comptes, statuts, convocation, registre
-- [ ] Workflows RGPD (8) — registre simplifié, demande accès, vidéosurveillance, badgeuse, conservation, politique, charte, audit
+- [x] **Structure workflow étendue** dans `steps` JSONB : `required_data`, `documents_to_generate`, `legal_refs`, `risks[]`, `validation_required`, `reminder_days`, `delay_days`, `next_step_key`
+- [x] **`validateWorkflowStep()`** dans `src/server/workflow-validation.functions.ts` → `{ok, blockers[], warnings[], missing_fields[], recommended_next_step}`
+- [x] Pré-validation auto sur `/workflows/$id` (panneau bloquants/warnings + bouton bloqué si non-OK)
+- [x] Seed transverse 11 workflows publics (RH 3, commercial 3, sociétés 2, RGPD 3)
+- [ ] À étendre progressivement : RH (+13), commercial (+6), sociétés (+6), RGPD (+5)
 
 ## Priorité 7 — Multi-profils
 
