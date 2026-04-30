@@ -51,13 +51,15 @@
 - [x] Tables : `document_templates` étendu, `document_generation_sessions` (+`prefill_metadata`,`uncertain_fields`,`legal_sources_used`,`detected_risks`,`reminder_after_days`), `generated_documents` (+`legal_sources`,`reminder_id`)
 - [ ] Catalogue prioritaire : seed des 4 verticales avec config riche (à compléter incrémentalement)
 
-## Priorité 4 — Analyse documentaire
+## Priorité 4 — Analyse documentaire ✅ (socle livré)
 
-- [ ] **Étendre `document_analyses`** avec extraction structurée des contrats : parties, objet, dates (signature/effet/fin), durée, renouvellement, préavis, montants, obligations, pénalités, résiliation, juridiction
-- [ ] **Détection de 13 risques contractuels** (renouvellement auto, préavis oublié, pénalités excessives, clauses défavorables…) → insertion auto dans `identified_risks`
-- [ ] **Détection de dates importantes** → insertion auto dans `dossier_deadlines`
-- [ ] **Rapport d'analyse** structuré (résumé, points importants, risques, clauses sensibles, dates, actions recommandées)
-- [ ] OCR pour documents scannés (étend `ocr-document` edge function existante)
+- [x] **Extraction structurée des contrats** : `contract_data` JSONB (parties, objet, dates signature/effet/fin, durée, renouvellement, préavis, montants, conditions de paiement, pénalités, résiliation, juridiction, loi applicable, confidentialité, non-concurrence)
+- [x] **Catalogue 13 risques contractuels typés** (`src/lib/analysis/contract-risks.ts`) : auto_renewal, missed_notice_period, excessive_penalties, unbalanced_clauses, missing_termination, missing_jurisdiction, rgpd_non_compliance, missing_confidentiality, indefinite_duration, unilateral_modification, exclusivity_too_broad, non_compete_invalid, late_payment_no_clause — IA renvoie un `risk_key` normalisé
+- [x] **Détection de dates importantes** (`detected_dates`) typées (signature/effective/trial_end/renewal/notice/end/payment/deadline) → insertion auto dans `dossier_deadlines` avec `source=analysis`, `source_analysis_id`, `deadline_type` (importance ≥ medium)
+- [x] **Rapport d'analyse enrichi** UI `/analyses/$id` : section "Données contractuelles" (parties, dates clés, durée, montants, juridiction, non-concurrence) + section "Échéances détectées" avec badges d'importance
+- [x] Tables : `document_analyses` (+`contract_data`,`detected_dates`), `dossier_deadlines` (+`source`,`source_analysis_id`,`deadline_type`)
+- [x] Timeline enrichie : `analysis.completed` log inclut `deadlines_count` + `contract_data_present`
+- [ ] OCR documents scannés (étend `ocr-document` edge function existante)
 
 ## Priorité 5 — Notifications + veille actionnable ✅ (livré)
 

@@ -559,7 +559,9 @@ export type Database = {
       document_analyses: {
         Row: {
           analysis: Json | null
+          contract_data: Json
           created_at: string
+          detected_dates: Json
           dossier_id: string | null
           error_message: string | null
           extracted_text: string | null
@@ -576,7 +578,9 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
+          contract_data?: Json
           created_at?: string
+          detected_dates?: Json
           dossier_id?: string | null
           error_message?: string | null
           extracted_text?: string | null
@@ -593,7 +597,9 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
+          contract_data?: Json
           created_at?: string
+          detected_dates?: Json
           dossier_id?: string | null
           error_message?: string | null
           extracted_text?: string | null
@@ -913,10 +919,13 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string
+          deadline_type: string | null
           description: string | null
           dossier_id: string
           due_date: string
           id: string
+          source: string
+          source_analysis_id: string | null
           tenant_id: string
           title: string
           updated_at: string
@@ -926,10 +935,13 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by: string
+          deadline_type?: string | null
           description?: string | null
           dossier_id: string
           due_date: string
           id?: string
+          source?: string
+          source_analysis_id?: string | null
           tenant_id: string
           title: string
           updated_at?: string
@@ -939,10 +951,13 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string
+          deadline_type?: string | null
           description?: string | null
           dossier_id?: string
           due_date?: string
           id?: string
+          source?: string
+          source_analysis_id?: string | null
           tenant_id?: string
           title?: string
           updated_at?: string
