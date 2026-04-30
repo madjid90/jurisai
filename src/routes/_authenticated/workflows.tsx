@@ -91,6 +91,28 @@ function WorkflowsPage() {
   const activeInsts = insts.filter((i) => i.status === "active");
   const completedInsts = insts.filter((i) => i.status !== "active");
 
+  const DOMAIN_LABELS: Record<string, string> = {
+    social: "Social / RH",
+    discipline: "Discipline",
+    commercial: "Commercial",
+    societes: "Sociétés",
+    fiscal: "Fiscal",
+    administratif: "Administratif",
+    contentieux: "Contentieux",
+    rgpd: "RGPD",
+  };
+  const domains = Array.from(new Set(defs.map((d) => d.category))).sort();
+  const filteredDefs = defs.filter((d) => {
+    if (domain !== "all" && d.category !== domain) return false;
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      if (!d.title.toLowerCase().includes(q) && !(d.description ?? "").toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6">
