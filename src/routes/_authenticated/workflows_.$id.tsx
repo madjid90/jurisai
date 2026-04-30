@@ -545,6 +545,79 @@ function WorkflowDetailPage() {
               </div>
             )}
 
+            {/* Panneau sources légales (RAG) */}
+            <div className="mt-5 rounded-xl border border-border bg-secondary/30 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-accent" />
+                  <h3 className="text-[13px] font-semibold">Bases légales</h3>
+                  {sources.length > 0 && (
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-medium text-accent">
+                      {selectedSourceIds.size}/{sources.length} sélectionnée{selectedSourceIds.size > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void runSourcing()}
+                  disabled={sourcing}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[11.5px] font-medium hover:bg-secondary disabled:opacity-60"
+                >
+                  {sourcing && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {sources.length === 0 ? "Sourcer cette étape" : "Re-sourcer"}
+                </button>
+              </div>
+              {sourcesError && (
+                <p className="mt-2 text-[11.5px] text-amber-700">⚠ {sourcesError}</p>
+              )}
+              {sources.length > 0 && (
+                <ul className="mt-2 max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                  {sources.map((s) => {
+                    const checked = selectedSourceIds.has(s.chunk_id);
+                    return (
+                      <li key={s.chunk_id}>
+                        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background p-2 hover:bg-secondary/50">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSource(s.chunk_id)}
+                            className="mt-0.5"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate text-[12px] font-medium">{s.title}</span>
+                              {s.reference && (
+                                <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                  {s.reference}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{s.excerpt}</p>
+                            {s.url && (
+                              <a
+                                href={s.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-0.5 inline-flex items-center gap-1 text-[10.5px] text-accent hover:underline"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" /> Source officielle
+                              </a>
+                            )}
+                          </div>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {sources.length === 0 && !sourcing && !sourcesError && (
+                <p className="mt-2 text-[11.5px] text-muted-foreground">
+                  Aucune source chargée. Cliquez sur « Sourcer cette étape » pour rechercher les bases légales pertinentes.
+                </p>
+              )}
+            </div>
+
             <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">
               <button
                 type="button"
