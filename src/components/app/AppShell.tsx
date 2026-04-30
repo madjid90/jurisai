@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
+import { useAccess } from "@/lib/auth/useAccess";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
@@ -103,21 +104,25 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Sidebar() {
   const router = useRouter();
   const currentPath = router.state.location.pathname;
-  const { user } = useAuth();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const { access } = useAccess();
+  const isSuperAdmin = access.isSuperAdmin;
 
-  useEffect(() => {
-    if (!user) return;
-    void (async () => {
-      const { data } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "super_admin")
-        .maybeSingle();
-      setIsSuperAdmin(!!data);
-    })();
-  }, [user]);
+  // Profil "terrain" = vue ultra-simplifiée
+  const isTerrainOnly =
+    access.roles.length > 0 &&
+    access.roles.every((r) => r === "operationnel_terrain");
+
+  const TERRAIN_PATHS = new Set([
+    "/dashboard",
+    "/chat",
+    "/workflows",
+    "/documents",
+    "/scan",
+  ]);
+
+  const visibleNav = isTerrainOnly
+    ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
+    : NAV_ITEMS;
 
   return (
     <aside className="glass-panel flex h-full w-full flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)] md:w-[244px]">
@@ -128,7 +133,7 @@ function Sidebar() {
       <div className="my-4 h-px w-full bg-border" />
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item, i) => (
+        {visibleNav.map((item, i) => (
           <NavItem
             key={`${item.label}-${i}`}
             label={item.label}
