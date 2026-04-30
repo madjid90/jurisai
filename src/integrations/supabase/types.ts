@@ -471,6 +471,79 @@ export type Database = {
           },
         ]
       }
+      document_generation_sessions: {
+        Row: {
+          collected_data: Json
+          created_at: string
+          current_step: string | null
+          dossier_id: string | null
+          id: string
+          prefilled_data: Json
+          scenario: string
+          status: string
+          template_id: string | null
+          tenant_id: string
+          updated_at: string
+          uploaded_document_analysis_id: string | null
+          user_id: string
+          validation_request_id: string | null
+        }
+        Insert: {
+          collected_data?: Json
+          created_at?: string
+          current_step?: string | null
+          dossier_id?: string | null
+          id?: string
+          prefilled_data?: Json
+          scenario?: string
+          status?: string
+          template_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          uploaded_document_analysis_id?: string | null
+          user_id: string
+          validation_request_id?: string | null
+        }
+        Update: {
+          collected_data?: Json
+          created_at?: string
+          current_step?: string | null
+          dossier_id?: string | null
+          id?: string
+          prefilled_data?: Json
+          scenario?: string
+          status?: string
+          template_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          uploaded_document_analysis_id?: string | null
+          user_id?: string
+          validation_request_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_generation_sessions_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_generation_sessions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_generation_sessions_uploaded_document_analysis_id_fkey"
+            columns: ["uploaded_document_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "document_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_templates: {
         Row: {
           body: string
@@ -744,6 +817,7 @@ export type Database = {
           description: string | null
           id: string
           risk_level: string
+          site_id: string | null
           status: string
           tenant_id: string
           title: string
@@ -758,6 +832,7 @@ export type Database = {
           description?: string | null
           id?: string
           risk_level?: string
+          site_id?: string | null
           status?: string
           tenant_id: string
           title: string
@@ -772,6 +847,7 @@ export type Database = {
           description?: string | null
           id?: string
           risk_level?: string
+          site_id?: string | null
           status?: string
           tenant_id?: string
           title?: string
@@ -786,6 +862,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "dossiers_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "dossiers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -793,6 +876,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_queue: {
+        Row: {
+          attempts: number
+          body_html: string
+          body_text: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          metadata: Json
+          recipient_email: string
+          recipient_user_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          subject: string
+          template_key: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          body_html: string
+          body_text?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          metadata?: Json
+          recipient_email: string
+          recipient_user_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+          template_key: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          body_html?: string
+          body_text?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          metadata?: Json
+          recipient_email?: string
+          recipient_user_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          template_key?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       embedding_cache: {
         Row: {
@@ -817,6 +957,138 @@ export type Database = {
           query_hash?: string
         }
         Relationships: []
+      }
+      extracted_fields: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          document_analysis_id: string
+          field_key: string
+          field_type: string
+          field_value: string | null
+          id: string
+          page_number: number | null
+          source_excerpt: string | null
+          tenant_id: string
+          validated_by_user: boolean
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          document_analysis_id: string
+          field_key: string
+          field_type?: string
+          field_value?: string | null
+          id?: string
+          page_number?: number | null
+          source_excerpt?: string | null
+          tenant_id: string
+          validated_by_user?: boolean
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          document_analysis_id?: string
+          field_key?: string
+          field_type?: string
+          field_value?: string | null
+          id?: string
+          page_number?: number | null
+          source_excerpt?: string | null
+          tenant_id?: string
+          validated_by_user?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_fields_document_analysis_id_fkey"
+            columns: ["document_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "document_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_documents: {
+        Row: {
+          content_html: string | null
+          content_markdown: string | null
+          created_at: string
+          dossier_id: string | null
+          generated_by: string
+          id: string
+          output_format: string
+          session_id: string | null
+          status: string
+          storage_path: string | null
+          template_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          variables_used: Json
+        }
+        Insert: {
+          content_html?: string | null
+          content_markdown?: string | null
+          created_at?: string
+          dossier_id?: string | null
+          generated_by: string
+          id?: string
+          output_format?: string
+          session_id?: string | null
+          status?: string
+          storage_path?: string | null
+          template_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          variables_used?: Json
+        }
+        Update: {
+          content_html?: string | null
+          content_markdown?: string | null
+          created_at?: string
+          dossier_id?: string | null
+          generated_by?: string
+          id?: string
+          output_format?: string
+          session_id?: string | null
+          status?: string
+          storage_path?: string | null
+          template_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          variables_used?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_documents_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_documents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "document_generation_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       identified_risks: {
         Row: {
@@ -1276,6 +1548,134 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_update_actions: {
+        Row: {
+          action_type: string
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          legal_update_id: string
+          metadata: Json
+          related_dossier_id: string | null
+          status: string
+          tenant_id: string
+          triggered_by: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          legal_update_id: string
+          metadata?: Json
+          related_dossier_id?: string | null
+          status?: string
+          tenant_id: string
+          triggered_by: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          legal_update_id?: string
+          metadata?: Json
+          related_dossier_id?: string | null
+          status?: string
+          tenant_id?: string
+          triggered_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_update_actions_legal_update_id_fkey"
+            columns: ["legal_update_id"]
+            isOneToOne: false
+            referencedRelation: "legal_updates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_update_actions_related_dossier_id_fkey"
+            columns: ["related_dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_updates: {
+        Row: {
+          created_at: string
+          domain: string
+          effective_date: string | null
+          full_text: string | null
+          id: string
+          impacted_document_types: string[] | null
+          impacted_workflow_slugs: string[] | null
+          practical_impact: string | null
+          publication_date: string | null
+          recommended_actions: Json
+          source_id: string | null
+          source_url: string | null
+          summary: string
+          title: string
+          updated_at: string
+          urgency: string
+          who_is_concerned: string | null
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          effective_date?: string | null
+          full_text?: string | null
+          id?: string
+          impacted_document_types?: string[] | null
+          impacted_workflow_slugs?: string[] | null
+          practical_impact?: string | null
+          publication_date?: string | null
+          recommended_actions?: Json
+          source_id?: string | null
+          source_url?: string | null
+          summary: string
+          title: string
+          updated_at?: string
+          urgency?: string
+          who_is_concerned?: string | null
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          effective_date?: string | null
+          full_text?: string | null
+          id?: string
+          impacted_document_types?: string[] | null
+          impacted_workflow_slugs?: string[] | null
+          practical_impact?: string | null
+          publication_date?: string | null
+          recommended_actions?: Json
+          source_id?: string | null
+          source_url?: string | null
+          summary?: string
+          title?: string
+          updated_at?: string
+          urgency?: string
+          who_is_concerned?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_updates_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_feedback: {
         Row: {
           comment: string | null
@@ -1358,6 +1758,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_preferences: {
+        Row: {
+          app_enabled: boolean
+          created_at: string
+          digest_frequency: string
+          email_enabled: boolean
+          notify_on: Json
+          tenant_id: string
+          updated_at: string
+          user_id: string
+          watched_client_ids: string[]
+          watched_domains: string[]
+          watched_site_ids: string[]
+          watched_update_types: string[]
+        }
+        Insert: {
+          app_enabled?: boolean
+          created_at?: string
+          digest_frequency?: string
+          email_enabled?: boolean
+          notify_on?: Json
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+          watched_client_ids?: string[]
+          watched_domains?: string[]
+          watched_site_ids?: string[]
+          watched_update_types?: string[]
+        }
+        Update: {
+          app_enabled?: boolean
+          created_at?: string
+          digest_frequency?: string
+          email_enabled?: boolean
+          notify_on?: Json
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+          watched_client_ids?: string[]
+          watched_domains?: string[]
+          watched_site_ids?: string[]
+          watched_update_types?: string[]
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -1616,6 +2061,170 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      report_exports: {
+        Row: {
+          created_at: string
+          exported_by: string
+          format: string
+          id: string
+          metadata: Json
+          recipient_email: string | null
+          report_id: string
+          shared_expires_at: string | null
+          shared_token: string | null
+          storage_path: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          exported_by: string
+          format: string
+          id?: string
+          metadata?: Json
+          recipient_email?: string | null
+          report_id: string
+          shared_expires_at?: string | null
+          shared_token?: string | null
+          storage_path?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          exported_by?: string
+          format?: string
+          id?: string
+          metadata?: Json
+          recipient_email?: string | null
+          report_id?: string
+          shared_expires_at?: string | null
+          shared_token?: string | null
+          storage_path?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_exports_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          client_id: string | null
+          context: string | null
+          created_at: string
+          data: Json
+          dossier_id: string | null
+          executive_summary: string | null
+          generated_by: string
+          id: string
+          period_end: string | null
+          period_start: string | null
+          report_type: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          context?: string | null
+          created_at?: string
+          data?: Json
+          dossier_id?: string | null
+          executive_summary?: string | null
+          generated_by: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          report_type: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          context?: string | null
+          created_at?: string
+          data?: Json
+          dossier_id?: string | null
+          executive_summary?: string | null
+          generated_by?: string
+          id?: string
+          period_end?: string | null
+          period_start?: string | null
+          report_type?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sites: {
+        Row: {
+          address: string | null
+          city: string | null
+          code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          manager_user_id: string | null
+          metadata: Json
+          name: string
+          postal_code: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          manager_user_id?: string | null
+          metadata?: Json
+          name: string
+          postal_code?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          manager_user_id?: string | null
+          metadata?: Json
+          name?: string
+          postal_code?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       system_metrics: {
         Row: {
