@@ -11,7 +11,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
-import { notifyUser } from "./notifications.functions";
+import { notifyUser } from "./_shared/notify.server";
 
 // ─── Lister les mises à jour ─────────────────────────────────────────────────
 
