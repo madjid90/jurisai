@@ -14,6 +14,160 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_runs: {
+        Row: {
+          answer: string | null
+          confidence: number | null
+          created_at: string
+          domain: string | null
+          dossier_id: string | null
+          duration_ms: number | null
+          id: string
+          intent: string | null
+          message: string
+          missing_information: Json | null
+          refusal_reason: string | null
+          refused: boolean | null
+          requires_document_upload: boolean | null
+          requires_form: boolean | null
+          requires_rag: boolean | null
+          requires_validation: boolean | null
+          sources: Json | null
+          suggested_actions: Json | null
+          tenant_id: string
+          topic: string | null
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          confidence?: number | null
+          created_at?: string
+          domain?: string | null
+          dossier_id?: string | null
+          duration_ms?: number | null
+          id?: string
+          intent?: string | null
+          message: string
+          missing_information?: Json | null
+          refusal_reason?: string | null
+          refused?: boolean | null
+          requires_document_upload?: boolean | null
+          requires_form?: boolean | null
+          requires_rag?: boolean | null
+          requires_validation?: boolean | null
+          sources?: Json | null
+          suggested_actions?: Json | null
+          tenant_id: string
+          topic?: string | null
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          confidence?: number | null
+          created_at?: string
+          domain?: string | null
+          dossier_id?: string | null
+          duration_ms?: number | null
+          id?: string
+          intent?: string | null
+          message?: string
+          missing_information?: Json | null
+          refusal_reason?: string | null
+          refused?: boolean | null
+          requires_document_upload?: boolean | null
+          requires_form?: boolean | null
+          requires_rag?: boolean | null
+          requires_validation?: boolean | null
+          sources?: Json | null
+          suggested_actions?: Json | null
+          tenant_id?: string
+          topic?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_runs_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tool_runs: {
+        Row: {
+          agent_run_id: string
+          args: Json | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          is_sensitive: boolean | null
+          result: Json | null
+          succeeded: boolean | null
+          tenant_id: string
+          tool_name: string
+          validation_request_id: string | null
+        }
+        Insert: {
+          agent_run_id: string
+          args?: Json | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          is_sensitive?: boolean | null
+          result?: Json | null
+          succeeded?: boolean | null
+          tenant_id: string
+          tool_name: string
+          validation_request_id?: string | null
+        }
+        Update: {
+          agent_run_id?: string
+          args?: Json | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          is_sensitive?: boolean | null
+          result?: Json | null
+          succeeded?: boolean | null
+          tenant_id?: string
+          tool_name?: string
+          validation_request_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tool_runs_agent_run_id_fkey"
+            columns: ["agent_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tool_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tool_runs_validation_request_id_fkey"
+            columns: ["validation_request_id"]
+            isOneToOne: false
+            referencedRelation: "validation_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_dismissals: {
         Row: {
           alert_id: string
