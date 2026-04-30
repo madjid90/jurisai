@@ -480,6 +480,15 @@ function Section({
   );
 }
 
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-[12.5px]">
+      <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="font-medium">{value}</div>
+    </div>
+  );
+}
+
 function RiskCard({ risk }: { risk: Risk }) {
   const config = {
     low: { color: "border-border bg-secondary/40", badge: "bg-secondary text-muted-foreground", label: "Faible" },
