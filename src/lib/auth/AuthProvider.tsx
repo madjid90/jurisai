@@ -23,6 +23,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const applyAuthState = (nextSession: Session | null) => {
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+    invalidateAccessCache();
+    if (nextSession?.user) {
+      setTimeout(() => {
+        void fetchProfile(nextSession.user.id);
+      }, 0);
+    } else {
+      setProfile(null);
+    }
+  };
+
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
@@ -35,28 +48,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // 1. Subscribe FIRST (per Supabase guidance)
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      // Invalidate role/permission cache on any auth change to avoid stale UI.
-      invalidateAccessCache();
-      if (newSession?.user) {
-        setTimeout(() => {
-          void fetchProfile(newSession.user.id);
-        }, 0);
-      } else {
-        setProfile(null);
-      }
+      applyAuthState(newSession);
+      setLoading(false);
     });
 
     // 2. Then check existing session
-    void supabase.auth.getSession().then(({ data: { session: existing } }) => {
-      setSession(existing);
-      setUser(existing?.user ?? null);
-      if (existing?.user) {
-        void fetchProfile(existing.user.id);
-      }
-      setLoading(false);
-    });
+    void supabase.auth
+      .getUser()
+      .then(async ({ data: { user: existingUser }, error }) => {
+        if (error || !existingUser) {
+          applyAuthState(null);
+          setLoading(false);
+          return;
+        }
+
+        const {
+          data: { session: existingSession },
+        } = await supabase.auth.getSession();
+        applyAuthState(existingSession ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        applyAuthState(null);
+        setLoading(false);
+      });
 
     return () => sub.subscription.unsubscribe();
   }, []);
