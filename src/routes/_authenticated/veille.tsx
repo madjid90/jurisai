@@ -75,7 +75,7 @@ function LegalUpdatesPanel() {
   });
 
   const createAction = useMutation({
-    mutationFn: (input: Parameters<typeof createLegalUpdateAction>[0]["data"]) =>
+    mutationFn: (input: { legalUpdateId: string; actionType: "review" | "ignore" }) =>
       createLegalUpdateAction({ data: input }),
     onSuccess: () => {
       toast.success("Action enregistrée");
