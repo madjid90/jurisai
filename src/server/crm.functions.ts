@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getTenantId } from "@/server/_shared/tenant.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 type Ctx = { userId: string; supabase: SupabaseClient };
 
@@ -211,6 +212,14 @@ export const createDossier = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+    await logTimelineEvent({
+      tenantId,
+      dossierId: (dossier as { id: string }).id,
+      actorId: ctx.userId,
+      eventType: "dossier.created",
+      title: `Dossier créé`,
+      description: (dossier as { title?: string }).title ?? null,
+    });
     return { dossier };
   });
 
@@ -232,6 +241,16 @@ export const updateDossier = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+    if (cleaned.status) {
+      await logTimelineEvent({
+        tenantId,
+        dossierId: id,
+        actorId: ctx.userId,
+        eventType: "dossier.status_changed",
+        title: `Statut → ${String(cleaned.status)}`,
+        metadata: { new_status: cleaned.status },
+      });
+    }
     return { dossier };
   });
 
