@@ -295,6 +295,94 @@ function AnalysisDetailPage() {
               </Section>
             )}
 
+            {/* Données contractuelles */}
+            {((row.contract_data && Object.keys(row.contract_data).length > 0) || a.contract_data) && (() => {
+              const cd = (row.contract_data ?? a.contract_data ?? {}) as ContractData;
+              const hasAny = !!(cd.parties?.length || cd.object || cd.signature_date || cd.effective_date || cd.end_date || cd.duration || cd.amount || cd.jurisdiction);
+              if (!hasAny) return null;
+              return (
+                <Section title="Données contractuelles" icon={Users}>
+                  <div className="space-y-3">
+                    {cd.parties && cd.parties.length > 0 && (
+                      <div>
+                        <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Parties</div>
+                        <ul className="space-y-1">
+                          {cd.parties.map((p, i) => (
+                            <li key={i} className="text-[12.5px]">
+                              <span className="font-medium">{p.name ?? "—"}</span>
+                              {p.legal_form && <span className="text-muted-foreground"> · {p.legal_form}</span>}
+                              {p.role && <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px]">{p.role}</span>}
+                              {p.siret && <span className="ml-2 text-[10.5px] text-muted-foreground">SIRET {p.siret}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {cd.object && <Field label="Objet" value={cd.object} />}
+                      {cd.signature_date && <Field label="Date de signature" value={cd.signature_date} />}
+                      {cd.effective_date && <Field label="Prise d'effet" value={cd.effective_date} />}
+                      {cd.end_date && <Field label="Fin" value={cd.end_date} />}
+                      {cd.duration && <Field label="Durée" value={cd.duration} />}
+                      {cd.notice_period && <Field label="Préavis" value={cd.notice_period} />}
+                      {cd.renewal?.type && <Field label="Renouvellement" value={`${cd.renewal.type}${cd.renewal.notice_days ? ` · ${cd.renewal.notice_days}j` : ""}`} />}
+                      {cd.amount && <Field label="Montant" value={cd.amount} />}
+                      {cd.payment_terms && <Field label="Conditions de paiement" value={cd.payment_terms} />}
+                      {cd.penalties && <Field label="Pénalités" value={cd.penalties} />}
+                      {cd.termination && <Field label="Résiliation" value={cd.termination} />}
+                      {cd.jurisdiction && <Field label="Juridiction" value={cd.jurisdiction} />}
+                      {cd.governing_law && <Field label="Loi applicable" value={cd.governing_law} />}
+                      {cd.confidentiality !== undefined && <Field label="Confidentialité" value={cd.confidentiality ? "Oui" : "Non"} />}
+                    </div>
+                    {cd.non_compete?.present && (
+                      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-[12px]">
+                        <div className="font-semibold">Clause de non-concurrence</div>
+                        <div className="text-muted-foreground">
+                          {cd.non_compete.duration ?? "—"} · {cd.non_compete.zone ?? "—"} · {cd.non_compete.compensation ?? "sans contrepartie"}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Section>
+              );
+            })()}
+
+            {/* Échéances détectées */}
+            {(() => {
+              const dates = (row.detected_dates ?? a.detected_dates ?? []) as DetectedDateUI[];
+              if (!dates.length) return null;
+              return (
+                <Section title={`Échéances détectées (${dates.length})`} icon={Calendar}>
+                  <ul className="space-y-2">
+                    {dates.map((d, i) => (
+                      <li key={i} className="flex items-start justify-between gap-3 rounded-xl border border-border p-3 text-[12.5px]">
+                        <div>
+                          <div className="font-medium">{d.label}</div>
+                          {d.description && <div className="text-[11.5px] text-muted-foreground">{d.description}</div>}
+                          <div className="mt-1 text-[10.5px] text-muted-foreground">{d.type}</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-mono text-[12px]">{d.iso_date}</span>
+                          <span className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase",
+                            d.importance === "critical" && "bg-destructive/15 text-destructive",
+                            d.importance === "high" && "bg-orange-500/15 text-orange-600",
+                            d.importance === "medium" && "bg-amber-500/15 text-amber-600",
+                            d.importance === "low" && "bg-secondary text-muted-foreground",
+                          )}>{d.importance}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {row.dossier_id && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      ✓ Échéances importantes ajoutées automatiquement au calendrier du dossier.
+                    </p>
+                  )}
+                </Section>
+              );
+            })()}
+
             {/* Points clés */}
             {a.key_points?.length > 0 && (
               <Section title="Points clés" icon={CheckCircle2}>
