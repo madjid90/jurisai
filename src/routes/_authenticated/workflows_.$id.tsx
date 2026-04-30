@@ -10,6 +10,8 @@ import {
   generateDocFromWorkflowStep,
   getTemplateBySlug,
 } from "@/server/workflows.functions";
+import { validateWorkflowStep } from "@/server/workflow-validation.functions";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/workflows_/$id")({
