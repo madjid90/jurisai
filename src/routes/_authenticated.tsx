@@ -12,6 +12,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
     const {
       data: { user },
       error,
