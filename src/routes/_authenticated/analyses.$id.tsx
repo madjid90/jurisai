@@ -285,26 +285,44 @@ function Section({
   );
 }
 
-function RiskCard({
-  risk,
-}: {
-  risk: { severity: "low" | "medium" | "high"; title: string; description: string };
-}) {
+function RiskCard({ risk }: { risk: Risk }) {
   const config = {
     low: { color: "border-border bg-secondary/40", badge: "bg-secondary text-muted-foreground", label: "Faible" },
     medium: { color: "border-amber-500/30 bg-amber-500/5", badge: "bg-amber-500/15 text-amber-700 dark:text-amber-300", label: "Moyen" },
     high: { color: "border-destructive/40 bg-destructive/5", badge: "bg-destructive/15 text-destructive", label: "Élevé" },
+    critical: { color: "border-destructive bg-destructive/10", badge: "bg-destructive text-destructive-foreground", label: "Critique" },
   }[risk.severity];
 
   return (
     <div className={cn("rounded-xl border p-3", config.color)}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[13.5px] font-semibold text-foreground">{risk.title}</p>
+        <p className="text-[13.5px] font-semibold text-foreground">
+          {risk.title}
+          {risk.category && (
+            <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-normal uppercase text-muted-foreground">
+              {risk.category}
+            </span>
+          )}
+        </p>
         <span className={cn("rounded-md px-2 py-0.5 text-[10.5px] font-semibold", config.badge)}>
           {config.label}
         </span>
       </div>
       <p className="mt-1.5 text-[12.5px] text-muted-foreground">{risk.description}</p>
+      {risk.mitigation && (
+        <p className="mt-2 text-[12px] text-foreground/80">
+          <strong>Action :</strong> {risk.mitigation}
+        </p>
+      )}
+      {risk.legal_basis && risk.legal_basis.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {risk.legal_basis.map((lb, i) => (
+            <li key={i} className="rounded-md bg-background px-1.5 py-0.5 text-[10.5px] text-muted-foreground">
+              📚 {lb.label}{lb.reference ? ` (${lb.reference})` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
