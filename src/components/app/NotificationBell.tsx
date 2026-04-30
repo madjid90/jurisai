@@ -15,6 +15,7 @@ export function NotificationBell() {
   const listFn = useServerFn(listNotifications);
   const markFn = useServerFn(markNotificationRead);
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(false);
@@ -23,13 +24,20 @@ export function NotificationBell() {
   const unread = items.filter((n) => !n.read_at).length;
 
   const refresh = async () => {
+    if (!user) return;
     setLoading(true);
     try { setItems(await listFn() as Notif[]); }
     catch { /* silent */ }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void refresh(); const t = setInterval(refresh, 60_000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (authLoading || !user) return;
+    void refresh();
+    const t = setInterval(refresh, 60_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
