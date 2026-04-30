@@ -104,10 +104,10 @@ export function GenerationWizard({ template, dossierId, onClose }: Props) {
       } else {
         toast.success("Document généré");
       }
-      // Redirige vers le document
+      // Redirige vers la liste des documents
       setTimeout(() => {
         onClose();
-        navigate({ to: "/documents/$id", params: { id: r.document_id } });
+        navigate({ to: "/documents" });
       }, 1200);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur génération");
