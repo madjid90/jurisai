@@ -66,6 +66,11 @@ function canSee(access: UserAccess, item: NavItemDef): boolean {
   return item.perms.some((p) => hasPermission(access, p));
 }
 
+function isPathActive(currentPath: string, target: string): boolean {
+  if (target === "/dashboard") return currentPath === "/dashboard";
+  return currentPath === target || currentPath.startsWith(target + "/");
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
@@ -157,7 +162,7 @@ function Sidebar() {
             label={item.label}
             icon={item.icon}
             to={item.to}
-            active={currentPath === item.to}
+            active={isPathActive(currentPath, item.to)}
           />
         ))}
       </nav>
@@ -172,7 +177,7 @@ function Sidebar() {
             label={item.label}
             icon={item.icon}
             to={item.to}
-            active={currentPath === item.to}
+            active={isPathActive(currentPath, item.to)}
           />
         ))}
       </nav>
