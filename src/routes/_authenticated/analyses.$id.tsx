@@ -183,10 +183,81 @@ function AnalysisDetailPage() {
           </div>
         ) : (
           <div className="space-y-6 px-8 py-6">
+            {/* Domaine + type */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-accent">
+                {DOMAIN_LABELS[a.domain ?? "autre"] ?? a.domain ?? "Autre"}
+              </span>
+              <span className="rounded-full bg-secondary px-3 py-1 text-[11.5px] font-medium text-muted-foreground">
+                {a.document_type}
+              </span>
+              {row.dossier_id && (
+                <Link
+                  to="/dossiers/$id"
+                  params={{ id: row.dossier_id }}
+                  className="rounded-full border border-border px-3 py-1 text-[11.5px] font-medium text-accent hover:bg-accent/5"
+                >
+                  → Voir le dossier rattaché
+                </Link>
+              )}
+            </div>
+
             {/* Résumé */}
             <Section title="Résumé" icon={FileText}>
               <p className="text-[14px] leading-relaxed text-foreground">{a.summary}</p>
             </Section>
+
+            {/* Champs extraits */}
+            {fields.length > 0 && (
+              <Section title={`Champs extraits (${fields.length})`} icon={Database}>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {fields.map((f) => (
+                    <div
+                      key={f.id}
+                      className={cn(
+                        "rounded-xl border p-2.5",
+                        f.validated_by_user
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-border bg-card",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {f.field_key}
+                            {typeof f.confidence === "number" && (
+                              <span className="ml-1 text-[10px] text-muted-foreground/70">
+                                · {Math.round(f.confidence * 100)}%
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-0.5 break-words text-[12.5px] font-medium text-foreground">
+                            {f.field_value || <em className="text-amber-600">(vide)</em>}
+                          </p>
+                          {f.source_excerpt && (
+                            <p className="mt-1 line-clamp-2 text-[10.5px] italic text-muted-foreground">
+                              « {f.source_excerpt} »
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleValidateField(f.id, !f.validated_by_user)}
+                          className={cn(
+                            "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border",
+                            f.validated_by_user
+                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              : "border-border text-muted-foreground hover:border-accent hover:text-accent",
+                          )}
+                          title={f.validated_by_user ? "Champ validé" : "Valider ce champ"}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* Points clés */}
             {a.key_points?.length > 0 && (
