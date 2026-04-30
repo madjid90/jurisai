@@ -203,6 +203,12 @@ function Sidebar() {
               active={currentPath === "/admin/rag-quality"}
             />
             <NavItem
+              label="Erreurs serveur"
+              icon={ServerCrash}
+              to="/admin/server-errors"
+              active={currentPath === "/admin/server-errors"}
+            />
+            <NavItem
               label="Audit"
               icon={ScrollText}
               to="/admin/audit"
