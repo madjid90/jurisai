@@ -630,13 +630,18 @@ export type Database = {
           collected_data: Json
           created_at: string
           current_step: string | null
+          detected_risks: Json
           dossier_id: string | null
           id: string
+          legal_sources_used: Json
+          prefill_metadata: Json
           prefilled_data: Json
+          reminder_after_days: number | null
           scenario: string
           status: string
           template_id: string | null
           tenant_id: string
+          uncertain_fields: Json
           updated_at: string
           uploaded_document_analysis_id: string | null
           user_id: string
@@ -646,13 +651,18 @@ export type Database = {
           collected_data?: Json
           created_at?: string
           current_step?: string | null
+          detected_risks?: Json
           dossier_id?: string | null
           id?: string
+          legal_sources_used?: Json
+          prefill_metadata?: Json
           prefilled_data?: Json
+          reminder_after_days?: number | null
           scenario?: string
           status?: string
           template_id?: string | null
           tenant_id: string
+          uncertain_fields?: Json
           updated_at?: string
           uploaded_document_analysis_id?: string | null
           user_id: string
@@ -662,13 +672,18 @@ export type Database = {
           collected_data?: Json
           created_at?: string
           current_step?: string | null
+          detected_risks?: Json
           dossier_id?: string | null
           id?: string
+          legal_sources_used?: Json
+          prefill_metadata?: Json
           prefilled_data?: Json
+          reminder_after_days?: number | null
           scenario?: string
           status?: string
           template_id?: string | null
           tenant_id?: string
+          uncertain_fields?: Json
           updated_at?: string
           uploaded_document_analysis_id?: string | null
           user_id?: string
@@ -700,65 +715,101 @@ export type Database = {
       }
       document_templates: {
         Row: {
+          archive_to_case: boolean
           body: string
+          can_create_reminder: boolean
           category: string
           created_at: string
           created_by: string | null
           description: string | null
+          guidance: string | null
           icon: string | null
           id: string
           is_public: boolean
           legal_basis: Json
           name: string
+          output_formats: string[]
+          prefill_sources: Json
+          reminder_days_default: number | null
+          requires_form: boolean
+          requires_rag: boolean
+          requires_upload: boolean
+          requires_validation: boolean
           risk_level: string
           slug: string | null
           status: Database["public"]["Enums"]["template_status"]
           tenant_id: string | null
           updated_at: string
+          upload_optional: boolean
           validated_at: string | null
           validated_by: string | null
+          validation_threshold: string
           variables: Json
           version: number
         }
         Insert: {
+          archive_to_case?: boolean
           body: string
+          can_create_reminder?: boolean
           category?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
+          guidance?: string | null
           icon?: string | null
           id?: string
           is_public?: boolean
           legal_basis?: Json
           name: string
+          output_formats?: string[]
+          prefill_sources?: Json
+          reminder_days_default?: number | null
+          requires_form?: boolean
+          requires_rag?: boolean
+          requires_upload?: boolean
+          requires_validation?: boolean
           risk_level?: string
           slug?: string | null
           status?: Database["public"]["Enums"]["template_status"]
           tenant_id?: string | null
           updated_at?: string
+          upload_optional?: boolean
           validated_at?: string | null
           validated_by?: string | null
+          validation_threshold?: string
           variables?: Json
           version?: number
         }
         Update: {
+          archive_to_case?: boolean
           body?: string
+          can_create_reminder?: boolean
           category?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
+          guidance?: string | null
           icon?: string | null
           id?: string
           is_public?: boolean
           legal_basis?: Json
           name?: string
+          output_formats?: string[]
+          prefill_sources?: Json
+          reminder_days_default?: number | null
+          requires_form?: boolean
+          requires_rag?: boolean
+          requires_upload?: boolean
+          requires_validation?: boolean
           risk_level?: string
           slug?: string | null
           status?: Database["public"]["Enums"]["template_status"]
           tenant_id?: string | null
           updated_at?: string
+          upload_optional?: boolean
           validated_at?: string | null
           validated_by?: string | null
+          validation_threshold?: string
           variables?: Json
           version?: number
         }
@@ -1238,7 +1289,9 @@ export type Database = {
           dossier_id: string | null
           generated_by: string
           id: string
+          legal_sources: Json
           output_format: string
+          reminder_id: string | null
           session_id: string | null
           status: string
           storage_path: string | null
@@ -1257,7 +1310,9 @@ export type Database = {
           dossier_id?: string | null
           generated_by: string
           id?: string
+          legal_sources?: Json
           output_format?: string
+          reminder_id?: string | null
           session_id?: string | null
           status?: string
           storage_path?: string | null
@@ -1276,7 +1331,9 @@ export type Database = {
           dossier_id?: string | null
           generated_by?: string
           id?: string
+          legal_sources?: Json
           output_format?: string
+          reminder_id?: string | null
           session_id?: string | null
           status?: string
           storage_path?: string | null

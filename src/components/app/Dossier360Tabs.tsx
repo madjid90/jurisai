@@ -1385,7 +1385,7 @@ function WorkflowsView({ workflows }: { workflows: WorkflowInstance[] }) {
                   {w.status}
                 </span>
                 <Link
-                  to="/workflows_/$id"
+                  to="/workflows/$id"
                   params={{ id: w.id }}
                   className="rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground hover:bg-secondary"
                 >
