@@ -207,9 +207,30 @@ function TeamPage() {
                 disabled={sending}
                 className="h-11 rounded-xl border border-border bg-background px-3 text-[14px] text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               >
-                <option value="user">Utilisateur</option>
-                <option value="manager">Manager</option>
-                {isAdmin && <option value="admin">Administrateur</option>}
+                <optgroup label="Standard">
+                  {ASSIGNABLE_ROLES.filter((r) => r.group === "core").map((r) => {
+                    if (r.value === "admin" && !isAdmin) return null;
+                    return (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="Métier">
+                  {ASSIGNABLE_ROLES.filter((r) => r.group === "metier").map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Cabinet partenaire">
+                  {ASSIGNABLE_ROLES.filter((r) => r.group === "cabinet").map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <button
                 type="submit"
