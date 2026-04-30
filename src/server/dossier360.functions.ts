@@ -95,15 +95,15 @@ export const getDossier360 = createServerFn({ method: "POST" })
         sourceMap.set(key, { citation: key, count: 1, lastSeen: when });
       }
     };
-    for (const ev of timeline.data ?? []) {
+    for (const ev of (timeline.data ?? []) as any[]) {
       const md = ev.metadata as { sources?: unknown[]; citations?: unknown[]; legal_basis?: unknown[] } | null;
       const arr = md?.sources ?? md?.citations ?? md?.legal_basis;
-      if (Array.isArray(arr)) arr.forEach((s) => addSource(s, ev.occurred_at));
+      if (Array.isArray(arr)) arr.forEach((s) => addSource(s, ev.occurred_at as string));
     }
-    for (const r of risks.data ?? []) {
+    for (const r of (risks.data ?? []) as any[]) {
       const lb = r.legal_basis as unknown[] | unknown;
-      if (Array.isArray(lb)) lb.forEach((s) => addSource(s, r.created_at));
-      else if (lb) addSource(lb, r.created_at);
+      if (Array.isArray(lb)) lb.forEach((s) => addSource(s, r.created_at as string));
+      else if (lb) addSource(lb, r.created_at as string);
     }
     const sources = Array.from(sourceMap.values()).sort((a, b) => b.count - a.count);
 
