@@ -498,7 +498,7 @@ async function toolDossierContext(args: Record<string, unknown>, ctx: AgentConte
 
   const [tl, tasks, risks, deadlines] = await Promise.all([
     ctx.supabase.from("case_timeline_events")
-      .select("event_type, summary, occurred_at").eq("dossier_id", dossier_id)
+      .select("event_type, title, description, occurred_at, metadata").eq("dossier_id", dossier_id)
       .order("occurred_at", { ascending: false }).limit(15),
     ctx.supabase.from("dossier_tasks")
       .select("title, status, priority, due_date").eq("dossier_id", dossier_id)
