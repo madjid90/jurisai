@@ -5,7 +5,9 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
+  Database,
   FileText,
   Lightbulb,
   Loader2,
@@ -16,20 +18,51 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { cn } from "@/lib/utils";
-import { deleteAnalysis, getAnalysis } from "@/server/analysis.functions";
+import { deleteAnalysis, getAnalysis, validateExtractedField } from "@/server/analysis.functions";
 
 export const Route = createFileRoute("/_authenticated/analyses/$id")({
   head: () => ({ meta: [{ title: "Analyse · JurisAI" }] }),
   component: AnalysisDetailPage,
 });
 
+const DOMAIN_LABELS: Record<string, string> = {
+  rh: "Ressources humaines",
+  commercial: "Commercial",
+  societes: "Droit des sociétés",
+  rgpd: "RGPD / Données personnelles",
+  fiscal: "Fiscal",
+  contentieux: "Contentieux",
+  administratif: "Administratif",
+  autre: "Autre",
+};
+
+type Risk = {
+  severity: "low" | "medium" | "high" | "critical";
+  category?: string;
+  title: string;
+  description: string;
+  legal_basis?: Array<{ label: string; reference?: string }>;
+  mitigation?: string;
+};
+
 type Analysis = {
+  domain?: string;
   document_type: string;
   summary: string;
   key_points: string[];
-  risks: Array<{ severity: "low" | "medium" | "high"; title: string; description: string }>;
+  risks: Risk[];
   compliance: Array<{ status: "ok" | "warning" | "issue"; title: string; description: string }>;
   recommendations: string[];
+};
+
+type ExtractedField = {
+  id: string;
+  field_key: string;
+  field_value: string | null;
+  field_type: string;
+  confidence: number | null;
+  source_excerpt: string | null;
+  validated_by_user: boolean;
 };
 
 type Row = {
@@ -42,6 +75,7 @@ type Row = {
   error_message: string | null;
   created_at: string;
   extracted_text: string | null;
+  dossier_id: string | null;
 };
 
 function AnalysisDetailPage() {
@@ -50,8 +84,10 @@ function AnalysisDetailPage() {
   const navigate = useNavigate();
   const getFn = useServerFn(getAnalysis);
   const deleteFn = useServerFn(deleteAnalysis);
+  const validateFieldFn = useServerFn(validateExtractedField);
 
   const [row, setRow] = useState<Row | null>(null);
+  const [fields, setFields] = useState<ExtractedField[]>([]);
   const [loading, setLoading] = useState(true);
   const [showText, setShowText] = useState(false);
 
@@ -60,6 +96,7 @@ function AnalysisDetailPage() {
       try {
         const res = await getFn({ data: { id } });
         setRow(res.analysis as Row);
+        setFields((res.extracted_fields ?? []) as ExtractedField[]);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erreur");
         void navigate({ to: "/analyses" });
@@ -69,6 +106,15 @@ function AnalysisDetailPage() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleValidateField = async (fieldId: string, validated: boolean) => {
+    try {
+      await validateFieldFn({ data: { id: fieldId, validated } });
+      setFields((prev) => prev.map((f) => (f.id === fieldId ? { ...f, validated_by_user: validated } : f)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  };
 
   const handleDelete = async () => {
     if (!(await confirmAsync("Supprimer cette analyse ?"))) return;
