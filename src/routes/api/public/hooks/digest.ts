@@ -106,7 +106,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
 
           const items = (notifs as Notif[]) ?? [];
           if (items.length === 0) {
-            await supabaseAdmin.from("digest_runs").insert({
+            await (supabaseAdmin as any).from("digest_runs").insert({
               user_id: t.user_id,
               tenant_id: t.tenant_id,
               frequency,
@@ -134,7 +134,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
 
           if (queueErr) {
             errors.push(`${t.user_id}: ${queueErr.message}`);
-            await supabaseAdmin.from("digest_runs").insert({
+            await (supabaseAdmin as any).from("digest_runs").insert({
               user_id: t.user_id,
               tenant_id: t.tenant_id,
               frequency,
@@ -144,7 +144,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
             });
           } else {
             queued++;
-            await supabaseAdmin.from("digest_runs").insert({
+            await (supabaseAdmin as any).from("digest_runs").insert({
               user_id: t.user_id,
               tenant_id: t.tenant_id,
               frequency,
