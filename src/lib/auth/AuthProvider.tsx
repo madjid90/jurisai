@@ -3,7 +3,6 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/database.types";
 import { invalidateAccessCache } from "@/lib/auth/useAccess";
-import { setValidatedAccessToken } from "@/lib/auth/session-cache";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -28,7 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyAuthState = (nextSession: Session | null) => {
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
-    setValidatedAccessToken(nextSession?.access_token ?? null);
     validatedUserIdRef.current = nextSession?.user?.id ?? null;
     invalidateAccessCache();
     if (nextSession?.user) {
@@ -51,12 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 1. Subscribe FIRST (per Supabase guidance)
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       const nextUserId = newSession?.user?.id ?? null;
-
-      if (newSession?.access_token) {
-        setValidatedAccessToken(newSession.access_token);
-      }
 
       if (!nextUserId) {
         validatedUserIdRef.current = null;
@@ -71,30 +65,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      try {
-        const {
-          data: { user: verifiedUser },
-          error,
-        } = await supabase.auth.getUser();
+      queueMicrotask(() => {
+        void (async () => {
+          try {
+            const {
+              data: { user: verifiedUser },
+              error,
+            } = await supabase.auth.getUser();
 
-        if (error || !verifiedUser || verifiedUser.id !== nextUserId) {
-          validatedUserIdRef.current = null;
-          applyAuthState(null);
-          setLoading(false);
-          return;
-        }
+            if (error || !verifiedUser || verifiedUser.id !== nextUserId) {
+              validatedUserIdRef.current = null;
+              applyAuthState(null);
+              setLoading(false);
+              return;
+            }
 
-        validatedUserIdRef.current = verifiedUser.id;
-        const {
-          data: { session: verifiedSession },
-        } = await supabase.auth.getSession();
-        applyAuthState(verifiedSession ?? newSession);
-      } catch {
-        validatedUserIdRef.current = null;
-        applyAuthState(null);
-      } finally {
-        setLoading(false);
-      }
+            validatedUserIdRef.current = verifiedUser.id;
+            const {
+              data: { session: verifiedSession },
+            } = await supabase.auth.getSession();
+            applyAuthState(verifiedSession ?? newSession);
+          } catch {
+            validatedUserIdRef.current = null;
+            applyAuthState(null);
+          } finally {
+            setLoading(false);
+          }
+        })();
+      });
     });
 
     // 2. Then check existing session
