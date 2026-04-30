@@ -3,20 +3,23 @@ import { Link } from "@tanstack/react-router";
 import { Zap } from "lucide-react";
 import { getTenantQuota } from "@/server/tenant.functions";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 /**
  * Compact quota indicator displayed in the sidebar.
  * Color shifts to warning (>=80%) and destructive (>=100%).
  */
 export function QuotaBadge() {
+  const { user, loading } = useAuth();
   const { data } = useQuery({
     queryKey: ["tenant-quota"],
     queryFn: () => getTenantQuota(),
+    enabled: !!user && !loading,
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
 
-  if (!data) return null;
+  if (!user || loading || !data) return null;
 
   const tone =
     data.pct >= 100
