@@ -211,6 +211,17 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
   parsed.compliance = Array.isArray(parsed.compliance) ? parsed.compliance : [];
   parsed.recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
   parsed.key_points = Array.isArray(parsed.key_points) ? parsed.key_points : [];
+  parsed.contract_data = (parsed.contract_data && typeof parsed.contract_data === "object")
+    ? parsed.contract_data
+    : {};
+  parsed.detected_dates = (Array.isArray(parsed.detected_dates) ? parsed.detected_dates : [])
+    .filter((d) => d && isValidIsoDate((d as DetectedDate).iso_date));
+
+  // Normalise risk_key : null si hors catalogue
+  parsed.risks = parsed.risks.map((r) => ({
+    ...r,
+    risk_key: r.risk_key && CONTRACT_RISKS[r.risk_key as ContractRiskKey] ? r.risk_key : null,
+  }));
 
   return {
     analysis: parsed,
