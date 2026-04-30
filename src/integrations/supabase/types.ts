@@ -556,6 +556,42 @@ export type Database = {
         }
         Relationships: []
       }
+      digest_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          frequency: string
+          id: string
+          items_count: number
+          metadata: Json
+          status: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          frequency: string
+          id?: string
+          items_count?: number
+          metadata?: Json
+          status?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          frequency?: string
+          id?: string
+          items_count?: number
+          metadata?: Json
+          status?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       document_analyses: {
         Row: {
           analysis: Json | null
