@@ -87,14 +87,14 @@ function TeamPage() {
       .select("user_id, role")
       .eq("tenant_id", profile.tenant_id);
 
-    const rolesMap = new Map<string, AppRole>();
+    const rolesByUser = new Map<string, AppRole[]>();
     ((rolesData as Array<{ user_id: string; role: AppRole }>) ?? []).forEach((r) => {
-      // If user has multiple roles, prioritize admin > manager > user
-      const existing = rolesMap.get(r.user_id);
-      if (!existing) rolesMap.set(r.user_id, r.role);
-      else if (r.role === "admin") rolesMap.set(r.user_id, "admin");
-      else if (r.role === "manager" && existing === "user") rolesMap.set(r.user_id, "manager");
+      const arr = rolesByUser.get(r.user_id) ?? [];
+      arr.push(r.role);
+      rolesByUser.set(r.user_id, arr);
     });
+    const rolesMap = new Map<string, AppRole>();
+    rolesByUser.forEach((arr, uid) => rolesMap.set(uid, pickHighestRole(arr)));
 
     setMembers(
       ((profilesData as Member[]) ?? []).map((p) => ({
