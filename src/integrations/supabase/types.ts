@@ -2259,39 +2259,60 @@ export type Database = {
       rag_eval_runs: {
         Row: {
           answer: string | null
+          answer_correctness: number | null
           case_id: string
+          citation_coverage: number | null
           hallucination_detected: boolean | null
           id: string
           latency_ms: number | null
           model: string | null
           mrr: number | null
+          notes: string | null
           precision_at_5: number | null
           ran_at: string
+          refusal_quality: number | null
+          retrieval_accuracy: number | null
           retrieved_sources: string[] | null
+          source_authority_score: number | null
+          user_feedback_score: number | null
         }
         Insert: {
           answer?: string | null
+          answer_correctness?: number | null
           case_id: string
+          citation_coverage?: number | null
           hallucination_detected?: boolean | null
           id?: string
           latency_ms?: number | null
           model?: string | null
           mrr?: number | null
+          notes?: string | null
           precision_at_5?: number | null
           ran_at?: string
+          refusal_quality?: number | null
+          retrieval_accuracy?: number | null
           retrieved_sources?: string[] | null
+          source_authority_score?: number | null
+          user_feedback_score?: number | null
         }
         Update: {
           answer?: string | null
+          answer_correctness?: number | null
           case_id?: string
+          citation_coverage?: number | null
           hallucination_detected?: boolean | null
           id?: string
           latency_ms?: number | null
           model?: string | null
           mrr?: number | null
+          notes?: string | null
           precision_at_5?: number | null
           ran_at?: string
+          refusal_quality?: number | null
+          retrieval_accuracy?: number | null
           retrieved_sources?: string[] | null
+          source_authority_score?: number | null
+          user_feedback_score?: number | null
         }
         Relationships: [
           {
@@ -2539,6 +2560,42 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      server_function_errors: {
+        Row: {
+          context: Json
+          created_at: string
+          error_message: string
+          error_stack: string | null
+          function_name: string
+          id: string
+          severity: string
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          error_message: string
+          error_stack?: string | null
+          function_name: string
+          id?: string
+          severity?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          error_message?: string
+          error_stack?: string | null
+          function_name?: string
+          id?: string
+          severity?: string
+          tenant_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       sites: {
         Row: {
@@ -3222,6 +3279,7 @@ export type Database = {
         Returns: string
       }
       current_tenant_id: { Args: never; Returns: string }
+      get_data_quality_snapshot: { Args: never; Returns: Json }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
@@ -3271,6 +3329,18 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      log_server_error: {
+        Args: {
+          _context: Json
+          _error_message: string
+          _error_stack: string
+          _function_name: string
+          _severity: string
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: string
+      }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
       run_data_quality_checks: { Args: never; Returns: undefined }
       validate_api_key: {
