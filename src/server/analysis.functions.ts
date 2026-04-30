@@ -227,12 +227,11 @@ export const analyzeDocument = createServerFn({ method: "POST" })
           tenant_id: tenantId,
           document_analysis_id: record.id,
           field_key: f.key,
-          field_label: f.label,
           field_value: f.value ?? null,
           field_type: f.type ?? "text",
           confidence: typeof f.confidence === "number" ? f.confidence : null,
           page_number: typeof f.page === "number" ? f.page : null,
-          source_excerpt: f.excerpt ?? null,
+          source_excerpt: f.excerpt ? `${f.label}: ${f.excerpt}` : f.label,
           validated_by_user: false,
         }));
         await db.from("extracted_fields").insert(rows);
