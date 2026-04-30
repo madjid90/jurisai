@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
+import { useAccess } from "@/lib/auth/useAccess";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Accueil", icon: Home },
