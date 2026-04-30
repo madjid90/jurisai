@@ -6,14 +6,10 @@ import {
   Users,
   UserPlus,
   Mail,
-  Shield,
   Trash2,
   Copy,
   Check,
   Loader2,
-  Crown,
-  UserCog,
-  User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
@@ -25,13 +21,14 @@ import {
 } from "@/server/invitations.functions";
 import { removeMember } from "@/server/settings.functions";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/_authenticated/team")({
-  head: () => ({ meta: [{ title: "Équipe · JurisAI" }] }),
-  component: TeamPage,
-});
-
-type AppRole = "admin" | "manager" | "user";
+import {
+  ASSIGNABLE_ROLES,
+  pickHighestRole,
+  roleIcon,
+  roleLabel,
+  roleToneClass,
+  type AppRole,
+} from "@/lib/roles/catalog";
 
 type Member = {
   id: string;
@@ -50,17 +47,10 @@ type Invitation = {
   created_at: string;
 };
 
-const ROLE_LABELS: Record<AppRole, string> = {
-  admin: "Administrateur",
-  manager: "Manager",
-  user: "Utilisateur",
-};
-
-const ROLE_ICONS: Record<AppRole, typeof Crown> = {
-  admin: Crown,
-  manager: UserCog,
-  user: UserIcon,
-};
+export const Route = createFileRoute("/_authenticated/team")({
+  head: () => ({ meta: [{ title: "Équipe · JurisAI" }] }),
+  component: TeamPage,
+});
 
 function TeamPage() {
   const confirmAsync = useConfirm();
