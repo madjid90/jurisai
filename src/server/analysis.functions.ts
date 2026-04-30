@@ -279,6 +279,8 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         .update({
           extracted_text: text.slice(0, MAX_TEXT_CHARS),
           analysis,
+          contract_data: analysis.contract_data ?? {},
+          detected_dates: analysis.detected_dates ?? [],
           tokens_used: tokens,
           status: "completed",
         })
