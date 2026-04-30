@@ -399,6 +399,10 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
       validation_id: validationId,
       reminder_id: reminderId,
     };
+    } catch (err) {
+      await captureServerError("generation.finalize", { userId, tenantId, extra: { sessionId: data.session_id } }, err);
+      throw err;
+    }
   });
 
 // ─── Lecture des documents générés ──────────────────────────────────────────
