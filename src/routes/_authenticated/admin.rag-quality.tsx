@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Activity, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { getRagEvalAggregate, type RagEvalAggregate } from "@/server/quality.functions";
 
 type EvalCase = {
   id: string;
@@ -30,17 +31,20 @@ export const Route = createFileRoute("/_authenticated/admin/rag-quality")({
 function RagQualityPage() {
   const [cases, setCases] = useState<EvalCase[]>([]);
   const [runs, setRuns] = useState<EvalRun[]>([]);
+  const [agg, setAgg] = useState<RagEvalAggregate | null>(null);
   const [loading, setLoading] = useState(true);
   const [newQuestion, setNewQuestion] = useState("");
 
   const load = async () => {
     setLoading(true);
-    const [{ data: c }, { data: r }] = await Promise.all([
+    const [{ data: c }, { data: r }, a] = await Promise.all([
       supabase.from("rag_eval_cases").select("*").order("created_at", { ascending: false }),
       supabase.from("rag_eval_runs").select("*").order("ran_at", { ascending: false }).limit(50),
+      getRagEvalAggregate().catch(() => null),
     ]);
     setCases((c ?? []) as EvalCase[]);
     setRuns((r ?? []) as EvalRun[]);
+    setAgg(a);
     setLoading(false);
   };
 
