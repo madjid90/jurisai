@@ -1,4 +1,11 @@
-import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JWK, type JWTPayload } from "jose";
+import {
+  createLocalJWKSet,
+  createRemoteJWKSet,
+  jwtVerify,
+  type JWK,
+  type JSONWebKeySet,
+  type JWTPayload,
+} from "jose";
 
 type SupabaseJwtPayload = JWTPayload & {
   sub?: string;
@@ -11,13 +18,13 @@ const SUPABASE_URL = (process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL 
 );
 const SUPABASE_ISSUER = `${SUPABASE_URL}/auth/v1`;
 
-function parseSupabaseJwks(raw: string | undefined) {
+function parseSupabaseJwks(raw: string | undefined): JSONWebKeySet | null {
   if (!raw) return null;
 
   try {
     const parsed = JSON.parse(raw) as { keys?: JWK[] } | JWK;
     if ("keys" in parsed && Array.isArray(parsed.keys)) {
-      return parsed;
+      return { keys: parsed.keys };
     }
     return { keys: [parsed] };
   } catch {
