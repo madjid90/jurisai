@@ -11,13 +11,17 @@ import { useAuth } from "@/lib/auth/AuthProvider";
  */
 export function QuotaBadge() {
   const { user, loading } = useAuth();
-  const { data } = useQuery({
+  const { data, error } = useQuery({
     queryKey: ["tenant-quota"],
     queryFn: () => getTenantQuota(),
     enabled: !!user && !loading,
     refetchInterval: 60_000,
     staleTime: 30_000,
+    retry: false,
   });
+
+  const errorMessage = error instanceof Error ? error.message : "";
+  if (/AUTH_SERVICE_UNAVAILABLE/i.test(errorMessage)) return null;
 
   if (!user || loading || !data) return null;
 
