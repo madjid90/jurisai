@@ -51,7 +51,7 @@ export async function prefillSession(
   if (ctx.dossierId && (ctx.enabledSources.includes("dossier") || ctx.enabledSources.includes("client"))) {
     const { data: d } = await db
       .from("dossiers")
-      .select("id, title, reference, case_type, status, context, client_id")
+      .select("id, title, description, category, status, client_id")
       .eq("id", ctx.dossierId)
       .eq("tenant_id", ctx.tenantId)
       .maybeSingle();
