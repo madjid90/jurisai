@@ -60,6 +60,13 @@ function WorkflowDetailPage() {
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [notes, setNotes] = useState("");
+  const validateFn = useServerFn(validateWorkflowStep);
+  const [validation, setValidation] = useState<{
+    ok: boolean;
+    blockers: string[];
+    warnings: string[];
+    missing_fields: string[];
+  } | null>(null);
 
   // Doc-generation modal state
   const [docModalOpen, setDocModalOpen] = useState(false);
