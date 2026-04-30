@@ -3367,6 +3367,7 @@ export type Database = {
         | "cabinet_comptable_admin"
         | "collaborateur_cabinet"
         | "admin_tenant"
+        | "rh"
       plan_type: "starter" | "pro" | "business"
       template_status: "draft" | "review" | "validated" | "deprecated"
       user_profile_kind:
@@ -3516,6 +3517,7 @@ export const Constants = {
         "cabinet_comptable_admin",
         "collaborateur_cabinet",
         "admin_tenant",
+        "rh",
       ],
       plan_type: ["starter", "pro", "business"],
       template_status: ["draft", "review", "validated", "deprecated"],
