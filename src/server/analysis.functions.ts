@@ -318,15 +318,47 @@ export const getAnalysis = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const tenantId = await getTenantId(ctx.userId);
-    const { data: row, error } = await db
-      .from("document_analyses")
-      .select("*")
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
+
+    const [{ data: row, error }, { data: fields }] = await Promise.all([
+      db
+        .from("document_analyses")
+        .select("*")
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
+      db
+        .from("extracted_fields")
+        .select("*")
+        .eq("document_analysis_id", data.id)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: true }),
+    ]);
     if (error) throw new Error(error.message);
     if (!row) throw new Error("Analyse introuvable");
-    return { analysis: row };
+    return { analysis: row, extracted_fields: fields ?? [] };
+  });
+
+export const validateExtractedField = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      field_value: z.string().nullable().optional(),
+      validated: z.boolean().default(true),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const ctx = context as { userId: string };
+    const tenantId = await getTenantId(ctx.userId);
+    const update: Record<string, unknown> = { validated_by_user: data.validated };
+    if (data.field_value !== undefined) update.field_value = data.field_value;
+    const { error } = await db
+      .from("extracted_fields")
+      .update(update)
+      .eq("id", data.id)
+      .eq("tenant_id", tenantId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const deleteAnalysis = createServerFn({ method: "POST" })
