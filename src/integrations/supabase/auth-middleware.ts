@@ -33,36 +33,52 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
  */
 export const requireSupabaseAuth = createMiddleware({ type: "function" })
   .client(async ({ next }) => {
-    let token: string | null = getValidatedAccessToken();
+    let token: string | null = null;
 
     if (typeof window !== "undefined") {
       try {
         const { supabase } = await import("./client");
-
-        if (!token) {
-          const {
-            data: { user },
-            error,
-          } = await supabase.auth.getUser();
-
-          if (!error && user) {
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-            token = session?.access_token ?? null;
-          }
+        // getSession() auto-refreshes the JWT if expired.
+        // Do NOT cache the token — it can expire between calls.
+        const { data, error } = await supabase.auth.getSession();
+        if (!error) {
+          token = data.session?.access_token ?? null;
         }
-
         setValidatedAccessToken(token);
       } catch {
-        token = getValidatedAccessToken();
-        setValidatedAccessToken(token);
+        token = null;
       }
+    } else {
+      token = getValidatedAccessToken();
     }
 
-    return next({
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+    try {
+      return await next({
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+    } catch (err) {
+      // If server rejects the token, force a session refresh and retry once.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (typeof window !== "undefined" && /UNAUTHORIZED/i.test(msg)) {
+        try {
+          const { supabase } = await import("./client");
+          const { data } = await supabase.auth.refreshSession();
+          const fresh = data.session?.access_token ?? null;
+          setValidatedAccessToken(fresh);
+          if (fresh) {
+            return await next({ headers: { Authorization: `Bearer ${fresh}` } });
+          }
+          // Refresh failed → sign out so user re-authenticates cleanly
+          await supabase.auth.signOut();
+          if (!window.location.pathname.startsWith("/login")) {
+            window.location.href = "/login";
+          }
+        } catch {
+          /* fallthrough */
+        }
+      }
+      throw err;
+    }
   })
   .server(async ({ next }) => {
     const headerToken = getRequestHeader("authorization")?.replace(/^Bearer\s+/i, "");
