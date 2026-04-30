@@ -37,15 +37,19 @@
 - [ ] Vue dossier "Sources" (liste agrégée des sources juridiques citées dans le dossier)
 - [ ] Étendre la timeline aux événements documents/workflows/exports (déjà branchés sur risk/validation/deadline/reminder/agent)
 
-## Priorité 3 — Génération documentaire
+## Priorité 3 — Génération documentaire ✅ (socle livré)
 
-- [ ] **Catalogue de documents** structuré (champ `requires_upload`, `upload_optional`, `requires_form`, `requires_rag`, `requires_validation`, `output_formats`, `archive_to_case`, `can_create_reminder`, `fields[]`)
-- [ ] **Formulaires dynamiques** générés depuis la config (text/textarea/date/number/select/multi_select/boolean/file/user/client/case)
-- [ ] **3 scénarios de génération** : sans dépôt / avec dépôt obligatoire / dépôt optionnel
-- [ ] **Pré-remplissage automatique** depuis : doc déposé, OCR, dossier, client, salarié, contrat, historique, réponse IA, workflow en cours
-- [ ] **Écran de validation** avant génération finale (données extraites, manquantes, incertaines, risques, sources, aperçu)
-- [ ] Tables : `document_generation_sessions`, `generated_documents`, `extracted_fields`
-- [ ] Catalogue prioritaire : couvrir les 4 verticales (RH, commercial, sociétés, RGPD) + opérationnel terrain
+- [x] **Catalogue de documents** structuré (champs config : `requires_upload`, `upload_optional`, `requires_form`, `requires_rag`, `requires_validation`, `archive_to_case`, `can_create_reminder`, `reminder_days_default`, `output_formats`, `prefill_sources`, `guidance`, `validation_threshold`)
+- [x] **Formulaires dynamiques** typés depuis la config (text/textarea/date/number/select/multi_select/boolean/file/user/client/case + hint + placeholder)
+- [x] **3 scénarios de génération** : sans dépôt / avec dépôt obligatoire / dépôt optionnel (sélecteur scénario quand `upload_optional`)
+- [x] **Pré-remplissage automatique** depuis dossier, client lié, OCR (extracted_fields), avec tracking par champ (`prefill_metadata`) + détection des valeurs incertaines (confidence < 0.7)
+- [x] **Étape Sources juridiques** (RAG hybrid) optionnelle — déclenchée si `requires_rag` ; sources stockées dans `legal_sources_used` puis copiées sur `generated_documents.legal_sources`
+- [x] **Écran de validation enrichi** avant génération : valeurs collectées, sources rattachées, format de sortie, rappel post-génération, polish IA
+- [x] **Validation hiérarchique** automatique selon `validation_threshold` + `risk_level` (helper `shouldRequestValidation`)
+- [x] **Archivage automatique au dossier** + log timeline (`document.generated` / `document.generated_pending_validation` avec `legal_sources_count`)
+- [x] **Rappel de suivi auto** créé après génération si `reminder_after_days` (lié à `generated_documents.reminder_id`)
+- [x] Tables : `document_templates` étendu, `document_generation_sessions` (+`prefill_metadata`,`uncertain_fields`,`legal_sources_used`,`detected_risks`,`reminder_after_days`), `generated_documents` (+`legal_sources`,`reminder_id`)
+- [ ] Catalogue prioritaire : seed des 4 verticales avec config riche (à compléter incrémentalement)
 
 ## Priorité 4 — Analyse documentaire
 
