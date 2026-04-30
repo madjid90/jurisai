@@ -1,14 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, FileText, ShieldAlert, ShieldCheck, BookOpen, Search } from "lucide-react";
+import { Loader2, FileText, ShieldAlert, ShieldCheck, BookOpen, Search, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { listDocumentTemplates } from "@/server/templates.functions";
+import { GenerationWizard } from "@/components/app/GenerationWizard";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/templates")({
-  head: () => ({ meta: [{ title: "Modèles RH · JurisAI" }] }),
+  head: () => ({ meta: [{ title: "Modèles juridiques transverses · JurisAI" }] }),
   component: TemplatesPage,
 });
 
@@ -34,6 +35,20 @@ const RISK_STYLES: Record<string, string> = {
   critical: "bg-destructive/10 text-destructive border-destructive/30",
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  all: "Toutes catégories",
+  rgpd: "RGPD",
+  commercial: "Commercial",
+  societes: "Sociétés",
+  fiscal: "Fiscal",
+  contentieux: "Contentieux",
+  contrat: "Contrats RH",
+  courrier: "Courriers RH",
+  Disciplinaire: "Disciplinaire",
+  "mise-en-demeure": "Mise en demeure",
+  autre: "Autre",
+};
+
 const STATUS_LABELS: Record<string, string> = {
   draft: "Brouillon",
   review: "En relecture",
@@ -47,6 +62,7 @@ function TemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<string>("all");
+  const [wizardTemplate, setWizardTemplate] = useState<Template | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -80,13 +96,17 @@ function TemplatesPage() {
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="space-y-2">
-          <h1 className="text-[28px] font-bold tracking-tight">Modèles RH & juridiques</h1>
+          <h1 className="text-[28px] font-bold tracking-tight">Catalogue de documents juridiques</h1>
           <p className="text-[14px] text-muted-foreground">
-            Bibliothèque de modèles de documents avec leurs bases légales et niveau de risque.
+            Modèles transverses : RH, commercial, sociétés, RGPD, fiscal, contentieux. Génération assistée avec sources et validation hiérarchique.
           </p>
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-[12.5px] text-amber-700 dark:text-amber-400">
-            ⚠️ Les modèles fournis sont des structures techniques de démarrage. Faites-les valider
-            par un juriste avant utilisation contractuelle.
+            ⚠️ Modèles fournis comme structures de démarrage. Les documents à risque élevé déclenchent automatiquement une demande de validation par un admin.
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Link to="/documents" className="text-[12px] text-accent hover:underline">
+              → Voir mes documents générés
+            </Link>
           </div>
         </header>
 
@@ -107,7 +127,7 @@ function TemplatesPage() {
           >
             {categories.map((c) => (
               <option key={c} value={c}>
-                {c === "all" ? "Toutes catégories" : c}
+                {CATEGORY_LABELS[c] ?? c}
               </option>
             ))}
           </select>
@@ -153,7 +173,7 @@ function TemplatesPage() {
                   <div>
                     <h3 className="text-[14.5px] font-semibold leading-tight">{t.name}</h3>
                     <span className="mt-1 inline-block text-[11px] text-muted-foreground">
-                      {t.category} · v{t.version}
+                      {CATEGORY_LABELS[t.category] ?? t.category} · v{t.version}
                     </span>
                   </div>
 
@@ -162,7 +182,7 @@ function TemplatesPage() {
                   )}
 
                   {basis.length > 0 && (
-                    <div className="mt-auto space-y-1.5 border-t border-border pt-3">
+                    <div className="space-y-1.5 border-t border-border pt-3">
                       <div className="flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
                         <BookOpen className="h-3 w-3" />
                         Bases légales
@@ -170,31 +190,33 @@ function TemplatesPage() {
                       <ul className="space-y-0.5">
                         {basis.slice(0, 3).map((b: any, i: number) => (
                           <li key={i} className="text-[11.5px] text-foreground/80">
-                            {b.url ? (
-                              <a
-                                href={b.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="hover:text-accent hover:underline"
-                              >
-                                {b.label} {b.reference ? `(${b.reference})` : ""}
-                              </a>
-                            ) : (
-                              <>
-                                {b.label} {b.reference ? `(${b.reference})` : ""}
-                              </>
-                            )}
+                            {b.label} {b.reference ? `(${b.reference})` : ""}
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
+
+                  <button
+                    onClick={() => setWizardTemplate(t)}
+                    className="mt-auto inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-foreground transition hover:bg-accent/90"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Générer avec assistance
+                  </button>
                 </article>
               );
             })}
           </div>
         )}
       </div>
+
+      {wizardTemplate && (
+        <GenerationWizard
+          template={wizardTemplate as any}
+          onClose={() => setWizardTemplate(null)}
+        />
+      )}
     </AppShell>
   );
 }
