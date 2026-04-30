@@ -3,6 +3,7 @@ import { z } from "zod";
 import { jsPDF } from "jspdf";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 
 /**
  * Generate a PDF synthesis of a dossier (case file).
@@ -15,6 +16,7 @@ export const exportDossierPDF = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ dossierId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
+    await enforceRateLimit(userId, "exports.dossierPdf", 10);
 
     // Fetch dossier (RLS check via tenant_id)
     const { data: profile } = await supabaseAdmin

@@ -4,6 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
+import { captureServerError } from "@/server/_shared/error-monitor.server";
 import {
   CONTRACT_RISKS,
   CONTRACT_RISK_KEYS,
@@ -237,6 +239,7 @@ export const analyzeDocument = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const tenantId = await getTenantId(ctx.userId);
+    await enforceRateLimit(ctx.userId, "analysis.analyze", 10);
 
     const bytes = decodeBase64(data.file_base64);
     if (bytes.byteLength > MAX_FILE_SIZE) {
@@ -388,6 +391,7 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         .from("document_analyses")
         .update({ status: "failed", error_message: msg })
         .eq("id", record.id);
+      await captureServerError("analysis.analyzeDocument", { userId: ctx.userId, tenantId, extra: { analysisId: record.id, filename: data.filename } }, err);
       throw new Error(msg);
     }
   });

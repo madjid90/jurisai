@@ -22,6 +22,7 @@ import {
   Workflow,
   ScrollText,
   Library,
+  ServerCrash,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -201,6 +202,12 @@ function Sidebar() {
               icon={Activity}
               to="/admin/rag-quality"
               active={currentPath === "/admin/rag-quality"}
+            />
+            <NavItem
+              label="Erreurs serveur"
+              icon={ServerCrash}
+              to="/admin/server-errors"
+              active={currentPath === "/admin/server-errors"}
             />
             <NavItem
               label="Audit"

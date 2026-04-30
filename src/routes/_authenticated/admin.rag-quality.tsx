@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Activity, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { getRagEvalAggregate, type RagEvalAggregate } from "@/server/quality.functions";
 
 type EvalCase = {
   id: string;
@@ -30,17 +31,20 @@ export const Route = createFileRoute("/_authenticated/admin/rag-quality")({
 function RagQualityPage() {
   const [cases, setCases] = useState<EvalCase[]>([]);
   const [runs, setRuns] = useState<EvalRun[]>([]);
+  const [agg, setAgg] = useState<RagEvalAggregate | null>(null);
   const [loading, setLoading] = useState(true);
   const [newQuestion, setNewQuestion] = useState("");
 
   const load = async () => {
     setLoading(true);
-    const [{ data: c }, { data: r }] = await Promise.all([
+    const [{ data: c }, { data: r }, a] = await Promise.all([
       supabase.from("rag_eval_cases").select("*").order("created_at", { ascending: false }),
       supabase.from("rag_eval_runs").select("*").order("ran_at", { ascending: false }).limit(50),
+      getRagEvalAggregate().catch(() => null),
     ]);
     setCases((c ?? []) as EvalCase[]);
     setRuns((r ?? []) as EvalRun[]);
+    setAgg(a);
     setLoading(false);
   };
 
@@ -71,6 +75,21 @@ function RagQualityPage() {
           <Stat label="MRR moyen" value={avgMRR.toFixed(3)} />
           <Stat label="Taux hallucination" value={(halluRate * 100).toFixed(1) + "%"} tone={halluRate > 0.05 ? "bad" : "good"} />
         </div>
+
+        {agg && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 text-sm font-semibold">Métriques avancées (200 derniers runs)</h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Mini label="Retrieval acc." value={pct(agg.avg_retrieval_accuracy)} />
+              <Mini label="Citation cov." value={pct(agg.avg_citation_coverage)} />
+              <Mini label="Answer correct." value={pct(agg.avg_answer_correctness)} />
+              <Mini label="Source authority" value={agg.avg_source_authority !== null ? agg.avg_source_authority.toFixed(2) : "—"} />
+              <Mini label="Refusal quality" value={pct(agg.avg_refusal_quality)} />
+              <Mini label="User feedback" value={pct(agg.avg_user_feedback)} />
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">Latence moyenne: {Math.round(agg.avg_latency_ms)} ms · {agg.total_runs} runs</p>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Ajouter un cas d'évaluation</h2>
@@ -112,4 +131,18 @@ function Stat({ label, value, tone = "neutral" }: { label: string; value: string
       <p className={`mt-1 text-2xl font-bold ${color}`}>{value}</p>
     </div>
   );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/40 p-2">
+      <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 text-base font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function pct(v: number | null): string {
+  if (v === null || v === undefined) return "—";
+  return (v * 100).toFixed(1) + "%";
 }

@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Database } from "lucide-react";
 import { toast } from "sonner";
+import { getDataQualitySnapshot, type DataQualitySnapshot } from "@/server/quality.functions";
 
 type Check = {
   id: string;
@@ -22,17 +23,18 @@ export const Route = createFileRoute("/_authenticated/admin/data-quality")({
 
 function DataQualityPage() {
   const [checks, setChecks] = useState<Check[]>([]);
+  const [snapshot, setSnapshot] = useState<DataQualitySnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("data_quality_checks")
-      .select("*")
-      .order("ran_at", { ascending: false })
-      .limit(40);
+    const [{ data }, snap] = await Promise.all([
+      supabase.from("data_quality_checks").select("*").order("ran_at", { ascending: false }).limit(40),
+      getDataQualitySnapshot().catch(() => null),
+    ]);
     setChecks((data ?? []) as Check[]);
+    setSnapshot(snap);
     setLoading(false);
   };
 
@@ -67,6 +69,42 @@ function DataQualityPage() {
           </Button>
         </div>
 
+        {snapshot && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Database className="h-4 w-4 text-accent" /> Instantané base juridique
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <SnapStat label="Sources actives" value={`${snapshot.sources_active}/${snapshot.sources_total}`} />
+              <SnapStat
+                label="Sources obsolètes (>90j)"
+                value={String(snapshot.sources_stale)}
+                tone={snapshot.sources_stale > 5 ? "bad" : snapshot.sources_stale > 0 ? "warn" : "good"}
+              />
+              <SnapStat label="Chunks total" value={snapshot.chunks_total.toLocaleString("fr-FR")} />
+              <SnapStat
+                label="Chunks sans vecteur"
+                value={String(snapshot.chunks_without_embedding)}
+                tone={snapshot.chunks_without_embedding > 100 ? "bad" : snapshot.chunks_without_embedding > 0 ? "warn" : "good"}
+              />
+              <SnapStat
+                label="Chunks orphelins"
+                value={String(snapshot.orphan_chunks)}
+                tone={snapshot.orphan_chunks > 0 ? "bad" : "good"}
+              />
+              <SnapStat
+                label="Ingestions échouées (24h)"
+                value={String(snapshot.ingestion_failed_24h)}
+                tone={snapshot.ingestion_failed_24h > 0 ? "bad" : "good"}
+              />
+              <SnapStat
+                label="Autorité moyenne"
+                value={snapshot.avg_authority_level !== null ? Number(snapshot.avg_authority_level).toFixed(2) : "—"}
+              />
+              <SnapStat label="Snapshot" value={new Date(snapshot.generated_at).toLocaleTimeString("fr-FR")} />
+            </div>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
@@ -107,6 +145,31 @@ function CheckCard({ check }: { check: Check }) {
       <p className="mt-2 text-[10px] text-muted-foreground">
         {new Date(check.ran_at).toLocaleString("fr-FR")}
       </p>
+    </div>
+  );
+}
+
+function SnapStat({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "good" | "warn" | "bad" | "neutral";
+}) {
+  const color =
+    tone === "good"
+      ? "text-emerald-500"
+      : tone === "warn"
+      ? "text-amber-500"
+      : tone === "bad"
+      ? "text-rose-500"
+      : "text-foreground";
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/50 p-3">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
     </div>
   );
 }

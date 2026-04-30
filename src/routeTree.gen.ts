@@ -38,6 +38,7 @@ import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
 import { Route as AuthenticatedAdminUsageRouteImport } from './routes/_authenticated/admin.usage'
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
+import { Route as AuthenticatedAdminServerErrorsRouteImport } from './routes/_authenticated/admin.server-errors'
 import { Route as AuthenticatedAdminRagQualityRouteImport } from './routes/_authenticated/admin.rag-quality'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
 import { Route as AuthenticatedAdminDataQualityRouteImport } from './routes/_authenticated/admin.data-quality'
@@ -197,6 +198,12 @@ const AuthenticatedAdminTenantsRoute =
     path: '/admin/tenants',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminServerErrorsRoute =
+  AuthenticatedAdminServerErrorsRouteImport.update({
+    id: '/admin/server-errors',
+    path: '/admin/server-errors',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminRagQualityRoute =
   AuthenticatedAdminRagQualityRouteImport.update({
     id: '/admin/rag-quality',
@@ -279,6 +286,7 @@ export interface FileRoutesByFullPath {
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
+  '/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
@@ -319,6 +327,7 @@ export interface FileRoutesByTo {
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
+  '/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
@@ -361,6 +370,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/_authenticated/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
+  '/_authenticated/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/_authenticated/admin/usage': typeof AuthenticatedAdminUsageRoute
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | '/admin/data-quality'
     | '/admin/legal-sources'
     | '/admin/rag-quality'
+    | '/admin/server-errors'
     | '/admin/tenants'
     | '/admin/usage'
     | '/analyses/$id'
@@ -443,6 +454,7 @@ export interface FileRouteTypes {
     | '/admin/data-quality'
     | '/admin/legal-sources'
     | '/admin/rag-quality'
+    | '/admin/server-errors'
     | '/admin/tenants'
     | '/admin/usage'
     | '/analyses/$id'
@@ -484,6 +496,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/data-quality'
     | '/_authenticated/admin/legal-sources'
     | '/_authenticated/admin/rag-quality'
+    | '/_authenticated/admin/server-errors'
     | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/usage'
     | '/_authenticated/analyses/$id'
@@ -722,6 +735,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminTenantsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/server-errors': {
+      id: '/_authenticated/admin/server-errors'
+      path: '/admin/server-errors'
+      fullPath: '/admin/server-errors'
+      preLoaderRoute: typeof AuthenticatedAdminServerErrorsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/rag-quality': {
       id: '/_authenticated/admin/rag-quality'
       path: '/admin/rag-quality'
@@ -838,6 +858,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminDataQualityRoute: typeof AuthenticatedAdminDataQualityRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
   AuthenticatedAdminRagQualityRoute: typeof AuthenticatedAdminRagQualityRoute
+  AuthenticatedAdminServerErrorsRoute: typeof AuthenticatedAdminServerErrorsRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
   AuthenticatedAdminUsageRoute: typeof AuthenticatedAdminUsageRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
@@ -862,6 +883,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminDataQualityRoute: AuthenticatedAdminDataQualityRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
   AuthenticatedAdminRagQualityRoute: AuthenticatedAdminRagQualityRoute,
+  AuthenticatedAdminServerErrorsRoute: AuthenticatedAdminServerErrorsRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
   AuthenticatedAdminUsageRoute: AuthenticatedAdminUsageRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
