@@ -53,31 +53,60 @@ function decodeBase64(b64: string): Uint8Array {
 
 // ─── Appel IA ───────────────────────────────────────────────────────────────
 
+type ExtractedField = {
+  key: string;
+  label: string;
+  value: string | null;
+  type?: "text" | "date" | "number" | "money" | "duration";
+  confidence?: number;
+  page?: number;
+  excerpt?: string;
+};
+
 type AnalysisResult = {
+  domain: "rh" | "commercial" | "societes" | "rgpd" | "fiscal" | "contentieux" | "administratif" | "autre";
   document_type: string;
   summary: string;
+  extracted_fields: ExtractedField[];
   key_points: string[];
-  risks: Array<{ severity: "low" | "medium" | "high"; title: string; description: string }>;
+  risks: Array<{
+    severity: "low" | "medium" | "high" | "critical";
+    category?: string;
+    title: string;
+    description: string;
+    legal_basis?: Array<{ label: string; reference?: string }>;
+    mitigation?: string;
+  }>;
   compliance: Array<{ status: "ok" | "warning" | "issue"; title: string; description: string }>;
   recommendations: string[];
 };
 
-const SYSTEM_PROMPT = `Tu es un juriste expert en droit du travail français. Analyse le document juridique fourni (contrat, avenant, lettre RH, etc.) et retourne UNIQUEMENT un JSON valide selon ce schéma exact :
+const SYSTEM_PROMPT = `Tu es un juriste français pluridisciplinaire (RH, commercial, sociétés, RGPD, fiscal, contentieux, administratif).
+Analyse le document fourni et retourne UNIQUEMENT un JSON valide selon ce schéma :
 
 {
-  "document_type": "string (ex: 'Contrat de travail CDI', 'Lettre de licenciement', 'Avenant', 'Rupture conventionnelle')",
-  "summary": "string (résumé en 2-3 phrases)",
-  "key_points": ["string", ...] (5-8 points clés du document),
+  "domain": "rh|commercial|societes|rgpd|fiscal|contentieux|administratif|autre",
+  "document_type": "string court (ex: 'CDI', 'CGV', 'PV d AG', 'Mise en demeure', 'DPA RGPD', 'Assignation TJ')",
+  "summary": "résumé en 2-3 phrases",
+  "extracted_fields": [
+    { "key": "snake_case", "label": "libellé humain", "value": "valeur extraite", "type": "text|date|number|money|duration", "confidence": 0.0-1.0, "excerpt": "extrait textuel court" }
+  ],
+  "key_points": ["8 points clés maximum"],
   "risks": [
-    { "severity": "low|medium|high", "title": "string", "description": "string (1-2 phrases)" }
+    { "severity": "low|medium|high|critical", "category": "clause|delai|conformite|financier|reputationnel", "title": "string", "description": "1-2 phrases", "legal_basis": [{"label":"...","reference":"..."}], "mitigation": "action recommandée" }
   ],
   "compliance": [
-    { "status": "ok|warning|issue", "title": "string (ex: Période d'essai, Clause de non-concurrence)", "description": "string" }
+    { "status": "ok|warning|issue", "title": "ex: Période d essai / Clause RGPD / Délai de paiement", "description": "string" }
   ],
-  "recommendations": ["string", ...] (3-5 actions recommandées)
+  "recommendations": ["3-6 actions priorisées"]
 }
 
-Sois précis, cite les articles du Code du travail si pertinent. Réponds UNIQUEMENT avec le JSON, sans markdown ni texte additionnel.`;
+Règles :
+- Identifie d'abord le domaine et le type de document.
+- Extrait au moins 5 champs structurés clés (parties, dates, montants, durées, clauses notables).
+- Si une clause manque ou est non conforme, génère un risque correspondant avec sa base légale.
+- Cite les articles précis (Code du travail, Code civil, Code de commerce, RGPD, LPF, CPC, etc.).
+- Réponds UNIQUEMENT avec le JSON, sans markdown ni texte additionnel.`;
 
 async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; tokens: number }> {
   const apiKey = process.env.LOVABLE_API_KEY;
@@ -122,6 +151,14 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
   } catch {
     throw new Error("Réponse IA invalide (JSON malformé)");
   }
+
+  // Defaults défensifs
+  parsed.domain = (parsed.domain ?? "autre") as AnalysisResult["domain"];
+  parsed.extracted_fields = Array.isArray(parsed.extracted_fields) ? parsed.extracted_fields : [];
+  parsed.risks = Array.isArray(parsed.risks) ? parsed.risks : [];
+  parsed.compliance = Array.isArray(parsed.compliance) ? parsed.compliance : [];
+  parsed.recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+  parsed.key_points = Array.isArray(parsed.key_points) ? parsed.key_points : [];
 
   return {
     analysis: parsed,
