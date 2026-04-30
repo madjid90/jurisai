@@ -31,25 +31,40 @@ import { cn } from "@/lib/utils";
 import { QuotaBadge } from "@/components/app/QuotaBadge";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
-import { useAccess } from "@/lib/auth/useAccess";
+import { useAccess, hasPermission } from "@/lib/auth/useAccess";
+import type { UserAccess } from "@/server/permissions.functions";
 
-const NAV_ITEMS = [
+type NavItemDef = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** Permission requise (au moins une) — si vide, toujours visible */
+  perms?: string[];
+};
+
+const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
-  { to: "/chat", label: "Assistant IA", icon: MessageSquare },
-  { to: "/agent", label: "Agent IA", icon: Sparkles },
-  { to: "/workflows", label: "Procédures", icon: Workflow },
-  { to: "/templates", label: "Modèles", icon: Library },
-  { to: "/scan", label: "OCR & scan", icon: ScanLine },
-  { to: "/documents", label: "Documents", icon: FileText },
-  { to: "/analyses", label: "Analyses", icon: ScanSearch },
-  { to: "/dossiers", label: "Dossiers", icon: FolderOpen },
-  { to: "/veille", label: "Veille juridique", icon: Bell },
-] as const;
+  { to: "/chat", label: "Assistant IA", icon: MessageSquare, perms: ["ia.ask"] },
+  { to: "/agent", label: "Agent IA", icon: Sparkles, perms: ["ia.ask"] },
+  { to: "/workflows", label: "Procédures", icon: Workflow, perms: ["workflows.run", "workflows.validate"] },
+  { to: "/templates", label: "Modèles", icon: Library, perms: ["documents.generate"] },
+  { to: "/scan", label: "OCR & scan", icon: ScanLine, perms: ["documents.upload"] },
+  { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
+  { to: "/analyses", label: "Analyses", icon: ScanSearch, perms: ["documents.analyze"] },
+  { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
+  { to: "/veille", label: "Veille juridique", icon: Bell, perms: ["veille.view"] },
+];
 
-const SECONDARY_ITEMS = [
-  { to: "/team", label: "Équipe", icon: Users },
+const SECONDARY_ITEMS: NavItemDef[] = [
+  { to: "/team", label: "Équipe", icon: Users, perms: ["users.manage", "roles.manage"] },
   { to: "/settings", label: "Paramètres", icon: Settings },
-] as const;
+];
+
+function canSee(access: UserAccess, item: NavItemDef): boolean {
+  if (!item.perms || item.perms.length === 0) return true;
+  if (access.isSuperAdmin || access.isTenantAdmin) return true;
+  return item.perms.some((p) => hasPermission(access, p));
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -121,9 +136,11 @@ function Sidebar() {
     "/scan",
   ]);
 
-  const visibleNav = isTerrainOnly
+  const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
     : NAV_ITEMS;
+  const visibleNav = baseNav.filter((it) => canSee(access, it));
+  const visibleSecondary = SECONDARY_ITEMS.filter((it) => canSee(access, it));
 
   return (
     <aside className="glass-panel flex h-full w-full flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)] md:w-[244px]">
@@ -141,7 +158,6 @@ function Sidebar() {
             icon={item.icon}
             to={item.to}
             active={currentPath === item.to}
-            soon={"soon" in item ? Boolean((item as { soon?: boolean }).soon) : undefined}
           />
         ))}
       </nav>
@@ -150,7 +166,7 @@ function Sidebar() {
         Workspace
       </div>
       <nav className="mt-2 flex flex-col gap-1">
-        {SECONDARY_ITEMS.map((item) => (
+        {visibleSecondary.map((item) => (
           <NavItem
             key={item.label}
             label={item.label}
@@ -161,60 +177,32 @@ function Sidebar() {
         ))}
       </nav>
 
-      {isSuperAdmin && (
+      {(isSuperAdmin || access.isTenantAdmin) && (
         <>
           <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Admin
           </div>
           <nav className="mt-2 flex flex-col gap-1">
-            <NavItem
-              label="Connecteurs data"
-              icon={Database}
-              to="/admin/connectors"
-              active={currentPath === "/admin/connectors"}
-            />
-            <NavItem
-              label="Sources légales"
-              icon={BookMarked}
-              to="/admin/legal-sources"
-              active={currentPath === "/admin/legal-sources"}
-            />
-            <NavItem
-              label="Tenants"
-              icon={Users}
-              to="/admin/tenants"
-              active={currentPath === "/admin/tenants"}
-            />
-            <NavItem
-              label="Usage"
-              icon={Sparkles}
-              to="/admin/usage"
-              active={currentPath === "/admin/usage"}
-            />
-            <NavItem
-              label="Qualité données"
-              icon={ShieldCheck}
-              to="/admin/data-quality"
-              active={currentPath === "/admin/data-quality"}
-            />
-            <NavItem
-              label="Évaluation RAG"
-              icon={Activity}
-              to="/admin/rag-quality"
-              active={currentPath === "/admin/rag-quality"}
-            />
-            <NavItem
-              label="Erreurs serveur"
-              icon={ServerCrash}
-              to="/admin/server-errors"
-              active={currentPath === "/admin/server-errors"}
-            />
-            <NavItem
-              label="Audit"
-              icon={ScrollText}
-              to="/admin/audit"
-              active={currentPath === "/admin/audit"}
-            />
+            {isSuperAdmin && (
+              <>
+                <NavItem label="Connecteurs data" icon={Database} to="/admin/connectors" active={currentPath === "/admin/connectors"} />
+                <NavItem label="Sources légales" icon={BookMarked} to="/admin/legal-sources" active={currentPath === "/admin/legal-sources"} />
+                <NavItem label="Tenants" icon={Users} to="/admin/tenants" active={currentPath === "/admin/tenants"} />
+                <NavItem label="Usage" icon={Sparkles} to="/admin/usage" active={currentPath === "/admin/usage"} />
+              </>
+            )}
+            {hasPermission(access, "data_quality.view") && (
+              <NavItem label="Qualité données" icon={ShieldCheck} to="/admin/data-quality" active={currentPath === "/admin/data-quality"} />
+            )}
+            {hasPermission(access, "rag_quality.view") && (
+              <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} />
+            )}
+            {hasPermission(access, "monitoring.view") && (
+              <NavItem label="Erreurs serveur" icon={ServerCrash} to="/admin/server-errors" active={currentPath === "/admin/server-errors"} />
+            )}
+            {hasPermission(access, "audit.view") && (
+              <NavItem label="Audit" icon={ScrollText} to="/admin/audit" active={currentPath === "/admin/audit"} />
+            )}
           </nav>
         </>
       )}

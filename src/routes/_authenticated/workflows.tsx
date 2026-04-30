@@ -41,6 +41,8 @@ function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<string | null>(null);
   const [tab, setTab] = useState<"actives" | "catalogue" | "completed">("actives");
+  const [domain, setDomain] = useState<string>("all");
+  const [query, setQuery] = useState("");
 
   const reload = async () => {
     try {
@@ -89,6 +91,28 @@ function WorkflowsPage() {
   const activeInsts = insts.filter((i) => i.status === "active");
   const completedInsts = insts.filter((i) => i.status !== "active");
 
+  const DOMAIN_LABELS: Record<string, string> = {
+    social: "Social / RH",
+    discipline: "Discipline",
+    commercial: "Commercial",
+    societes: "Sociétés",
+    fiscal: "Fiscal",
+    administratif: "Administratif",
+    contentieux: "Contentieux",
+    rgpd: "RGPD",
+  };
+  const domains = Array.from(new Set(defs.map((d) => d.category))).sort();
+  const filteredDefs = defs.filter((d) => {
+    if (domain !== "all" && d.category !== domain) return false;
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      if (!d.title.toLowerCase().includes(q) && !(d.description ?? "").toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6">
@@ -126,13 +150,48 @@ function WorkflowsPage() {
             <Loader2 className="h-6 w-6 animate-spin text-accent" />
           </div>
         ) : tab === "catalogue" ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {defs.length === 0 && (
-              <div className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-[13px] text-muted-foreground">
-                Aucune procédure disponible.
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher une procédure…"
+                className="h-9 flex-1 rounded-xl border border-border bg-background px-3 text-[13px] outline-none focus:border-accent"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDomain("all")}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-[11.5px] font-medium transition",
+                    domain === "all" ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Tous
+                </button>
+                {domains.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setDomain(c)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[11.5px] font-medium transition capitalize",
+                      domain === c ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {DOMAIN_LABELS[c] ?? c}
+                  </button>
+                ))}
               </div>
-            )}
-            {defs.map((d) => (
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {filteredDefs.length === 0 && (
+                <div className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-[13px] text-muted-foreground">
+                  Aucune procédure ne correspond à vos filtres.
+                </div>
+              )}
+              {filteredDefs.map((d) => (
               <article key={d.id} className="glass-panel flex flex-col gap-3 rounded-2xl p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -165,6 +224,7 @@ function WorkflowsPage() {
                 </button>
               </article>
             ))}
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
