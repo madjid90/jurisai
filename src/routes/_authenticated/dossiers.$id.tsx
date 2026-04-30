@@ -39,7 +39,6 @@ import {
   STATUS_TONE_CLASS,
   getCaseStatusMeta,
   getCaseTypeMeta,
-  type CaseStatus,
 } from "@/lib/dossiers/case-meta";
 
 type Dossier = {
