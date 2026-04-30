@@ -224,6 +224,7 @@ function WorkflowsPage() {
                 </button>
               </article>
             ))}
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
