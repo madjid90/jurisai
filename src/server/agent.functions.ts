@@ -8,7 +8,12 @@ const SUPABASE_URL =
 export const runLegalAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ message: z.string().trim().min(1).max(4000) }).parse(i),
+    z
+      .object({
+        message: z.string().trim().min(1).max(4000),
+        dossier_id: z.string().uuid().optional(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const ctx = context as { accessToken?: string };
@@ -20,7 +25,10 @@ export const runLegalAgent = createServerFn({ method: "POST" })
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message: data.message }),
+      body: JSON.stringify({
+        message: data.message,
+        dossier_id: data.dossier_id ?? null,
+      }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -28,6 +36,7 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     }
     return (await res.json()) as {
       answer: string;
+      intent: { intent: string; domain: string; confidence: number } | null;
       sources: Array<{ n: number; title: string; ref: string | null; url: string | null }>;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       trace: Array<{ tool: string; args: any; result: any }>;
