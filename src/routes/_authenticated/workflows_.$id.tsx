@@ -78,6 +78,48 @@ function WorkflowDetailPage() {
   const [docTplName, setDocTplName] = useState<string>("");
   const [docGenerating, setDocGenerating] = useState(false);
 
+  // Sourcing state
+  const sourceFn = useServerFn(sourceWorkflowStep);
+  type LegalSourceUI = {
+    n: number; chunk_id: string; source_id: string; title: string;
+    reference: string | null; url: string | null; source_type: string | null;
+    heading: string | null; excerpt: string; score: number;
+  };
+  const [sourcing, setSourcing] = useState(false);
+  const [sources, setSources] = useState<LegalSourceUI[]>([]);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
+
+  const runSourcing = async () => {
+    if (!docModalStep) return;
+    setSourcing(true);
+    setSourcesError(null);
+    try {
+      const res = await sourceFn({
+        data: { instanceId: id, stepIndex: docModalStep.index },
+      });
+      setSources(res.sources as LegalSourceUI[]);
+      // sélection par défaut : toutes
+      setSelectedSourceIds(new Set((res.sources as LegalSourceUI[]).map((s) => s.chunk_id)));
+      if (!res.ok) {
+        setSourcesError(res.reason ?? "Aucune source pertinente trouvée");
+      }
+    } catch (e) {
+      setSourcesError(e instanceof Error ? e.message : "Erreur sourcing");
+    } finally {
+      setSourcing(false);
+    }
+  };
+
+  const toggleSource = (chunkId: string) => {
+    setSelectedSourceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(chunkId)) next.delete(chunkId);
+      else next.add(chunkId);
+      return next;
+    });
+  };
+
   const openDocModal = async (step: StepDef, index: number) => {
     if (!step.template_slug) {
       toast.error("Aucun modèle associé à cette étape");
