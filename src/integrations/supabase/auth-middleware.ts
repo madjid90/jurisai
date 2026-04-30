@@ -29,28 +29,33 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
  */
 export const requireSupabaseAuth = createMiddleware({ type: "function" })
   .client(async ({ next }) => {
-    // Forward the user's access token to the server.
-    // IMPORTANT: use supabase.auth.getSession() — it auto-refreshes the token
-    // when expired. Reading the raw localStorage entry would send a stale JWT
-    // and trigger "UNAUTHORIZED: invalid token" on every server function call.
+    // Forward the user's access token in the Authorization header.
+    // Do not send it in server-fn context, especially for GET calls, because
+    // TanStack serializes context into the request payload/URL.
     let token: string | null = null;
     if (typeof window !== "undefined") {
       try {
         const { supabase } = await import("./client");
-        const { data } = await supabase.auth.getSession();
-        token = data.session?.access_token ?? null;
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (!error && user) {
+          const { data } = await supabase.auth.getSession();
+          token = data.session?.access_token ?? null;
+        }
       } catch {
         token = null;
       }
     }
     return next({
-      sendContext: { accessToken: token },
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
   })
-  .server(async ({ next, context }) => {
-    const ctx = context as { accessToken?: string | null };
+  .server(async ({ next }) => {
     const headerToken = getRequestHeader("authorization")?.replace(/^Bearer\s+/i, "");
-    const accessToken = ctx.accessToken ?? headerToken ?? null;
+    const accessToken = headerToken ?? null;
 
     if (!accessToken) {
       throw new Error("UNAUTHORIZED: missing access token");
