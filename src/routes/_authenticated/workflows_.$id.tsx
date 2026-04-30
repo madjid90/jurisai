@@ -354,6 +354,27 @@ function WorkflowDetailPage() {
 
                     {isCurrent && (
                       <div className="mt-4 space-y-3 border-t border-border pt-4">
+                        {validation && (validation.blockers.length > 0 || validation.warnings.length > 0) && (
+                          <div className="space-y-2">
+                            {validation.blockers.map((b, i) => (
+                              <div key={`b${i}`} className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-[12px] text-destructive">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{b}</span>
+                              </div>
+                            ))}
+                            {validation.warnings.map((w, i) => (
+                              <div key={`w${i}`} className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-2.5 text-[12px] text-yellow-700">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                                <span>{w}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {validation?.ok && validation.warnings.length === 0 && (
+                          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2 text-[12px] text-emerald-700">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Pré-requis OK
+                          </div>
+                        )}
                         {s.kind === "generate_doc" && s.template_slug && (
                           <button
                             type="button"
