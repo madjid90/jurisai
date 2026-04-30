@@ -33,7 +33,8 @@ export const getDossier360 = createServerFn({ method: "POST" })
     const { userId } = context as { userId: string };
     const tenantId = await ensureDossierAccess(userId, data.dossierId);
 
-    const [timeline, risks, validations, reminders] = await Promise.all([
+    const db = supabaseAdmin as unknown as { from: (t: string) => any };
+    const [timeline, risks, validations, reminders, generatedDocs, workflows] = await Promise.all([
       supabaseAdmin
         .from("case_timeline_events")
         .select("id, event_type, title, description, metadata, occurred_at, actor_id")
@@ -59,13 +60,61 @@ export const getDossier360 = createServerFn({ method: "POST" })
         .eq("tenant_id", tenantId)
         .eq("dossier_id", data.dossierId)
         .order("remind_at", { ascending: true }),
+      db
+        .from("generated_documents")
+        .select("id, title, status, output_format, template_id, created_at, validated_at, document_templates(name, category, risk_level)")
+        .eq("tenant_id", tenantId)
+        .eq("dossier_id", data.dossierId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      db
+        .from("workflow_instances")
+        .select("id, title, status, current_step_index, created_at, updated_at, completed_at, definition_id, workflow_definitions(slug, title, category, steps)")
+        .eq("tenant_id", tenantId)
+        .eq("dossier_id", data.dossierId)
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
+
+    // Agréger les sources juridiques citées dans le dossier (timeline + risques)
+    type SourceRef = { citation: string; count: number; lastSeen: string };
+    const sourceMap = new Map<string, SourceRef>();
+    const addSource = (raw: unknown, when: string) => {
+      if (!raw) return;
+      const cite = typeof raw === "string" ? raw : (raw as { citation?: string; reference?: string; ref?: string }).citation
+        ?? (raw as { reference?: string }).reference
+        ?? (raw as { ref?: string }).ref;
+      if (!cite || typeof cite !== "string") return;
+      const key = cite.trim();
+      if (!key) return;
+      const cur = sourceMap.get(key);
+      if (cur) {
+        cur.count += 1;
+        if (when > cur.lastSeen) cur.lastSeen = when;
+      } else {
+        sourceMap.set(key, { citation: key, count: 1, lastSeen: when });
+      }
+    };
+    for (const ev of timeline.data ?? []) {
+      const md = ev.metadata as { sources?: unknown[]; citations?: unknown[]; legal_basis?: unknown[] } | null;
+      const arr = md?.sources ?? md?.citations ?? md?.legal_basis;
+      if (Array.isArray(arr)) arr.forEach((s) => addSource(s, ev.occurred_at));
+    }
+    for (const r of risks.data ?? []) {
+      const lb = r.legal_basis as unknown[] | unknown;
+      if (Array.isArray(lb)) lb.forEach((s) => addSource(s, r.created_at));
+      else if (lb) addSource(lb, r.created_at);
+    }
+    const sources = Array.from(sourceMap.values()).sort((a, b) => b.count - a.count);
 
     return {
       timeline: timeline.data ?? [],
       risks: risks.data ?? [],
       validations: validations.data ?? [],
       reminders: reminders.data ?? [],
+      generatedDocuments: generatedDocs.data ?? [],
+      workflows: workflows.data ?? [],
+      sources,
     };
   });
 
