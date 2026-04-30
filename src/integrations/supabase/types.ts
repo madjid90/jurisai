@@ -141,6 +141,53 @@ export type Database = {
           },
         ]
       }
+      case_timeline_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          description: string | null
+          dossier_id: string
+          event_type: string
+          id: string
+          metadata: Json
+          occurred_at: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string | null
+          dossier_id: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          description?: string | null
+          dossier_id?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          occurred_at?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_timeline_events_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_citations: {
         Row: {
           chunk_id: string
@@ -770,6 +817,68 @@ export type Database = {
           query_hash?: string
         }
         Relationships: []
+      }
+      identified_risks: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          detected_by: string
+          dossier_id: string
+          id: string
+          legal_basis: Json
+          mitigation: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          detected_by: string
+          dossier_id: string
+          id?: string
+          legal_basis?: Json
+          mitigation?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          detected_by?: string
+          dossier_id?: string
+          id?: string
+          legal_basis?: Json
+          mitigation?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identified_risks_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ingestion_errors: {
         Row: {
@@ -1452,6 +1561,62 @@ export type Database = {
         }
         Relationships: []
       }
+      reminders: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string
+          dismissed_at: string | null
+          dossier_id: string | null
+          id: string
+          metadata: Json
+          remind_at: string
+          sent_at: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by: string
+          dismissed_at?: string | null
+          dossier_id?: string | null
+          id?: string
+          metadata?: Json
+          remind_at: string
+          sent_at?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string
+          dismissed_at?: string | null
+          dossier_id?: string | null
+          id?: string
+          metadata?: Json
+          remind_at?: string
+          sent_at?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_metrics: {
         Row: {
           id: string
@@ -1776,6 +1941,65 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      validation_requests: {
+        Row: {
+          assigned_to: string
+          comment: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_comment: string | null
+          dossier_id: string | null
+          id: string
+          requested_by: string
+          status: string
+          subject_id: string | null
+          subject_type: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_comment?: string | null
+          dossier_id?: string | null
+          id?: string
+          requested_by: string
+          status?: string
+          subject_id?: string | null
+          subject_type: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_comment?: string | null
+          dossier_id?: string | null
+          id?: string
+          requested_by?: string
+          status?: string
+          subject_id?: string | null
+          subject_type?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_requests_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
             referencedColumns: ["id"]
           },
         ]

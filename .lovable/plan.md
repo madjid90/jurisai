@@ -1,78 +1,54 @@
-# Phase 2 — Base de données juridique (RAG) — Ce qu'il reste
+# Roadmap JurisAI — 5 étapes
 
-## État actuel
-- ✅ Phase 1 (CRM, auth, multi-tenant, onboarding) terminée
-- ✅ Chat IA basique branché sur Lovable AI Gateway (réponses **génériques**, sans sources réelles)
-- ❌ Aucune base juridique en BDD → l'IA "invente" potentiellement les références
-- ❌ Pas d'import de sources (Code du travail, JO, URSSAF, conventions)
-- ❌ Pas d'admin pour gérer les sources
+## État actuel (avril 2026)
+- ✅ Phase 1 (CRM, auth, multi-tenant, onboarding)
+- ✅ Phase 2 (RAG juridique, ingestion Légifrance/JudiLibre/KALI/BOFiP/CDTN/CNIL, hybrid search, citations)
+- ✅ Veille programmée + alertes
+- ✅ 4 nouvelles tables métier : `case_timeline_events`, `identified_risks`, `validation_requests`, `reminders` (avril 2026)
 
-## Ce qu'on construit dans cette phase
+---
 
-### 1. Schéma BDD juridique (migration Supabase)
-- `legal_sources` : métadonnées d'une source (titre, type, URL, IDCC, version, date)
-- `legal_chunks` : segments de texte + embedding `vector(1536)` + recherche full-text
-- `ingestion_jobs` : suivi des imports (statut, erreurs, nb chunks)
-- `chat_citations` : lien message ↔ chunks utilisés (traçabilité)
-- Fonction SQL `hybrid_search(query_embedding, query_text, idcc_filter, limit)` → fusion vectoriel + BM25 (RRF)
-- Activer extension `pgvector`
-- RLS : lecture publique authentifiée sur `legal_sources` / `legal_chunks` ; écriture réservée `super_admin`
+## Étape 1 — Stabilisation (avant toute nouvelle feature)
 
-### 2. Rôle plateforme `super_admin`
-- Ajout valeur `super_admin` à l'enum `app_role`
-- Helper `is_super_admin(user_id)` (SECURITY DEFINER)
-- Marquer `demo@jurisai.test` comme super_admin (à confirmer ou changer d'email)
+**Objectif** : éliminer la dette technique qui bloque la suite.
 
-### 3. Edge function `ingest-legal-source`
-- Input : URL ou texte brut + métadonnées
-- Pipeline : fetch → nettoyage HTML → chunking (~800 tokens, overlap 100) → embedding via Lovable AI Gateway (`text-embedding-3-small`) → insertion `legal_chunks`
-- Suivi dans `ingestion_jobs`
+- [ ] Centraliser `getTenantId` dans `src/server/_shared/tenant.server.ts` (6 versions divergentes aujourd'hui dans workflows/documents/analysis/templates/crm/integrations)
+- [ ] Audit RLS complet — vérifier que toute table métier a bien `is_member_of_tenant` en SELECT et `has_role(admin)` en DELETE/UPDATE sensible
+- [ ] Traiter les 13 warnings linter Supabase (SECURITY DEFINER functions + extension in public schema)
+- [ ] Brancher la timeline (`case_timeline_events`) sur les événements clés : création dossier, doc ajouté, risque détecté, validation décidée
 
-### 4. Seed initial (~30 articles)
-- Articles clés du Code du travail (L1221, L1234, L3121, L3141, L1232 à L1237, etc.)
-- Script `db/phase2_seed_legal.sql` ou edge function dédiée
+## Étape 2 — Verticale RH (priorité #1)
 
-### 5. Refonte de `legal-chat` → mode RAG
-- Embedder la question utilisateur
-- Appeler `hybrid_search` (top 8 chunks, filtré par IDCC du tenant si défini)
-- Injecter les chunks dans le system prompt comme **contexte autoritatif**
-- Forcer le LLM à citer `[source:N]` → résolu en vraies références côté UI
-- Persister les chunks utilisés dans `chat_citations`
+- [ ] Compléter les workflows dynamiques (embauche, rupture, sanction, congés, AT)
+- [ ] Templates HR riches avec validation des variables et détection clauses illégales
+- [ ] Pipeline de détection de risques RH → insertion automatique dans `identified_risks`
+- [ ] Échéances réglementaires auto (préavis, DPAE, visite médicale) → insertion dans `dossier_deadlines`
+- [ ] UI : panneau "Risques" et "Timeline" sur la page dossier
 
-### 6. UI — Panneau "Sources" dans le chat
-- Sous chaque réponse IA : liste des sources utilisées (titre + lien officiel + extrait)
-- Badge "Réponse sourcée" vs "Réponse générale"
+## Étape 3 — Verticale Commerciale
 
-### 7. Back-office `/admin/legal-sources` (super_admin only)
-- Liste des sources avec filtres (type, IDCC, date)
-- Bouton "Importer une URL" (Légifrance, JO, URSSAF…)
-- Suivi des `ingestion_jobs` en temps réel
-- Stats : nb chunks, dernière mise à jour, top sources citées
-- Route `/admin` protégée par garde `requireSuperAdmin`
+- [ ] Analyse CGV/contrats : extension de `document_analyses` avec détection clauses abusives
+- [ ] Générateur CGV/CGU sur mesure (templates paramétriques)
+- [ ] Suivi contrats clients (échéances, renouvellements, indexations) via `reminders`
+- [ ] Workflow recouvrement amiable (mise en demeure, relances graduées)
 
-## Ce qu'on NE fait PAS dans cette phase (reporté)
-- Import RSS automatique (JO, URSSAF) → Phase 2.5 si besoin
-- Veille juridique programmée (cron hebdo)
-- Comparaison de versions d'articles
-- Phase 3 (analyse de documents avancée, génération de contrats, signature) → après
+## Étape 4 — Verticale Corporate / RGPD
 
-## Détails techniques
+- [ ] AG : convocations, ordres du jour, PV (templates + workflow validation)
+- [ ] Décisions associé unique
+- [ ] Registre des traitements RGPD (CRUD + export CNIL)
+- [ ] DPIA, registre violations, exercice des droits (workflows dédiés)
 
-**Stack** : Supabase (pgvector + tsvector), Lovable AI Gateway pour embeddings + LLM, TanStack Start pour l'admin UI.
+## Étape 5 — Reporting & gouvernance
 
-**Fichiers créés/modifiés** :
-- `supabase/migrations/<timestamp>_phase2_rag.sql` — schéma + RLS + `hybrid_search`
-- `supabase/functions/ingest-legal-source/index.ts` — pipeline d'ingestion
-- `supabase/functions/legal-chat/index.ts` — refonte RAG
-- `supabase/functions/seed-legal/index.ts` — seed initial du Code du travail
-- `src/server/admin.functions.ts` — server fns admin (list/create/delete sources)
-- `src/routes/_authenticated/admin/legal-sources.tsx` — UI back-office
-- `src/lib/auth/requireSuperAdmin.ts` — garde de route
-- `src/components/chat/SourcesPanel.tsx` — affichage des citations
+- [ ] Dashboard multi-profil (lecture du `profile_kind` profil → routing auto)
+- [ ] Reporting consolidé (volume dossiers, risques ouverts, validations en attente, échéances)
+- [ ] Export PDF/Excel pour CA
+- [ ] Métriques RAG (déjà partiellement là via `rag_eval_runs`) → vue consolidée admin
 
-**Coût estimé** : embedding ~30 articles × 4 chunks ≈ 120 embeddings (négligeable). Chaque question utilisateur = 1 embedding + 1 LLM call.
+---
 
-## Questions avant de coder
-1. **Email super_admin** : on garde `demo@jurisai.test` ou tu m'en donnes un autre ?
-2. **Périmètre du seed initial** : Code du travail uniquement (~30 articles) ou on ajoute aussi quelques articles URSSAF / RGPD RH ?
-3. **Conventions collectives** : on prévoit le filtrage par IDCC dès cette phase (recommandé) ou on simplifie pour l'instant ?
+## Ce qu'on NE fait PAS dans cette roadmap (reporté)
+- Refonte design globale (à programmer après Étape 2)
+- Signature électronique intégrée (Étape 6+)
+- App mobile (hors scope)
