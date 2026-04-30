@@ -10,9 +10,25 @@ const db = supabaseAdmin as unknown as {
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
+// Rôles assignables via invitation (exclut super_admin/admin_tenant — non attribuables par l'UI).
+const ASSIGNABLE_ROLE_VALUES = [
+  "admin",
+  "manager",
+  "user",
+  "dirigeant",
+  "daf",
+  "rh",
+  "juriste",
+  "comptable",
+  "operationnel_terrain",
+  "avocat_partenaire",
+  "cabinet_comptable_admin",
+  "collaborateur_cabinet",
+] as const;
+
 const inviteSchema = z.object({
   email: z.string().email().max(255),
-  role: z.enum(["admin", "manager", "user"]).default("user"),
+  role: z.enum(ASSIGNABLE_ROLE_VALUES).default("user"),
 });
 
 const acceptSchema = z.object({
