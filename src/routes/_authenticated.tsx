@@ -10,6 +10,21 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 
+function isTransientAuthError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const status =
+    typeof error === "object" && error !== null && "status" in error
+      ? Number((error as { status?: number }).status)
+      : undefined;
+
+  return (
+    (typeof status === "number" && status >= 500) ||
+    /unexpected eof|temporarily unavailable|service unavailable|failed to fetch|network/i.test(
+      message,
+    )
+  );
+}
+
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     if (typeof window === "undefined") {
@@ -20,6 +35,10 @@ export const Route = createFileRoute("/_authenticated")({
       data: { user },
       error,
     } = await supabase.auth.getUser();
+
+    if (error && isTransientAuthError(error)) {
+      return;
+    }
 
     if (error || !user) {
       throw redirect({ to: "/login" });

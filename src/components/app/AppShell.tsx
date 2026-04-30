@@ -125,7 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Sidebar() {
   const router = useRouter();
   const currentPath = router.state.location.pathname;
-  const { access } = useAccess();
+  const { access, serviceUnavailable } = useAccess();
   const isSuperAdmin = access.isSuperAdmin;
 
   // Profil "terrain" = vue ultra-simplifiée
@@ -154,6 +154,15 @@ function Sidebar() {
       </div>
 
       <div className="my-4 h-px w-full bg-border" />
+
+      {serviceUnavailable && (
+        <div className="mb-4 rounded-2xl border border-border bg-secondary p-3">
+          <p className="text-[12px] font-semibold text-foreground">Service d’authentification indisponible</p>
+          <p className="mt-1 text-[11.5px] text-muted-foreground">
+            La navigation reste disponible, mais les permissions détaillées sont temporairement dégradées.
+          </p>
+        </div>
+      )}
 
       <nav className="flex flex-col gap-1">
         {visibleNav.map((item, i) => (

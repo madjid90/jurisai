@@ -6,6 +6,28 @@ import { invalidateAccessCache } from "@/lib/auth/useAccess";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
+function isTransientAuthError(error: unknown) {
+  if (!error) return false;
+
+  const status =
+    typeof error === "object" && error !== null && "status" in error
+      ? Number((error as { status?: number }).status)
+      : undefined;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message?: string }).message)
+        : String(error);
+
+  return (
+    (typeof status === "number" && status >= 500) ||
+    /unexpected eof|failed to fetch|network|timeout|temporarily unavailable|service unavailable/i.test(
+      message,
+    )
+  );
+}
+
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
@@ -73,6 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               error,
             } = await supabase.auth.getUser();
 
+            if (error && isTransientAuthError(error)) {
+              applyAuthState(newSession);
+              setLoading(false);
+              return;
+            }
+
             if (error || !verifiedUser || verifiedUser.id !== nextUserId) {
               validatedUserIdRef.current = null;
               applyAuthState(null);
@@ -99,6 +127,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void supabase.auth
       .getUser()
       .then(async ({ data: { user: existingUser }, error }) => {
+        if (error && isTransientAuthError(error)) {
+          const {
+            data: { session: existingSession },
+          } = await supabase.auth.getSession();
+
+          validatedUserIdRef.current = existingSession?.user?.id ?? null;
+          applyAuthState(existingSession ?? null);
+          setLoading(false);
+          return;
+        }
+
         if (error || !existingUser) {
           validatedUserIdRef.current = null;
           applyAuthState(null);

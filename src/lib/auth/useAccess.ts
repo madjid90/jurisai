@@ -21,10 +21,16 @@ type CacheEntry = {
   access: UserAccess;
   inflight: Promise<UserAccess> | null;
   fetchedAt: number;
+  unavailable?: boolean;
 };
 let cache: CacheEntry | null = null;
 const TTL_MS = 60_000; // 1 min — suffit pour un parcours utilisateur normal
 const subscribers = new Set<() => void>();
+
+function isAuthServiceUnavailable(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /AUTH_SERVICE_UNAVAILABLE/i.test(message);
+}
 
 function notify() {
   for (const fn of subscribers) fn();
@@ -38,16 +44,33 @@ async function loadAccess(userId: string): Promise<UserAccess> {
   const promise = (async () => {
     try {
       const res = (await getMyAccess()) as UserAccess;
-      cache = { userId, access: res, inflight: null, fetchedAt: Date.now() };
+      cache = { userId, access: res, inflight: null, fetchedAt: Date.now(), unavailable: false };
       notify();
       return res;
     } catch (err) {
-      cache = { userId, access: EMPTY, inflight: null, fetchedAt: Date.now() };
+      cache = {
+        userId,
+        access: EMPTY,
+        inflight: null,
+        fetchedAt: Date.now(),
+        unavailable: isAuthServiceUnavailable(err),
+      };
       notify();
+
+      if (isAuthServiceUnavailable(err)) {
+        return EMPTY;
+      }
+
       throw err;
     }
   })();
-  cache = { userId, access: cache?.access ?? EMPTY, inflight: promise, fetchedAt: 0 };
+  cache = {
+    userId,
+    access: cache?.access ?? EMPTY,
+    inflight: promise,
+    fetchedAt: 0,
+    unavailable: cache?.unavailable ?? false,
+  };
   return promise;
 }
 
@@ -56,7 +79,7 @@ export function invalidateAccessCache() {
   notify();
 }
 
-export function useAccess(): { access: UserAccess; loading: boolean } {
+export function useAccess(): { access: UserAccess; loading: boolean; serviceUnavailable: boolean } {
   const { user, loading: authLoading } = useAuth();
   const [, force] = useState(0);
   const mountedRef = useRef(true);
@@ -82,12 +105,16 @@ export function useAccess(): { access: UserAccess; loading: boolean } {
     void loadAccess(user.id).catch(() => undefined);
   }, [authLoading, user]);
 
-  if (authLoading) return { access: EMPTY, loading: true };
-  if (!user) return { access: EMPTY, loading: false };
+  if (authLoading) return { access: EMPTY, loading: true, serviceUnavailable: false };
+  if (!user) return { access: EMPTY, loading: false, serviceUnavailable: false };
   if (cache?.userId === user.id && cache.fetchedAt > 0) {
-    return { access: cache.access, loading: !!cache.inflight };
+    return {
+      access: cache.access,
+      loading: !!cache.inflight,
+      serviceUnavailable: !!cache.unavailable,
+    };
   }
-  return { access: EMPTY, loading: true };
+  return { access: EMPTY, loading: true, serviceUnavailable: false };
 }
 
 export function hasAnyRole(access: UserAccess, roles: string[]): boolean {
