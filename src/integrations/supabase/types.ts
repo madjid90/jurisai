@@ -2913,7 +2913,20 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "manager" | "user" | "super_admin"
+      app_role:
+        | "admin"
+        | "manager"
+        | "user"
+        | "super_admin"
+        | "operationnel_terrain"
+        | "comptable"
+        | "daf"
+        | "dirigeant"
+        | "juriste"
+        | "avocat_partenaire"
+        | "cabinet_comptable_admin"
+        | "collaborateur_cabinet"
+        | "admin_tenant"
       plan_type: "starter" | "pro" | "business"
       template_status: "draft" | "review" | "validated" | "deprecated"
       user_profile_kind:
@@ -3049,7 +3062,21 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "user", "super_admin"],
+      app_role: [
+        "admin",
+        "manager",
+        "user",
+        "super_admin",
+        "operationnel_terrain",
+        "comptable",
+        "daf",
+        "dirigeant",
+        "juriste",
+        "avocat_partenaire",
+        "cabinet_comptable_admin",
+        "collaborateur_cabinet",
+        "admin_tenant",
+      ],
       plan_type: ["starter", "pro", "business"],
       template_status: ["draft", "review", "validated", "deprecated"],
       user_profile_kind: [
