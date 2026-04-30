@@ -30,33 +30,29 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
  */
 export const requireSupabaseAuth = createMiddleware({ type: "function" })
   .client(async ({ next }) => {
-    let token: string | null = null;
+    let token: string | null = getValidatedAccessToken();
 
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !token) {
       try {
         const { supabase } = await import("./client");
-        const { data } = await supabase.auth.getSession();
-        token = data.session?.access_token ?? null;
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
-        if (!token) {
+        if (!error && user) {
           const {
-            data: { user },
-            error,
-          } = await supabase.auth.getUser();
-
-          if (!error && user) {
-            const { data } = await supabase.auth.getSession();
-            token = data.session?.access_token ?? null;
-          }
-        }
-
-        if (!token) {
-          token = getValidatedAccessToken();
+            data: { session },
+          } = await supabase.auth.getSession();
+          token = session?.access_token ?? null;
+        } else {
+          token = null;
         }
 
         setValidatedAccessToken(token);
       } catch {
-        token = getValidatedAccessToken();
+        token = null;
+        setValidatedAccessToken(null);
       }
     }
 
