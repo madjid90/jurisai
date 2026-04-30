@@ -9,6 +9,7 @@ import {
   completeWorkflowStep,
   generateDocFromWorkflowStep,
   getTemplateBySlug,
+  sourceWorkflowStep,
 } from "@/server/workflows.functions";
 import { validateWorkflowStep } from "@/server/workflow-validation.functions";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
