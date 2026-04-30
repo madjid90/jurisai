@@ -234,11 +234,11 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
         .insert({
           tenant_id: tenantId,
           dossier_id: session.dossier_id,
-          requester_id: userId,
+          requested_by: userId,
           assigned_to: assignee,
           subject_type: "generated_document",
           subject_id: doc.id,
-          context: { template: tpl.name, risk_level: tpl.risk_level },
+          comment: `Validation requise — ${tpl.name} (risque ${tpl.risk_level})`,
           status: "pending",
         })
         .select("id")
