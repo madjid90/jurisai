@@ -21,20 +21,14 @@ export type PrefillResult = {
 };
 
 const FIELD_HINTS: Record<string, string[]> = {
-  // mappe une "clé attendue" → liste de chemins potentiels dans les sources
-  client_name: ["client.name", "client.legal_name", "dossier.context.client_name"],
+  client_name: ["client.name", "client.legal_name"],
   client_legal_name: ["client.legal_name", "client.name"],
   client_email: ["client.email"],
   client_address: ["client.address"],
   client_siret: ["client.siret"],
   case_title: ["dossier.title"],
-  case_reference: ["dossier.reference"],
-  case_type: ["dossier.case_type"],
-  employee_name: ["dossier.context.employee_name", "dossier.context.salarie_nom"],
-  employee_position: ["dossier.context.employee_position", "dossier.context.poste"],
-  contract_type: ["dossier.context.contract_type"],
-  start_date: ["dossier.context.start_date", "dossier.context.date_debut"],
-  end_date: ["dossier.context.end_date", "dossier.context.date_fin"],
+  case_description: ["dossier.description"],
+  case_category: ["dossier.category"],
 };
 
 function pickPath(obj: any, path: string): unknown {
