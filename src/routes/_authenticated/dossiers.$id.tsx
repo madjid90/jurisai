@@ -33,12 +33,20 @@ export const Route = createFileRoute("/_authenticated/dossiers/$id")({
   component: DossierDetailPage,
 });
 
+import {
+  CASE_STATUS_OPTIONS,
+  CASE_TYPE_OPTIONS,
+  STATUS_TONE_CLASS,
+  getCaseStatusMeta,
+  getCaseTypeMeta,
+} from "@/lib/dossiers/case-meta";
+
 type Dossier = {
   id: string;
   title: string;
   description: string | null;
   category: string;
-  status: "open" | "in_progress" | "closed";
+  status: string;
   risk_level: "low" | "medium" | "high";
   client_id: string | null;
   client?: { id: string; full_name: string; job_title: string | null } | null;
@@ -54,17 +62,7 @@ type Deadline = {
   completed: boolean;
 };
 
-const STATUS_LABEL = { open: "Ouvert", in_progress: "En cours", closed: "Clôturé" };
 const RISK_LABEL = { low: "Faible", medium: "Moyen", high: "Élevé" };
-
-const CATEGORIES = [
-  { value: "licenciement", label: "Licenciement" },
-  { value: "rupture-conventionnelle", label: "Rupture conventionnelle" },
-  { value: "contentieux", label: "Contentieux" },
-  { value: "discipline", label: "Discipline" },
-  { value: "contrat", label: "Contrat" },
-  { value: "autre", label: "Autre" },
-];
 
 function DossierDetailPage() {
   const confirmAsync = useConfirm();
@@ -367,15 +365,24 @@ function DossierDetailPage() {
               {editing ? (
                 <select
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as Dossier["status"] })}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
                   className="h-9 w-full rounded-lg border border-border bg-background px-2 text-[12.5px]"
                 >
-                  <option value="open">Ouvert</option>
-                  <option value="in_progress">En cours</option>
-                  <option value="closed">Clôturé</option>
+                  {CASE_STATUS_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
                 </select>
               ) : (
-                <span className="text-[13px] font-medium text-foreground">{STATUS_LABEL[dossier.status]}</span>
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-md border px-2 py-0.5 text-[12px] font-medium",
+                    STATUS_TONE_CLASS[getCaseStatusMeta(dossier.status).tone],
+                  )}
+                >
+                  {getCaseStatusMeta(dossier.status).label}
+                </span>
               )}
             </MetaItem>
             <MetaItem label="Risque">
@@ -393,14 +400,14 @@ function DossierDetailPage() {
                 <span className="text-[13px] font-medium text-foreground">{RISK_LABEL[dossier.risk_level]}</span>
               )}
             </MetaItem>
-            <MetaItem label="Catégorie">
+            <MetaItem label="Type de dossier">
               {editing ? (
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   className="h-9 w-full rounded-lg border border-border bg-background px-2 text-[12.5px]"
                 >
-                  {CATEGORIES.map((c) => (
+                  {CASE_TYPE_OPTIONS.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}
                     </option>
@@ -408,7 +415,7 @@ function DossierDetailPage() {
                 </select>
               ) : (
                 <span className="text-[13px] font-medium text-foreground">
-                  {CATEGORIES.find((c) => c.value === dossier.category)?.label ?? dossier.category}
+                  {getCaseTypeMeta(dossier.category).label}
                 </span>
               )}
             </MetaItem>

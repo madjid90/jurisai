@@ -25,13 +25,17 @@
 - [x] **`legal-agent` edge function migrée vers `createServerFn`** — edge function supprimée
 - [x] **UI `/agent`** : intent/domain/topic, flags structurels, refus motivés, actions suggérées, infos manquantes, trace outils, sources
 
-## Priorité 2 — Dossiers + historique métier
+## Priorité 2 — Dossiers + historique métier (en cours)
 
-- [ ] Vue dossier complète : Résumé / Statut / Risques / Documents / Workflows / Échéances / Historique / Notifications / Sources / Actions recommandées
-- [ ] Filtres timeline (Tout / Questions / Documents / Analyses / Risques / Workflows / Échéances / Notifications / Validations / Rapports / Exports)
-- [ ] Étendre `dossiers.case_type` aux 10 types (rh_salarie, contrat_commercial, litige_client, fournisseur, societe, rgpd_conformite, facture_impayee, veille_juridique, procedure_interne, site_operationnel)
-- [ ] Statuts dossier complets (nouveau, en_analyse, action_requise, en_attente_validation, en_cours, a_surveiller, termine, archive)
-- [ ] Nourrir la timeline systématiquement (déjà branchée sur création/changement statut/analyse — étendre à risk/validation/deadline/workflow/reminder)
+- [x] Vue dossier 360° avec onglets Timeline / Risques / Validations / Rappels / Agent
+- [x] **Panneau "Actions recommandées"** en tête de Dossier360Tabs (risques élevés + validations en attente + rappels < 24h)
+- [x] **Filtres timeline** par catégorie (Tout / Questions / Documents / Analyses / Risques / Workflows / Échéances / Validations / Rappels / Rapports / Exports)
+- [x] **Statuts dossier complets** (8 statuts métier : nouveau, en_analyse, action_requise, en_attente_validation, en_cours, a_surveiller, termine, archive) + rétro-compat des 3 anciens (open/in_progress/closed)
+- [x] **Types de dossier transverses** (10 nouveaux : rh_salarie, contrat_commercial, litige_client, fournisseur, societe, rgpd_conformite, facture_impayee, veille_juridique, procedure_interne, site_operationnel) + rétro-compat
+- [x] Constantes partagées `src/lib/dossiers/case-meta.ts` utilisées par `/dossiers` (liste + création) et `/dossiers/$id` (détail + édition)
+- [ ] Onglets supplémentaires Documents générés / Workflows en cours dans Dossier360Tabs
+- [ ] Vue dossier "Sources" (liste agrégée des sources juridiques citées dans le dossier)
+- [ ] Étendre la timeline aux événements documents/workflows/exports (déjà branchés sur risk/validation/deadline/reminder/agent)
 
 ## Priorité 3 — Génération documentaire
 
