@@ -6,14 +6,10 @@ import {
   Users,
   UserPlus,
   Mail,
-  Shield,
   Trash2,
   Copy,
   Check,
   Loader2,
-  Crown,
-  UserCog,
-  User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
@@ -25,13 +21,14 @@ import {
 } from "@/server/invitations.functions";
 import { removeMember } from "@/server/settings.functions";
 import { cn } from "@/lib/utils";
-
-export const Route = createFileRoute("/_authenticated/team")({
-  head: () => ({ meta: [{ title: "Équipe · JurisAI" }] }),
-  component: TeamPage,
-});
-
-type AppRole = "admin" | "manager" | "user";
+import {
+  ASSIGNABLE_ROLES,
+  pickHighestRole,
+  roleIcon,
+  roleLabel,
+  roleToneClass,
+  type AppRole,
+} from "@/lib/roles/catalog";
 
 type Member = {
   id: string;
@@ -50,17 +47,10 @@ type Invitation = {
   created_at: string;
 };
 
-const ROLE_LABELS: Record<AppRole, string> = {
-  admin: "Administrateur",
-  manager: "Manager",
-  user: "Utilisateur",
-};
-
-const ROLE_ICONS: Record<AppRole, typeof Crown> = {
-  admin: Crown,
-  manager: UserCog,
-  user: UserIcon,
-};
+export const Route = createFileRoute("/_authenticated/team")({
+  head: () => ({ meta: [{ title: "Équipe · JurisAI" }] }),
+  component: TeamPage,
+});
 
 function TeamPage() {
   const confirmAsync = useConfirm();
@@ -97,14 +87,14 @@ function TeamPage() {
       .select("user_id, role")
       .eq("tenant_id", profile.tenant_id);
 
-    const rolesMap = new Map<string, AppRole>();
+    const rolesByUser = new Map<string, AppRole[]>();
     ((rolesData as Array<{ user_id: string; role: AppRole }>) ?? []).forEach((r) => {
-      // If user has multiple roles, prioritize admin > manager > user
-      const existing = rolesMap.get(r.user_id);
-      if (!existing) rolesMap.set(r.user_id, r.role);
-      else if (r.role === "admin") rolesMap.set(r.user_id, "admin");
-      else if (r.role === "manager" && existing === "user") rolesMap.set(r.user_id, "manager");
+      const arr = rolesByUser.get(r.user_id) ?? [];
+      arr.push(r.role);
+      rolesByUser.set(r.user_id, arr);
     });
+    const rolesMap = new Map<string, AppRole>();
+    rolesByUser.forEach((arr, uid) => rolesMap.set(uid, pickHighestRole(arr)));
 
     setMembers(
       ((profilesData as Member[]) ?? []).map((p) => ({
@@ -217,9 +207,30 @@ function TeamPage() {
                 disabled={sending}
                 className="h-11 rounded-xl border border-border bg-background px-3 text-[14px] text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
               >
-                <option value="user">Utilisateur</option>
-                <option value="manager">Manager</option>
-                {isAdmin && <option value="admin">Administrateur</option>}
+                <optgroup label="Standard">
+                  {ASSIGNABLE_ROLES.filter((r) => r.group === "core").map((r) => {
+                    if (r.value === "admin" && !isAdmin) return null;
+                    return (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="Métier">
+                  {ASSIGNABLE_ROLES.filter((r) => r.group === "metier").map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Cabinet partenaire">
+                  {ASSIGNABLE_ROLES.filter((r) => r.group === "cabinet").map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <button
                 type="submit"
@@ -291,7 +302,7 @@ function MemberRow({
   canRemove: boolean;
   onRemove: () => void;
 }) {
-  const RoleIcon = ROLE_ICONS[member.role];
+  const RoleIcon = roleIcon(member.role);
   const initials =
     (member.full_name ?? member.email)
       .split(" ")
@@ -323,13 +334,11 @@ function MemberRow({
       <div
         className={cn(
           "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11.5px] font-semibold",
-          member.role === "admin" && "bg-primary/10 text-primary",
-          member.role === "manager" && "bg-accent/10 text-accent",
-          member.role === "user" && "bg-secondary text-foreground/70",
+          roleToneClass(member.role),
         )}
       >
         <RoleIcon className="h-3 w-3" />
-        {ROLE_LABELS[member.role]}
+        {roleLabel(member.role)}
       </div>
       {canRemove && (
         <button
@@ -386,7 +395,7 @@ function InviteRow({
             <>Expire dans {daysLeft} jour{daysLeft > 1 ? "s" : ""}</>
           )}
           {" · "}
-          <span className="capitalize">{ROLE_LABELS[invitation.role]}</span>
+          <span className="capitalize">{roleLabel(invitation.role)}</span>
         </p>
       </div>
       <button
@@ -410,6 +419,3 @@ function InviteRow({
     </div>
   );
 }
-
-// silence unused import (Shield reserved for future)
-void Shield;

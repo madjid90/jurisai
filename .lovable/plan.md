@@ -105,3 +105,26 @@
 - Signature électronique intégrée
 - App mobile native
 - Intégrations externes (Slack/Teams) au-delà de ce qui existe
+
+---
+
+## ✅ Avancement P5 / P6 / P7 (sprint en cours)
+
+### P5 — Cron Digest (livré)
+- [x] Hook `POST /api/public/hooks/digest` (auth via apikey anon)
+- [x] Sélection users selon `notification_preferences.digest_frequency` (`daily`/`weekly`)
+- [x] Agrégation notifications non lues (24h ou 7j) → email HTML + texte → `email_queue`
+- [x] Trace dans `digest_runs` (queued / skipped / failed)
+- [x] pg_cron : `jurisai-digest-daily` (7h UTC) + `jurisai-digest-weekly` (lundi 7h UTC)
+
+### P6 — Catalogue workflows (étendu)
+- [x] +30 workflows transverses (RH, commercial, sociétés, admin/fiscal)
+- [ ] UI "catalogue par domaine" sur `/workflows` (filtres groupes)
+
+### P7 — Multi-profils (livré côté core)
+- [x] Catalogue centralisé `src/lib/roles/catalog.ts` (13 rôles, groupes, icônes, tons sémantiques)
+- [x] Page `/team` refactorée : sélecteur multi-rôles avec groupes (Standard / Métier / Cabinet)
+- [x] Hiérarchie `pickHighestRole()` pour résoudre rôle principal en cas de cumul
+- [x] Validation serveur élargie (`invitations.functions.ts` accepte les 12 rôles assignables)
+- [ ] Sidebar conditionnelle via `useAccess` (à brancher sur les permissions)
+- [ ] Vues simplifiées par profil (terrain / dirigeant / super_admin)
