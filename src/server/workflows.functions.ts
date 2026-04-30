@@ -3,14 +3,23 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
+import {
+  searchLegalSources,
+  renderLegalBasisBlock,
+  type LegalSource,
+} from "@/server/_shared/legal-rag.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 export type WorkflowStep = {
   key: string;
   title: string;
   description?: string;
   type?: "action" | "document" | "decision" | "wait";
+  kind?: string;
+  template_slug?: string;
   legal_refs?: string[];
   delay_days?: number;
+  requires_sourcing?: boolean;
 };
 
 // ─── List workflow definitions (public + tenant) ───────────────────────────
