@@ -59,6 +59,8 @@ export function NotificationBell() {
     void refresh();
   };
 
+  if (!user) return null;
+
   return (
     <div ref={ref} className="relative">
       <button
