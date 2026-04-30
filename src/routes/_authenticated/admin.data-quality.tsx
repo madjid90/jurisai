@@ -105,10 +105,20 @@ function DataQualityPage() {
             </div>
           </div>
         )}
-
-
+        {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
         ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from(latest.values()).map((c) => (
+              <CheckCard key={c.id} check={c} />
+            ))}
+            {latest.size === 0 && (
+              <p className="col-span-full rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                Aucun contrôle exécuté. Cliquez sur Exécuter.
+              </p>
+            )}
+          </div>
+        )}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {Array.from(latest.values()).map((c) => (
               <CheckCard key={c.id} check={c} />
