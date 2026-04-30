@@ -2,7 +2,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
-import { getValidatedAccessToken, setValidatedAccessToken } from "@/lib/auth/session-cache";
+import { setValidatedAccessToken } from "@/lib/auth/session-cache";
 
 // Browser uses VITE_* (replaced at build time). Server uses process.env (read at runtime).
 // We resolve lazily so missing server env throws at first use, not at module load.
@@ -35,28 +35,24 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
     if (typeof window !== "undefined") {
       try {
         const { supabase } = await import("./client");
-        const { data } = await supabase.auth.getSession();
-        token = data.session?.access_token ?? null;
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
-        if (!token) {
+        if (!error && user) {
           const {
-            data: { user },
-            error,
-          } = await supabase.auth.getUser();
-
-          if (!error && user) {
-            const { data } = await supabase.auth.getSession();
-            token = data.session?.access_token ?? null;
-          }
-        }
-
-        if (!token) {
-          token = getValidatedAccessToken();
+            data: { session },
+          } = await supabase.auth.getSession();
+          token = session?.access_token ?? null;
+        } else {
+          token = null;
         }
 
         setValidatedAccessToken(token);
       } catch {
-        token = getValidatedAccessToken();
+        token = null;
+        setValidatedAccessToken(null);
       }
     }
 

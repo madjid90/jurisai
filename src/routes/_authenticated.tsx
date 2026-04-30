@@ -8,8 +8,23 @@ import {
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
+  beforeLoad: async () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      throw redirect({ to: "/login" });
+    }
+  },
   component: AuthenticatedLayout,
 });
 
