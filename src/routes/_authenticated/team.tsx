@@ -395,7 +395,7 @@ function InviteRow({
             <>Expire dans {daysLeft} jour{daysLeft > 1 ? "s" : ""}</>
           )}
           {" · "}
-          <span className="capitalize">{ROLE_LABELS[invitation.role]}</span>
+          <span className="capitalize">{roleLabel(invitation.role)}</span>
         </p>
       </div>
       <button
@@ -419,6 +419,3 @@ function InviteRow({
     </div>
   );
 }
-
-// silence unused import (Shield reserved for future)
-void Shield;
