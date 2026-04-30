@@ -10,7 +10,21 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type AppRole = "admin" | "manager" | "user";
+export type AppRole =
+  | "admin"
+  | "manager"
+  | "user"
+  | "super_admin"
+  | "operationnel_terrain"
+  | "comptable"
+  | "daf"
+  | "dirigeant"
+  | "juriste"
+  | "avocat_partenaire"
+  | "cabinet_comptable_admin"
+  | "collaborateur_cabinet"
+  | "admin_tenant"
+  | "rh";
 export type PlanType = "starter" | "pro" | "business";
 
 export interface Database {
