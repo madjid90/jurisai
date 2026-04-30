@@ -240,7 +240,7 @@ export const analyzeDocument = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
     const tenantId = await getTenantId(ctx.userId);
     await enforceRateLimit(ctx.userId, "analysis.analyze", 10);
-    try {
+
     const bytes = decodeBase64(data.file_base64);
     if (bytes.byteLength > MAX_FILE_SIZE) {
       throw new Error(`Fichier trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024} MB)`);
