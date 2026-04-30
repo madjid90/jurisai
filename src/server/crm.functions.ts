@@ -2,21 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getTenantId } from "@/server/_shared/tenant.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 type Ctx = { userId: string; supabase: SupabaseClient };
-
-async function getTenantId(supabase: SupabaseClient, userId: string): Promise<string> {
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) throw new Error(`Profil introuvable: ${error.message}`);
-  if (!profile?.tenant_id) {
-    throw new Error("Vous devez d'abord compléter l'onboarding");
-  }
-  return profile.tenant_id as string;
-}
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -79,7 +68,7 @@ export const listClients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { data, error } = await ctx.supabase
       .from("clients")
       .select("*")
@@ -94,7 +83,7 @@ export const getClient = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { data: client, error } = await ctx.supabase
       .from("clients")
       .select("*")
@@ -118,7 +107,7 @@ export const createClient = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => clientSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const payload = {
       ...cleanEmpty(data),
       tenant_id: tenantId,
@@ -138,7 +127,7 @@ export const updateClient = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => updateClientSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { id, ...rest } = data;
     const { data: client, error } = await ctx.supabase
       .from("clients")
@@ -156,7 +145,7 @@ export const deleteClient = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { error } = await ctx.supabase
       .from("clients")
       .delete()
@@ -172,7 +161,7 @@ export const listDossiers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { data, error } = await ctx.supabase
       .from("dossiers")
       .select("*, client:clients(id, full_name)")
@@ -187,7 +176,7 @@ export const getDossier = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { data: dossier, error } = await ctx.supabase
       .from("dossiers")
       .select("*, client:clients(id, full_name, job_title)")
@@ -211,7 +200,7 @@ export const createDossier = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => dossierSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const payload = {
       ...cleanEmpty(data),
       tenant_id: tenantId,
@@ -223,6 +212,14 @@ export const createDossier = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+    await logTimelineEvent({
+      tenantId,
+      dossierId: (dossier as { id: string }).id,
+      actorId: ctx.userId,
+      eventType: "dossier.created",
+      title: `Dossier créé`,
+      description: (dossier as { title?: string }).title ?? null,
+    });
     return { dossier };
   });
 
@@ -231,7 +228,7 @@ export const updateDossier = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => updateDossierSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { id, ...rest } = data;
     const cleaned = cleanEmpty(rest) as Record<string, unknown>;
     if (cleaned.status === "closed") cleaned.closed_at = new Date().toISOString();
@@ -244,6 +241,16 @@ export const updateDossier = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+    if (cleaned.status) {
+      await logTimelineEvent({
+        tenantId,
+        dossierId: id,
+        actorId: ctx.userId,
+        eventType: "dossier.status_changed",
+        title: `Statut → ${String(cleaned.status)}`,
+        metadata: { new_status: cleaned.status },
+      });
+    }
     return { dossier };
   });
 
@@ -252,7 +259,7 @@ export const deleteDossier = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { error } = await ctx.supabase
       .from("dossiers")
       .delete()
@@ -268,7 +275,7 @@ export const listDeadlines = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { data, error } = await ctx.supabase
       .from("dossier_deadlines")
       .select("*, dossier:dossiers(id, title, client:clients(id, full_name))")
@@ -283,7 +290,7 @@ export const createDeadline = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => deadlineSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { data: dossier } = await ctx.supabase
       .from("dossiers")
       .select("id")
@@ -314,7 +321,7 @@ export const updateDeadline = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => updateDeadlineSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { id, ...rest } = data;
     const cleaned = cleanEmpty(rest) as Record<string, unknown>;
     if (cleaned.completed === true) cleaned.completed_at = new Date().toISOString();
@@ -335,7 +342,7 @@ export const deleteDeadline = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.supabase, ctx.userId);
+    const tenantId = await getTenantId(ctx.userId);
     const { error } = await ctx.supabase
       .from("dossier_deadlines")
       .delete()

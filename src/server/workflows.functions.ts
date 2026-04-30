@@ -2,8 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-type ProfileRow = { tenant_id: string | null };
+import { getTenantId } from "@/server/_shared/tenant.server";
 
 export type WorkflowStep = {
   key: string;
@@ -13,14 +12,6 @@ export type WorkflowStep = {
   legal_refs?: string[];
   delay_days?: number;
 };
-
-async function getTenantId(userId: string): Promise<string> {
-  const { data } = await supabaseAdmin
-    .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
-  const tenantId = (data as ProfileRow | null)?.tenant_id;
-  if (!tenantId) throw new Error("Aucun tenant rattaché à votre compte.");
-  return tenantId;
-}
 
 // ─── List workflow definitions (public + tenant) ───────────────────────────
 

@@ -10,15 +10,8 @@ const db = supabaseAdmin as unknown as {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_TEXT_CHARS = 60_000; // ~15-20 pages, on tronque pour l'IA
 
-async function getTenantId(userId: string): Promise<string> {
-  const { data: profile } = await db
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .single();
-  if (!profile?.tenant_id) throw new Error("Onboarding requis");
-  return profile.tenant_id as string;
-}
+import { getTenantId } from "@/server/_shared/tenant.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -199,6 +192,19 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         tokens_used: tokens,
         metadata: { filename: data.filename, file_type: data.file_type },
       });
+
+      // Timeline (uniquement si rattaché à un dossier)
+      if (data.dossier_id) {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: data.dossier_id,
+          actorId: ctx.userId,
+          eventType: "analysis.completed",
+          title: `Analyse : ${data.filename}`,
+          description: `${tokens} tokens`,
+          metadata: { analysis_id: record.id, file_type: data.file_type },
+        });
+      }
 
       return { id: record.id as string, analysis, tokens };
     } catch (err) {
