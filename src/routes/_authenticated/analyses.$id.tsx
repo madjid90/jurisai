@@ -41,10 +41,40 @@ const DOMAIN_LABELS: Record<string, string> = {
 type Risk = {
   severity: "low" | "medium" | "high" | "critical";
   category?: string;
+  risk_key?: string | null;
   title: string;
   description: string;
   legal_basis?: Array<{ label: string; reference?: string }>;
   mitigation?: string;
+};
+
+type ContractParty = { role?: string; name?: string; legal_form?: string; siret?: string };
+type ContractData = {
+  parties?: ContractParty[];
+  object?: string;
+  signature_date?: string;
+  effective_date?: string;
+  end_date?: string;
+  duration?: string;
+  renewal?: { type?: string; notice_days?: number; notice_deadline?: string };
+  notice_period?: string;
+  amount?: string;
+  payment_terms?: string;
+  penalties?: string;
+  termination?: string;
+  jurisdiction?: string;
+  governing_law?: string;
+  confidentiality?: boolean;
+  non_compete?: { present?: boolean; duration?: string; zone?: string; compensation?: string };
+};
+
+type DetectedDateUI = {
+  key: string;
+  label: string;
+  iso_date: string;
+  type: string;
+  importance: "low" | "medium" | "high" | "critical";
+  description?: string;
 };
 
 type Analysis = {
@@ -55,6 +85,8 @@ type Analysis = {
   risks: Risk[];
   compliance: Array<{ status: "ok" | "warning" | "issue"; title: string; description: string }>;
   recommendations: string[];
+  contract_data?: ContractData;
+  detected_dates?: DetectedDateUI[];
 };
 
 type ExtractedField = {
@@ -74,6 +106,8 @@ type Row = {
   file_size: number;
   status: string;
   analysis: Analysis | null;
+  contract_data?: ContractData | null;
+  detected_dates?: DetectedDateUI[] | null;
   error_message: string | null;
   created_at: string;
   extracted_text: string | null;
