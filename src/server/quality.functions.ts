@@ -48,7 +48,7 @@ export type ServerErrorRow = {
   tenant_id: string | null;
   error_message: string;
   error_stack: string | null;
-  context: Record<string, unknown>;
+  context: Record<string, NonNullable<unknown>>;
   severity: "warn" | "error" | "critical";
   created_at: string;
 };
