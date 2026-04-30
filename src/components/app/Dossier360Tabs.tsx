@@ -107,7 +107,10 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
     risks: Risk[];
     validations: Validation[];
     reminders: Reminder[];
-  }>({ timeline: [], risks: [], validations: [], reminders: [] });
+    generatedDocuments: GeneratedDoc[];
+    workflows: WorkflowInstance[];
+    sources: SourceRef[];
+  }>({ timeline: [], risks: [], validations: [], reminders: [], generatedDocuments: [], workflows: [], sources: [] });
 
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
