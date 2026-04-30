@@ -425,7 +425,7 @@ function DossierDetailPage() {
         <Dossier360Tabs dossierId={id} />
       </div>
 
-
+      {showDeadlineForm && (
         <DeadlineModal
           dossierId={id}
           onClose={() => setShowDeadlineForm(false)}
