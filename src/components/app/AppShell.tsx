@@ -22,6 +22,7 @@ import {
   Workflow,
   ScrollText,
   Library,
+  ServerCrash,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
