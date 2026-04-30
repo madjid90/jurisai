@@ -302,26 +302,54 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         await db.from("extracted_fields").insert(rows);
       }
 
-      // 5. Si rattaché à un dossier : crée les risques + log timeline
+      // 5. Si rattaché à un dossier : crée les risques + deadlines + log timeline
+      let createdDeadlines = 0;
       if (data.dossier_id) {
         // Crée les risques détectés (medium ou plus)
         const significantRisks = analysis.risks.filter(
           (r) => r.severity === "medium" || r.severity === "high" || r.severity === "critical",
         );
         if (significantRisks.length > 0) {
-          const riskRows = significantRisks.map((r) => ({
+          const riskRows = significantRisks.map((r) => {
+            const def = r.risk_key ? CONTRACT_RISKS[r.risk_key as ContractRiskKey] : null;
+            return {
+              tenant_id: tenantId,
+              dossier_id: data.dossier_id,
+              detected_by: ctx.userId,
+              title: r.title,
+              description: r.description,
+              severity: r.severity,
+              category: def?.category ?? r.category ?? "general",
+              legal_basis: [
+                ...(r.legal_basis ?? []),
+                ...(r.risk_key ? [{ label: `risk_key:${r.risk_key}` }] : []),
+              ],
+              mitigation: r.mitigation ?? null,
+              status: "open",
+            };
+          });
+          await db.from("identified_risks").insert(riskRows);
+        }
+
+        // Crée les deadlines à partir des dates détectées (importance >= medium)
+        const dates = (analysis.detected_dates ?? []).filter(
+          (d) => d.importance === "medium" || d.importance === "high" || d.importance === "critical",
+        );
+        if (dates.length > 0) {
+          const deadlineRows = dates.map((d) => ({
             tenant_id: tenantId,
             dossier_id: data.dossier_id,
-            detected_by: ctx.userId,
-            title: r.title,
-            description: r.description,
-            severity: r.severity,
-            category: r.category ?? "general",
-            legal_basis: r.legal_basis ?? [],
-            mitigation: r.mitigation ?? null,
-            status: "open",
+            created_by: ctx.userId,
+            title: d.label,
+            description: d.description ?? d.excerpt ?? null,
+            due_date: d.iso_date,
+            completed: false,
+            source: "analysis",
+            source_analysis_id: record.id,
+            deadline_type: d.type,
           }));
-          await db.from("identified_risks").insert(riskRows);
+          const { error: dlErr } = await db.from("dossier_deadlines").insert(deadlineRows);
+          if (!dlErr) createdDeadlines = dates.length;
         }
 
         await logTimelineEvent({
@@ -330,13 +358,15 @@ export const analyzeDocument = createServerFn({ method: "POST" })
           actorId: ctx.userId,
           eventType: "analysis.completed",
           title: `Analyse : ${data.filename}`,
-          description: `${analysis.document_type} (${analysis.domain}) — ${analysis.risks.length} risque(s) détecté(s)`,
+          description: `${analysis.document_type} (${analysis.domain}) — ${analysis.risks.length} risque(s), ${createdDeadlines} échéance(s) détectée(s)`,
           metadata: {
             analysis_id: record.id,
             file_type: data.file_type,
             domain: analysis.domain,
             document_type: analysis.document_type,
             risks_count: analysis.risks.length,
+            deadlines_count: createdDeadlines,
+            contract_data_present: Object.keys(analysis.contract_data ?? {}).length > 0,
             tokens,
           },
         });
