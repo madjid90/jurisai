@@ -151,8 +151,76 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
     { key: "agent", label: "Agent IA", icon: Sparkles },
   ];
 
+  // Synthèse "Actions recommandées" : risques critiques ouverts + validations en attente +
+  // rappels en retard ou imminents (24h).
+  const now = Date.now();
+  const criticalRisks = data.risks.filter(
+    (r) => r.status !== "resolved" && (r.severity === "critical" || r.severity === "high"),
+  );
+  const pendingValidations = data.validations.filter((v) => v.status === "pending");
+  const upcomingReminders = data.reminders.filter(
+    (r) => !r.dismissed_at && new Date(r.remind_at).getTime() <= now + 24 * 60 * 60 * 1000,
+  );
+  const totalActions = criticalRisks.length + pendingValidations.length + upcomingReminders.length;
+
   return (
     <section className="mt-6 rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-card)]">
+      {/* Panneau Actions recommandées */}
+      {!loading && totalActions > 0 && (
+        <div className="border-b border-border bg-amber-500/5 px-5 py-4">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <h3 className="text-[12.5px] font-semibold text-foreground">
+              Actions recommandées ({totalActions})
+            </h3>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {criticalRisks.length > 0 && (
+              <button
+                onClick={() => setTab("risks")}
+                className="rounded-lg border border-destructive/30 bg-card p-2.5 text-left transition hover:border-destructive/60"
+              >
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Risques élevés
+                </p>
+                <p className="mt-0.5 text-[18px] font-bold text-destructive">
+                  {criticalRisks.length}
+                </p>
+                <p className="text-[11px] text-muted-foreground">à traiter en priorité</p>
+              </button>
+            )}
+            {pendingValidations.length > 0 && (
+              <button
+                onClick={() => setTab("validations")}
+                className="rounded-lg border border-amber-500/30 bg-card p-2.5 text-left transition hover:border-amber-500/60"
+              >
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Validations
+                </p>
+                <p className="mt-0.5 text-[18px] font-bold text-amber-600">
+                  {pendingValidations.length}
+                </p>
+                <p className="text-[11px] text-muted-foreground">en attente</p>
+              </button>
+            )}
+            {upcomingReminders.length > 0 && (
+              <button
+                onClick={() => setTab("reminders")}
+                className="rounded-lg border border-blue-500/30 bg-card p-2.5 text-left transition hover:border-blue-500/60"
+              >
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Rappels
+                </p>
+                <p className="mt-0.5 text-[18px] font-bold text-blue-600">
+                  {upcomingReminders.length}
+                </p>
+                <p className="text-[11px] text-muted-foreground">dans les 24h</p>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Tabs header */}
       <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-3">
         {tabs.map((t) => {
