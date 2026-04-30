@@ -132,3 +132,17 @@ function Stat({ label, value, tone = "neutral" }: { label: string; value: string
     </div>
   );
 }
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/40 p-2">
+      <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 text-base font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function pct(v: number | null): string {
+  if (v === null || v === undefined) return "—";
+  return (v * 100).toFixed(1) + "%";
+}
