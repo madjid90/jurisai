@@ -136,9 +136,11 @@ function Sidebar() {
     "/scan",
   ]);
 
-  const visibleNav = isTerrainOnly
+  const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
     : NAV_ITEMS;
+  const visibleNav = baseNav.filter((it) => canSee(access, it));
+  const visibleSecondary = SECONDARY_ITEMS.filter((it) => canSee(access, it));
 
   return (
     <aside className="glass-panel flex h-full w-full flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)] md:w-[244px]">
@@ -156,7 +158,6 @@ function Sidebar() {
             icon={item.icon}
             to={item.to}
             active={currentPath === item.to}
-            soon={"soon" in item ? Boolean((item as { soon?: boolean }).soon) : undefined}
           />
         ))}
       </nav>
@@ -165,7 +166,7 @@ function Sidebar() {
         Workspace
       </div>
       <nav className="mt-2 flex flex-col gap-1">
-        {SECONDARY_ITEMS.map((item) => (
+        {visibleSecondary.map((item) => (
           <NavItem
             key={item.label}
             label={item.label}
@@ -176,7 +177,7 @@ function Sidebar() {
         ))}
       </nav>
 
-      {isSuperAdmin && (
+      {(isSuperAdmin || access.isTenantAdmin) && (
         <>
           <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Admin
