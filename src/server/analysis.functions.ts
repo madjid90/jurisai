@@ -79,6 +79,7 @@ type AnalysisResult = {
   risks: Array<{
     severity: "low" | "medium" | "high" | "critical";
     category?: string;
+    risk_key?: ContractRiskKey | null;
     title: string;
     description: string;
     legal_basis?: Array<{ label: string; reference?: string }>;
@@ -86,7 +87,28 @@ type AnalysisResult = {
   }>;
   compliance: Array<{ status: "ok" | "warning" | "issue"; title: string; description: string }>;
   recommendations: string[];
+  contract_data?: {
+    parties?: Array<{ role?: string; name?: string; legal_form?: string; siret?: string }>;
+    object?: string;
+    signature_date?: string;
+    effective_date?: string;
+    end_date?: string;
+    duration?: string;
+    renewal?: { type?: "tacite" | "expresse" | "aucune"; notice_days?: number; notice_deadline?: string };
+    notice_period?: string;
+    amount?: string;
+    payment_terms?: string;
+    penalties?: string;
+    termination?: string;
+    jurisdiction?: string;
+    governing_law?: string;
+    confidentiality?: boolean;
+    non_compete?: { present?: boolean; duration?: string; zone?: string; compensation?: string };
+  };
+  detected_dates?: DetectedDate[];
 };
+
+const RISK_KEYS_LIST = CONTRACT_RISK_KEYS.join("|");
 
 const SYSTEM_PROMPT = `Tu es un juriste français pluridisciplinaire (RH, commercial, sociétés, RGPD, fiscal, contentieux, administratif).
 Analyse le document fourni et retourne UNIQUEMENT un JSON valide selon ce schéma :
@@ -99,8 +121,29 @@ Analyse le document fourni et retourne UNIQUEMENT un JSON valide selon ce schém
     { "key": "snake_case", "label": "libellé humain", "value": "valeur extraite", "type": "text|date|number|money|duration", "confidence": 0.0-1.0, "excerpt": "extrait textuel court" }
   ],
   "key_points": ["8 points clés maximum"],
+  "contract_data": {
+    "parties": [{"role":"client|fournisseur|employeur|salarié|bailleur|locataire|...","name":"...","legal_form":"SAS|SARL|...","siret":"..."}],
+    "object": "objet du contrat en 1 phrase",
+    "signature_date": "YYYY-MM-DD",
+    "effective_date": "YYYY-MM-DD",
+    "end_date": "YYYY-MM-DD",
+    "duration": "ex: 12 mois, 3 ans, indéterminée",
+    "renewal": {"type":"tacite|expresse|aucune","notice_days":90,"notice_deadline":"YYYY-MM-DD"},
+    "notice_period": "ex: 3 mois",
+    "amount": "ex: 1500 € HT/mois",
+    "payment_terms": "ex: 30 jours fin de mois",
+    "penalties": "description des pénalités",
+    "termination": "modalités de résiliation",
+    "jurisdiction": "ex: TJ de Paris",
+    "governing_law": "ex: droit français",
+    "confidentiality": true,
+    "non_compete": {"present":true,"duration":"2 ans","zone":"France","compensation":"30% du salaire"}
+  },
+  "detected_dates": [
+    { "key": "end_date", "label": "Fin du contrat", "iso_date": "YYYY-MM-DD", "type": "signature|effective|trial_end|renewal|notice|end|payment|deadline|other", "importance": "low|medium|high|critical", "description": "...", "excerpt": "..." }
+  ],
   "risks": [
-    { "severity": "low|medium|high|critical", "category": "clause|delai|conformite|financier|reputationnel", "title": "string", "description": "1-2 phrases", "legal_basis": [{"label":"...","reference":"..."}], "mitigation": "action recommandée" }
+    { "severity": "low|medium|high|critical", "category": "clause|delai|conformite|financier|reputationnel|renouvellement|juridiction|rh", "risk_key": "${RISK_KEYS_LIST}|null", "title": "string", "description": "1-2 phrases", "legal_basis": [{"label":"...","reference":"..."}], "mitigation": "action recommandée" }
   ],
   "compliance": [
     { "status": "ok|warning|issue", "title": "ex: Période d essai / Clause RGPD / Délai de paiement", "description": "string" }
@@ -111,7 +154,9 @@ Analyse le document fourni et retourne UNIQUEMENT un JSON valide selon ce schém
 Règles :
 - Identifie d'abord le domaine et le type de document.
 - Extrait au moins 5 champs structurés clés (parties, dates, montants, durées, clauses notables).
-- Si une clause manque ou est non conforme, génère un risque correspondant avec sa base légale.
+- Pour les contrats, remplis "contract_data" le plus précisément possible. Toutes les dates doivent être au format ISO YYYY-MM-DD.
+- Évalue les 13 risques contractuels typés et utilise "risk_key" parmi : ${RISK_KEYS_LIST}. Mets "risk_key": null pour un risque hors catalogue.
+- Liste dans "detected_dates" toutes les dates importantes (signature, effet, fin, fin période d'essai, préavis à respecter, échéance de paiement, audience…).
 - Cite les articles précis (Code du travail, Code civil, Code de commerce, RGPD, LPF, CPC, etc.).
 - Réponds UNIQUEMENT avec le JSON, sans markdown ni texte additionnel.`;
 
