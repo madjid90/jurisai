@@ -17,7 +17,7 @@ export const listDocumentTemplates = createServerFn({ method: "GET" })
     const tenantId = await getTenantId(userId);
     let q = supabaseAdmin
       .from("document_templates")
-      .select("id, slug, name, description, category, risk_level, status, version, legal_basis, variables, icon, is_public, tenant_id, validated_at, updated_at")
+      .select("id, slug, name, description, category, risk_level, status, version, legal_basis, variables, icon, is_public, tenant_id, validated_at, updated_at, body, requires_upload, upload_optional, requires_form, requires_rag, requires_validation, archive_to_case, can_create_reminder, reminder_days_default, output_formats, prefill_sources, guidance, validation_threshold")
       .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
       .order("category", { ascending: true })
       .order("name", { ascending: true });
