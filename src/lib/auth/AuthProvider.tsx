@@ -22,7 +22,7 @@ function isTransientAuthError(error: unknown) {
 
   return (
     (typeof status === "number" && status >= 500) ||
-    /unexpected eof|failed to fetch|network|timeout|temporarily unavailable|service unavailable/i.test(
+    /unexpected eof|failed to fetch|network|timeout|temporarily unavailable|service unavailable|schema cache|database client error|no connection to the server/i.test(
       message,
     )
   );
@@ -61,11 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
+
+    if (error && isTransientAuthError(error)) {
+      return;
+    }
+
     setProfile((data as Profile | null) ?? null);
   };
 
