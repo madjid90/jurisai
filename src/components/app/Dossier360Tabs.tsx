@@ -29,7 +29,7 @@ import {
 } from "@/server/dossier360.functions";
 import { runLegalAgent } from "@/server/agent.functions";
 
-type TabKey = "timeline" | "risks" | "validations" | "reminders" | "agent";
+type TabKey = "timeline" | "risks" | "validations" | "reminders" | "documents" | "workflows" | "sources" | "agent";
 
 type TimelineEvent = {
   id: string;
