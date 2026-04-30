@@ -332,7 +332,18 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
     });
 
     // Append "Bases légales" block + footer marqueur citations
-    const sources: LegalSource[] = data.legalSources;
+    const sources: LegalSource[] = data.legalSources.map((s) => ({
+      n: s.n,
+      chunk_id: s.chunk_id,
+      source_id: s.source_id,
+      title: s.title,
+      reference: s.reference ?? null,
+      url: s.url ?? null,
+      source_type: s.source_type ?? null,
+      heading: s.heading ?? null,
+      excerpt: s.excerpt,
+      score: s.score,
+    }));
     const legalBlock = renderLegalBasisBlock(sources);
     const finalContent = `${rendered}${legalBlock}`;
 
