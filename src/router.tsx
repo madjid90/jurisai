@@ -27,6 +27,7 @@ if (typeof window !== "undefined") {
 
 function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
+  const isAuthServiceUnavailable = /AUTH_SERVICE_UNAVAILABLE/i.test(error.message);
 
   // Auto-reload on stale chunk errors (after a new deploy)
   useEffect(() => {
@@ -56,7 +57,9 @@ function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => vo
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Something went wrong</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          An unexpected error occurred. Please try again.
+          {isAuthServiceUnavailable
+            ? "Le service d’authentification est temporairement indisponible. Réessayez dans quelques instants."
+            : "An unexpected error occurred. Please try again."}
         </p>
         {error.message && (
           <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
