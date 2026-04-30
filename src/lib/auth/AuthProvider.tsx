@@ -3,6 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/database.types";
 import { invalidateAccessCache } from "@/lib/auth/useAccess";
+import { setValidatedAccessToken } from "@/lib/auth/session-cache";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyAuthState = (nextSession: Session | null) => {
     setSession(nextSession);
     setUser(nextSession?.user ?? null);
+    setValidatedAccessToken(nextSession?.access_token ?? null);
     invalidateAccessCache();
     if (nextSession?.user) {
       setTimeout(() => {
