@@ -89,12 +89,12 @@
 - [ ] Routing UI conditionnel par profil (terrain = vue simplifiée, dirigeant = vue complète, super_admin = modules techniques)
 - [ ] Cacher modules techniques (RAG quality, Data quality, Sources, Connecteurs, Monitoring, Audit) aux non-admins
 
-## Priorité 8 — Qualité production
+## Priorité 8 — Qualité production ✅ (socle livré)
 
-- [ ] Évaluation RAG continue (étendre `rag_eval_runs` avec retrieval_accuracy, citation_coverage, answer_correctness, source_authority_score, refusal_quality, user_feedback_score)
-- [ ] Dashboard data quality (nb sources, actives, obsolètes, chunks valides/sans embedding, erreurs ingestion, qualité moyenne)
-- [ ] Rate limiting généralisé sur server functions sensibles
-- [ ] Monitoring d'erreurs (Sentry-like) sur server functions
+- [x] **Évaluation RAG continue étendue** — `rag_eval_runs` enrichie de 6 métriques (`retrieval_accuracy`, `citation_coverage`, `answer_correctness`, `source_authority_score`, `refusal_quality`, `user_feedback_score`) + agrégat `getRagEvalAggregate` exposé dans `/admin/rag-quality`
+- [x] **Dashboard Data Quality enrichi** — fonction SECURITY DEFINER `get_data_quality_snapshot` (sources actives/obsolètes, chunks valides/sans embedding, orphelins, ingestion_failed_24h, autorité moyenne) + section "Instantané base juridique" dans `/admin/data-quality`
+- [x] **Rate limiting généralisé** — helper `enforceRateLimit(userId, endpoint, maxPerMinute)` basé sur RPC `check_rate_limit` ; branché sur `agent.runLegalAgent` (déjà existant), `analysis.analyzeDocument`, `generation.finalize`, `exports.dossierPdf`
+- [x] **Monitoring d'erreurs** — table `server_function_errors` (RLS super_admin lecture seule, écriture via SECURITY DEFINER `log_server_error` réservée à service_role) + helpers `captureServerError` / `withErrorMonitoring` + page `/admin/server-errors` (top fonctions en échec, filtres sévérité/période, stack traces)
 - [ ] Activer Leaked Password Protection dans dashboard Supabase Auth ⚠️ ACTION USER
 - [ ] Tests E2E sur les parcours critiques (Q→réponse, dépôt→analyse, génération→validation)
 
