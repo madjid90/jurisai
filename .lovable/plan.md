@@ -8,14 +8,12 @@
 
 ---
 
-## Étape 1 — Stabilisation (avant toute nouvelle feature)
+## Étape 1 — Stabilisation ✅ (avril 2026)
 
-**Objectif** : éliminer la dette technique qui bloque la suite.
-
-- [ ] Centraliser `getTenantId` dans `src/server/_shared/tenant.server.ts` (6 versions divergentes aujourd'hui dans workflows/documents/analysis/templates/crm/integrations)
-- [ ] Audit RLS complet — vérifier que toute table métier a bien `is_member_of_tenant` en SELECT et `has_role(admin)` en DELETE/UPDATE sensible
-- [ ] Traiter les 13 warnings linter Supabase (SECURITY DEFINER functions + extension in public schema)
-- [ ] Brancher la timeline (`case_timeline_events`) sur les événements clés : création dossier, doc ajouté, risque détecté, validation décidée
+- [x] `getTenantId` centralisé dans `src/server/_shared/tenant.server.ts` (6 fichiers migrés, signature uniforme)
+- [x] `logTimelineEvent` centralisé + branché sur `createDossier`, `updateDossier(status)`, `analyzeDocument` (autres événements branchés à la création de leurs server functions)
+- [x] Audit RLS : 100% des tables ont RLS activée, aucune policy laxiste, conventions documentées dans mem://architecture/multi-tenant
+- [x] Warnings linter : 13 → 2 (pgvector in public = faux positif accepté, Leaked Password Protection = action user dans dashboard)
 
 ## Étape 2 — Verticale RH (priorité #1)
 
