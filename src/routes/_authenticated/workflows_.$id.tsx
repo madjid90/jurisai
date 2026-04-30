@@ -179,8 +179,39 @@ function WorkflowDetailPage() {
 
   const runByIdx = new Map(data.runs.map((r) => [r.step_index, r]));
 
+  // Pré-validation de l'étape courante (blockers / warnings / champs manquants)
+  useEffect(() => {
+    if (!currentStep || isComplete) {
+      setValidation(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await validateFn({ data: { instanceId: id, stepIndex: currentIdx } });
+        if (!cancelled) {
+          setValidation({
+            ok: res.ok,
+            blockers: res.blockers,
+            warnings: res.warnings,
+            missing_fields: res.missing_fields,
+          });
+        }
+      } catch {
+        if (!cancelled) setValidation(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIdx, isComplete, id]);
+
   const handleComplete = async () => {
     if (!currentStep) return;
+    if (validation && !validation.ok) {
+      toast.error(`Bloqué : ${validation.blockers.join(" · ")}`);
+      return;
+    }
     setAdvancing(true);
     try {
       const res = await complete({
