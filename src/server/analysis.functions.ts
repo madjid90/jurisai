@@ -210,7 +210,7 @@ export const analyzeDocument = createServerFn({ method: "POST" })
       // 2. Analyse IA
       const { analysis, tokens } = await callLovableAI(text);
 
-      // 3. Sauvegarde
+      // 3. Sauvegarde de l'analyse
       await db
         .from("document_analyses")
         .update({
@@ -221,27 +221,71 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         })
         .eq("id", record.id);
 
-      // Log usage
-      await db.from("usage_logs").insert({
-        tenant_id: tenantId,
-        user_id: ctx.userId,
-        action: "document_analysis",
-        tokens_used: tokens,
-        metadata: { filename: data.filename, file_type: data.file_type },
-      });
+      // 4. Persiste les champs structurés extraits
+      if (analysis.extracted_fields.length > 0) {
+        const rows = analysis.extracted_fields.map((f) => ({
+          tenant_id: tenantId,
+          document_analysis_id: record.id,
+          field_key: f.key,
+          field_label: f.label,
+          field_value: f.value ?? null,
+          field_type: f.type ?? "text",
+          confidence: typeof f.confidence === "number" ? f.confidence : null,
+          page_number: typeof f.page === "number" ? f.page : null,
+          source_excerpt: f.excerpt ?? null,
+          validated_by_user: false,
+        }));
+        await db.from("extracted_fields").insert(rows);
+      }
 
-      // Timeline (uniquement si rattaché à un dossier)
+      // 5. Si rattaché à un dossier : crée les risques + log timeline
       if (data.dossier_id) {
+        // Crée les risques détectés (medium ou plus)
+        const significantRisks = analysis.risks.filter(
+          (r) => r.severity === "medium" || r.severity === "high" || r.severity === "critical",
+        );
+        if (significantRisks.length > 0) {
+          const riskRows = significantRisks.map((r) => ({
+            tenant_id: tenantId,
+            dossier_id: data.dossier_id,
+            detected_by: ctx.userId,
+            title: r.title,
+            description: r.description,
+            severity: r.severity,
+            category: r.category ?? "general",
+            legal_basis: r.legal_basis ?? [],
+            mitigation: r.mitigation ?? null,
+            status: "open",
+          }));
+          await db.from("identified_risks").insert(riskRows);
+        }
+
         await logTimelineEvent({
           tenantId,
           dossierId: data.dossier_id,
           actorId: ctx.userId,
           eventType: "analysis.completed",
           title: `Analyse : ${data.filename}`,
-          description: `${tokens} tokens`,
-          metadata: { analysis_id: record.id, file_type: data.file_type },
+          description: `${analysis.document_type} (${analysis.domain}) — ${analysis.risks.length} risque(s) détecté(s)`,
+          metadata: {
+            analysis_id: record.id,
+            file_type: data.file_type,
+            domain: analysis.domain,
+            document_type: analysis.document_type,
+            risks_count: analysis.risks.length,
+            tokens,
+          },
         });
       }
+
+      // Log usage
+      await db.from("usage_logs").insert({
+        tenant_id: tenantId,
+        user_id: ctx.userId,
+        action: "document_analysis",
+        tokens_used: tokens,
+        metadata: { filename: data.filename, file_type: data.file_type, domain: analysis.domain },
+      });
 
       return { id: record.id as string, analysis, tokens };
     } catch (err) {
