@@ -29,6 +29,12 @@ Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   try {
     await requireSuperAdmin(req);
     const db = getAdminClient();
@@ -41,7 +47,7 @@ Deno.serve(async (req) => {
     if (!dirRes.ok) {
       // Fallback: directory might not exist exactly at that path; try alternate
       await finishJob(db, jobId, "failed");
-      return jsonResponse({
+      return json({
         error: `cdtn-admin directory listing failed: ${dirRes.status}. ` +
           `Le chemin GitHub a peut-être changé — vérifier https://github.com/SocialGouv/cdtn-admin`,
       }, 502);
