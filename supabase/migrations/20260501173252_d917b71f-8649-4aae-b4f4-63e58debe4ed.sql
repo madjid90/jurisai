@@ -1,0 +1,1 @@
+ALTER TABLE public.ingestion_jobs DROP CONSTRAINT IF EXISTS ingestion_jobs_job_type_check;
