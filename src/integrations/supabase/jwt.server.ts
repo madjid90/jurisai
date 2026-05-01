@@ -1,6 +1,7 @@
 import {
   createLocalJWKSet,
   createRemoteJWKSet,
+  decodeProtectedHeader,
   jwtVerify,
   type JWK,
   type JSONWebKeySet,
@@ -45,6 +46,19 @@ const localJwkSet = (() => {
 const remoteJwkSet = SUPABASE_URL
   ? createRemoteJWKSet(new URL(`${SUPABASE_ISSUER}/.well-known/jwks.json`))
   : null;
+
+export function canVerifySupabaseAccessTokenLocally(accessToken: string) {
+  try {
+    const alg = decodeProtectedHeader(accessToken).alg ?? "";
+    if (!alg || /^HS/i.test(alg)) {
+      return false;
+    }
+
+    return !!(localJwkSet || remoteJwkSet);
+  } catch {
+    return false;
+  }
+}
 
 export async function verifySupabaseAccessToken(accessToken: string) {
   if (!SUPABASE_URL) {
