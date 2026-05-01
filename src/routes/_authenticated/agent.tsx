@@ -132,7 +132,7 @@ function AgentPage() {
           />
           <div className="mt-3 flex justify-end">
             <button
-              onClick={submit}
+              onClick={() => submit()}
               disabled={loading || !message.trim()}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
