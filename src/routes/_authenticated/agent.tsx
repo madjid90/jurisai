@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { runLegalAgent, type AgentRunOutput } from "@/server/agent.functions";
 import { AppShell } from "@/components/app/AppShell";
 import {
@@ -13,10 +14,17 @@ import {
   BookOpen,
   Target,
   HelpCircle,
+  FolderOpen,
 } from "lucide-react";
+
+const agentSearchSchema = z.object({
+  q: z.string().optional(),
+  dossier_id: z.string().uuid().optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/agent")({
   head: () => ({ meta: [{ title: "Agent juridique · JurisAI" }] }),
+  validateSearch: agentSearchSchema,
   component: AgentPage,
 });
 
