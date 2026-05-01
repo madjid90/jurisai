@@ -220,6 +220,15 @@ export const exportDossierPDF = createServerFn({ method: "POST" })
       metadata: { dossier_id: d.id, deadlines_count: dls.length },
     } as never);
 
+    await logTimelineEvent({
+      tenantId,
+      dossierId: d.id,
+      actorId: userId,
+      eventType: "dossier.exported_pdf",
+      title: "Export PDF du dossier",
+      metadata: { deadlines_count: dls.length },
+    });
+
     const safeName = d.title.replace(/[^\w\-]+/g, "_").slice(0, 40) || "dossier";
     return {
       filename: `dossier_${safeName}_${d.id.slice(0, 8)}.pdf`,
