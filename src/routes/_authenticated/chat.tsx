@@ -39,6 +39,7 @@ type Conversation = {
 function ChatPage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
+  const sendChat = useServerFn(sendChatMessage);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvoId, setActiveConvoId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
