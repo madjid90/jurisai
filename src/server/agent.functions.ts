@@ -169,6 +169,7 @@ const TOOLS = [
         required: ["dossier_id", "title", "due_date"],
       },
     },
+  },
   {
     type: "function",
     function: {
