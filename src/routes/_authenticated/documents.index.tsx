@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { AppShell } from "@/components/app/AppShell";
 import {
   AlertTriangle,
   FileSignature,
@@ -186,6 +187,7 @@ function DocumentsIndex() {
   };
 
   return (
+    <AppShell>
     <div className="space-y-8 px-6 py-8 lg:px-10">
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -384,6 +386,7 @@ function DocumentsIndex() {
         />
       )}
     </div>
+    </AppShell>
   );
 }
 
