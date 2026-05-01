@@ -224,43 +224,30 @@ function AgentPage() {
               </section>
             )}
 
-            {/* Informations manquantes */}
+            {/* Informations manquantes — formulaire dynamique */}
             {result.missing_information.length > 0 && (
-              <section className="rounded-2xl border border-border bg-card p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <HelpCircle className="h-3.5 w-3.5" /> Informations à fournir
-                </h2>
-                <ul className="space-y-1.5 text-[13px]">
-                  {result.missing_information.map((m, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
-                      <span>{m}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <MissingInfoForm
+                items={result.missing_information}
+                originalMessage={message}
+                onRelaunch={(enrichedMessage) => {
+                  setMessage(enrichedMessage);
+                  void submit(enrichedMessage);
+                }}
+                disabled={loading}
+              />
             )}
 
-            {/* Actions suggérées */}
+            {/* Actions suggérées cliquables */}
             {result.suggested_actions.length > 0 && (
-              <section className="rounded-2xl border border-border bg-card p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Target className="h-3.5 w-3.5" /> Actions suggérées
-                </h2>
-                <ul className="space-y-2 text-[13px]">
-                  {result.suggested_actions.map((a, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-2 rounded-lg border border-border bg-background/40 p-3"
-                    >
-                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
-                        {a.kind}
-                      </span>
-                      <span className="flex-1">{a.label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <SuggestedActions
+                actions={result.suggested_actions}
+                dossierId={search.dossier_id}
+                onPrompt={(prompt) => {
+                  setMessage(prompt);
+                  void submit(prompt);
+                }}
+                disabled={loading}
+              />
             )}
 
             {/* Outils utilisés (trace) */}
@@ -343,4 +330,227 @@ function AgentPage() {
       </div>
     </AppShell>
   );
+}
+
+/* ---------- Missing info dynamic form ---------- */
+
+function MissingInfoForm({
+  items,
+  originalMessage,
+  onRelaunch,
+  disabled,
+}: {
+  items: string[];
+  originalMessage: string;
+  onRelaunch: (enrichedMessage: string) => void;
+  disabled: boolean;
+}) {
+  const [values, setValues] = useState<Record<number, string>>({});
+
+  const filledCount = Object.values(values).filter((v) => v.trim()).length;
+
+  function relaunch() {
+    const lines = items
+      .map((q, i) => {
+        const v = (values[i] ?? "").trim();
+        return v ? `- ${q} → ${v}` : null;
+      })
+      .filter(Boolean);
+    if (lines.length === 0) return;
+    const enriched = `${originalMessage}\n\nInformations complémentaires :\n${lines.join("\n")}`;
+    onRelaunch(enriched);
+  }
+
+  return (
+    <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+      <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+        <HelpCircle className="h-3.5 w-3.5" /> Informations à fournir ({items.length})
+      </h2>
+      <p className="mb-4 text-[12.5px] text-muted-foreground">
+        Renseignez les éléments ci-dessous puis relancez l'agent — il intégrera vos
+        précisions à sa réponse.
+      </p>
+      <div className="space-y-3">
+        {items.map((q, i) => (
+          <div key={i}>
+            <label className="block text-[13px] font-medium text-foreground">
+              {q}
+            </label>
+            <input
+              value={values[i] ?? ""}
+              onChange={(e) =>
+                setValues((prev) => ({ ...prev, [i]: e.target.value }))
+              }
+              disabled={disabled}
+              placeholder="Votre réponse…"
+              className="input-base mt-1.5"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-[11.5px] text-muted-foreground">
+          {filledCount} / {items.length} renseigné(s)
+        </span>
+        <button
+          onClick={relaunch}
+          disabled={disabled || filledCount === 0}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground hover:opacity-95 disabled:opacity-50"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Relancer avec ces infos
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- Suggested actions clickable ---------- */
+
+type Suggested = { kind: string; label: string; payload?: Record<string, unknown> };
+
+function SuggestedActions({
+  actions,
+  dossierId,
+  onPrompt,
+  disabled,
+}: {
+  actions: Suggested[];
+  dossierId?: string;
+  onPrompt: (prompt: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Target className="h-3.5 w-3.5" /> Actions suggérées ({actions.length})
+      </h2>
+      <ul className="space-y-2 text-[13px]">
+        {actions.map((a, i) => (
+          <SuggestedActionItem
+            key={i}
+            action={a}
+            dossierId={dossierId}
+            onPrompt={onPrompt}
+            disabled={disabled}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SuggestedActionItem({
+  action,
+  dossierId,
+  onPrompt,
+  disabled,
+}: {
+  action: Suggested;
+  dossierId?: string;
+  onPrompt: (prompt: string) => void;
+  disabled: boolean;
+}) {
+  const route = resolveActionRoute(action, dossierId);
+
+  if (route) {
+    return (
+      <li>
+        <Link
+          to={route.to}
+          search={route.search}
+          params={route.params}
+          className="group flex items-center gap-2 rounded-lg border border-border bg-background/40 p-3 transition hover:bg-secondary/40"
+        >
+          <ActionBadge kind={action.kind} />
+          <span className="flex-1">{action.label}</span>
+          <span className="text-[11px] font-semibold text-accent group-hover:underline">
+            Ouvrir →
+          </span>
+        </Link>
+      </li>
+    );
+  }
+
+  // Fallback: re-prompt the agent with the action label
+  return (
+    <li>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onPrompt(action.label)}
+        className="group flex w-full items-center gap-2 rounded-lg border border-border bg-background/40 p-3 text-left transition hover:bg-secondary/40 disabled:opacity-50"
+      >
+        <ActionBadge kind={action.kind} />
+        <span className="flex-1">{action.label}</span>
+        <span className="text-[11px] font-semibold text-accent group-hover:underline">
+          Demander →
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function ActionBadge({ kind }: { kind: string }) {
+  return (
+    <span className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
+      {kind}
+    </span>
+  );
+}
+
+type RouteSpec = {
+  to: string;
+  search?: Record<string, unknown>;
+  params?: Record<string, string>;
+};
+
+function resolveActionRoute(action: Suggested, dossierId?: string): RouteSpec | null {
+  const k = action.kind.toLowerCase();
+  const p = (action.payload ?? {}) as Record<string, unknown>;
+  const did = (p.dossier_id as string | undefined) ?? dossierId;
+
+  switch (k) {
+    case "open_dossier":
+    case "view_dossier":
+      if (typeof p.dossier_id === "string") {
+        return { to: "/dossiers/$id", params: { id: p.dossier_id } };
+      }
+      return { to: "/dossiers" };
+    case "create_dossier":
+      return { to: "/dossiers" };
+    case "generate_doc":
+    case "generate_document":
+    case "propose_document":
+      return { to: "/templates" };
+    case "start_workflow":
+    case "open_workflow":
+      if (typeof p.workflow_id === "string") {
+        return { to: "/workflows/$id", params: { id: p.workflow_id } };
+      }
+      return { to: "/workflows" };
+    case "schedule_reminder":
+    case "create_reminder":
+      if (did) return { to: "/dossiers/$id", params: { id: did } };
+      return { to: "/dossiers" };
+    case "request_validation":
+      if (did) return { to: "/dossiers/$id", params: { id: did } };
+      return null;
+    case "search_law":
+    case "veille":
+    case "open_alert":
+      return { to: "/veille" };
+    case "analyze_document":
+    case "open_document":
+      if (typeof p.document_id === "string") {
+        return { to: "/documents/$id", params: { id: p.document_id } };
+      }
+      return { to: "/documents" };
+    case "scan_document":
+      return { to: "/scan" };
+    case "open_audit":
+      return { to: "/admin/audit" };
+    default:
+      return null;
+  }
 }
