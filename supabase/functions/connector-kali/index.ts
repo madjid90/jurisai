@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    await finishJob(db, jobId, "completed", {
+    await finishJob(db, jobId, processed === 0 && failed > 0 ? "failed" : "completed", {
       items_processed: processed,
       items_failed: failed,
     });
