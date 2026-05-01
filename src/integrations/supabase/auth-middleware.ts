@@ -32,6 +32,15 @@ function isJwtVerificationUnauthorized(message: string) {
   );
 }
 
+function isSupabaseAuthUnavailable(status: number | undefined, message: string) {
+  return (
+    (typeof status === "number" && status >= 500) ||
+    /auth service unavailable|database error querying schema|unexpected eof|database in recovery|failed to fetch|no connection to the server|temporarily unavailable|service unavailable/i.test(
+      message,
+    )
+  );
+}
+
 async function refreshBrowserAccessToken() {
   if (refreshSessionPromise) return refreshSessionPromise;
 
@@ -128,21 +137,51 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
     let verifiedUserId: string;
     let verifiedUserEmail: string | null;
 
-    try {
-      const { verifySupabaseAccessToken } = await import("./jwt.server");
-      const verified = await verifySupabaseAccessToken(accessToken);
-      verifiedUserId = verified.userId;
-      verifiedUserEmail = verified.userEmail;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    const { canVerifySupabaseAccessTokenLocally, verifySupabaseAccessToken } = await import("./jwt.server");
 
-      if (isJwtVerificationUnauthorized(message)) {
+    if (canVerifySupabaseAccessTokenLocally(accessToken)) {
+      try {
+        const verified = await verifySupabaseAccessToken(accessToken);
+        verifiedUserId = verified.userId;
+        verifiedUserEmail = verified.userEmail;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (isJwtVerificationUnauthorized(message)) {
+          throw new Error("UNAUTHORIZED: invalid token");
+        }
+
+        throw new Error(
+          `AUTH_SERVICE_UNAVAILABLE: ${message.replace(/^JWT_VERIFICATION_FAILED:\s*/i, "") || "failed to verify session"}`,
+        );
+      }
+    } else {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser(accessToken);
+
+      if (error) {
+        const status = typeof error.status === "number" ? error.status : undefined;
+        const message = error.message ?? "failed to verify session";
+
+        if (isUnauthorizedError(status, message)) {
+          throw new Error("UNAUTHORIZED: invalid token");
+        }
+
+        if (isSupabaseAuthUnavailable(status, message)) {
+          throw new Error(`AUTH_SERVICE_UNAVAILABLE: ${message}`);
+        }
+
+        throw new Error(`AUTH_SERVICE_UNAVAILABLE: ${message}`);
+      }
+
+      if (!user?.id) {
         throw new Error("UNAUTHORIZED: invalid token");
       }
 
-      throw new Error(
-        `AUTH_SERVICE_UNAVAILABLE: ${message.replace(/^JWT_VERIFICATION_FAILED:\s*/i, "") || "failed to verify session"}`,
-      );
+      verifiedUserId = user.id;
+      verifiedUserEmail = user.email ?? null;
     }
 
     return next({
