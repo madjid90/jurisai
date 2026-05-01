@@ -102,10 +102,10 @@ Deno.serve(async (req) => {
       items_failed: failed,
     });
 
-    return jsonResponse({ job_id: jobId, processed, failed, total: mdFiles.length });
+    return json({ job_id: jobId, processed, failed, total: mdFiles.length });
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
-    return jsonResponse({ error: (err as Error).message }, 500);
+    return json({ error: (err as Error).message }, 500);
   }
 });
 
@@ -140,10 +140,4 @@ function extractVariables(body: string): Array<{ name: string; label: string }> 
     label: name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
   }));
 }
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 }
