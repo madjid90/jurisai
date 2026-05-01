@@ -386,6 +386,7 @@ function DocumentsIndex() {
         />
       )}
     </div>
+    </AppShell>
   );
 }
 
