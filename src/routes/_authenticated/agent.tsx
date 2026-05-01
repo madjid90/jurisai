@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { runLegalAgent, type AgentRunOutput } from "@/server/agent.functions";
 import { AppShell } from "@/components/app/AppShell";
 import {
@@ -13,10 +14,17 @@ import {
   BookOpen,
   Target,
   HelpCircle,
+  FolderOpen,
 } from "lucide-react";
+
+const agentSearchSchema = z.object({
+  q: z.string().optional(),
+  dossier_id: z.string().uuid().optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/agent")({
   head: () => ({ meta: [{ title: "Agent juridique · JurisAI" }] }),
+  validateSearch: agentSearchSchema,
   component: AgentPage,
 });
 
@@ -48,18 +56,26 @@ const DOMAIN_LABEL: Record<string, string> = {
 
 function AgentPage() {
   const run = useServerFn(runLegalAgent);
-  const [message, setMessage] = useState("");
+  const search = Route.useSearch();
+  const [message, setMessage] = useState(search.q ?? "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AgentRunOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoRanRef = useRef(false);
 
-  async function submit() {
-    if (!message.trim() || loading) return;
+  async function submit(text?: string) {
+    const payload = (text ?? message).trim();
+    if (!payload || loading) return;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const r = await run({ data: { message } });
+      const r = await run({
+        data: {
+          message: payload,
+          dossier_id: search.dossier_id,
+        },
+      });
       setResult(r);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
@@ -67,6 +83,16 @@ function AgentPage() {
       setLoading(false);
     }
   }
+
+  // Auto-run if ?q= passed via deep-link (from dashboard)
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    if (search.q && search.q.trim()) {
+      autoRanRef.current = true;
+      void submit(search.q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.q]);
 
   return (
     <AppShell>
@@ -80,6 +106,19 @@ function AgentPage() {
             Comprendre → Sourcer → Proposer → Préparer → Valider → Archiver. Toutes les
             actions sensibles passent par une demande de validation.
           </p>
+          {search.dossier_id && (
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 text-[12px] font-semibold text-accent">
+              <FolderOpen className="h-3.5 w-3.5" />
+              Contexte dossier actif
+              <Link
+                to="/dossiers/$id"
+                params={{ id: search.dossier_id }}
+                className="ml-1 underline"
+              >
+                ouvrir
+              </Link>
+            </div>
+          )}
         </header>
 
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
@@ -93,7 +132,7 @@ function AgentPage() {
           />
           <div className="mt-3 flex justify-end">
             <button
-              onClick={submit}
+              onClick={() => submit()}
               disabled={loading || !message.trim()}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
