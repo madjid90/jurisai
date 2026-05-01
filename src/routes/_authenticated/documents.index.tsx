@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useConfirm } from "@/components/shared/ConfirmProvider";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { AppShell } from "@/components/app/AppShell";
 import {
   AlertTriangle,
   FileSignature,
