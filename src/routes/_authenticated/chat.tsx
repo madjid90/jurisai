@@ -180,104 +180,17 @@ function ChatPage() {
     setStreaming(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Session expirée");
-
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/legal-chat`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ conversationId: convoId, message: text, history }),
+      const result = await sendChat({
+        data: { conversationId: convoId, message: text, history },
       });
 
-      if (!resp.ok || !resp.body) {
-        const err = await resp.json().catch(() => ({ error: "Erreur inconnue" }));
-        if (resp.status === 402) toast.error("Quota atteint", { description: err.error });
-        else if (resp.status === 429) toast.error("Trop de requêtes", { description: err.error });
-        else toast.error("Erreur", { description: err.error });
-        setMessages((prev) => prev.slice(0, -1));
-        setStreaming(false);
-        return;
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let assistantSoFar = "";
-      let assistantStarted = false;
-      let receivedSources: CitationSource[] = [];
-
-      const upsertAssistant = (chunk: string) => {
-        assistantSoFar += chunk;
-        setMessages((prev) => {
-          if (!assistantStarted) {
-            assistantStarted = true;
-            return [
-              ...prev,
-              { role: "assistant", content: assistantSoFar, sources: receivedSources },
-            ];
-          }
-          return prev.map((m, i) =>
-            i === prev.length - 1
-              ? { ...m, content: assistantSoFar, sources: receivedSources }
-              : m,
-          );
-        });
+      const assistantMsg: Msg = {
+        id: result.message_id,
+        role: "assistant",
+        content: result.content,
+        sources: result.sources as CitationSource[],
       };
-
-      let streamDone = false;
-      let currentEvent: string | null = null;
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let nlIdx: number;
-        while ((nlIdx = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, nlIdx);
-          textBuffer = textBuffer.slice(nlIdx + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") {
-            currentEvent = null;
-            continue;
-          }
-          if (line.startsWith("event: ")) {
-            currentEvent = line.slice(7).trim();
-            continue;
-          }
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") {
-            streamDone = true;
-            break;
-          }
-
-          if (currentEvent === "sources") {
-            try {
-              receivedSources = JSON.parse(data) as CitationSource[];
-            } catch (err) {
-              console.error("sources parse err", err);
-            }
-            currentEvent = null;
-            continue;
-          }
-
-          // Default: OpenAI-compatible chat completion delta
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (delta) upsertAssistant(delta);
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
+      setMessages((prev) => [...prev, assistantMsg]);
 
       // Refresh conversation list (title may have changed)
       const { data: refreshed } = await supabase
