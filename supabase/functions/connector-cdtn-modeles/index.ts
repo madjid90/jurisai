@@ -140,4 +140,4 @@ function extractVariables(body: string): Array<{ name: string; label: string }> 
     label: name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
   }));
 }
-}
+
