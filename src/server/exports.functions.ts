@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 /**
  * Generate a PDF synthesis of a dossier (case file).
