@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 /**
  * Generate a PDF synthesis of a dossier (case file).
@@ -219,6 +220,15 @@ export const exportDossierPDF = createServerFn({ method: "POST" })
       metadata: { dossier_id: d.id, deadlines_count: dls.length },
     } as never);
 
+    await logTimelineEvent({
+      tenantId,
+      dossierId: d.id,
+      actorId: userId,
+      eventType: "dossier.exported_pdf",
+      title: "Export PDF du dossier",
+      metadata: { deadlines_count: dls.length },
+    });
+
     const safeName = d.title.replace(/[^\w\-]+/g, "_").slice(0, 40) || "dossier";
     return {
       filename: `dossier_${safeName}_${d.id.slice(0, 8)}.pdf`,
@@ -247,13 +257,24 @@ export const exportDocument = createServerFn({ method: "POST" })
 
     const { data: doc, error } = await (supabaseAdmin as any)
       .from("documents")
-      .select("id, title, content, status, updated_at")
+      .select("id, title, content, status, updated_at, dossier_id")
       .eq("id", data.documentId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
     if (error || !doc) throw new Error("Document not found");
 
     const safeName = String(doc.title).replace(/[^\w\-]+/g, "_").slice(0, 60) || "document";
+
+    if (doc.dossier_id) {
+      await logTimelineEvent({
+        tenantId,
+        dossierId: doc.dossier_id,
+        actorId: userId,
+        eventType: "document.exported",
+        title: `Export ${data.format.toUpperCase()} : ${doc.title}`,
+        metadata: { document_id: doc.id, format: data.format },
+      });
+    }
 
     if (data.format === "pdf") {
       const pdf = new jsPDF({ unit: "mm", format: "a4" });

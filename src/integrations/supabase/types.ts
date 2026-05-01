@@ -869,6 +869,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          dossier_id: string | null
           id: string
           status: string
           template_id: string | null
@@ -881,6 +882,7 @@ export type Database = {
         Insert: {
           content?: string
           created_at?: string
+          dossier_id?: string | null
           id?: string
           status?: string
           template_id?: string | null
@@ -893,6 +895,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          dossier_id?: string | null
           id?: string
           status?: string
           template_id?: string | null
@@ -903,6 +906,13 @@ export type Database = {
           variables?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_template_id_fkey"
             columns: ["template_id"]
