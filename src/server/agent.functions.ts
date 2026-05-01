@@ -19,6 +19,11 @@ import {
   scheduleReminder,
   createTask,
   createDeadline,
+  searchDossier,
+  createDossierTool,
+  startWorkflowTool,
+  analyzeDocumentTool,
+  generateReportTool,
 } from "./_shared/agent-tools.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
@@ -165,6 +170,84 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search_dossier",
+      description: "Recherche dans les dossiers du tenant par titre ou description.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" }, limit: { type: "number" } },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_dossier",
+      description: "Crée un nouveau dossier juridique pour le tenant.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          category: { type: "string", description: "rh|commercial|societes|rgpd|fiscal|contentieux|administratif|general" },
+          description: { type: "string" },
+          client_id: { type: "string" },
+          risk_level: { type: "string", enum: ["low", "medium", "high", "critical"] },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "start_workflow",
+      description: "Instancie une procédure (workflow) depuis sa définition. Fournir definition_slug OU definition_id.",
+      parameters: {
+        type: "object",
+        properties: {
+          definition_id: { type: "string" },
+          definition_slug: { type: "string" },
+          title: { type: "string" },
+          dossier_id: { type: "string" },
+          client_id: { type: "string" },
+          context: { type: "object" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "analyze_document",
+      description: "Analyse un document (résumé, type, risques, clauses manquantes). Si dossier_id fourni, persiste les risques détectés.",
+      parameters: {
+        type: "object",
+        properties: {
+          document_id: { type: "string" },
+          dossier_id: { type: "string" },
+        },
+        required: ["document_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_report",
+      description: "Génère un rapport markdown synthétisant un dossier (timeline, risques, tâches, échéances).",
+      parameters: {
+        type: "object",
+        properties: {
+          dossier_id: { type: "string" },
+          report_type: { type: "string", description: "synthese|complet|risques" },
+        },
+        required: ["dossier_id"],
+      },
+    },
+  },
 ];
 
 async function runTool(
@@ -190,6 +273,16 @@ async function runTool(
         return await createTask(args as never, ctx);
       case "create_deadline":
         return await createDeadline(args as never, ctx);
+      case "search_dossier":
+        return await searchDossier(args as never, ctx);
+      case "create_dossier":
+        return await createDossierTool(args as never, ctx);
+      case "start_workflow":
+        return await startWorkflowTool(args as never, ctx);
+      case "analyze_document":
+        return await analyzeDocumentTool(args as never, ctx);
+      case "generate_report":
+        return await generateReportTool(args as never, ctx);
       default:
         return { result: { error: "Unknown tool" }, succeeded: false };
     }
