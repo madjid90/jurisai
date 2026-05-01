@@ -126,12 +126,18 @@ export const triggerConnector = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
     const fnName = `connector-${data.connector}`;
+
+    // Forward the caller's JWT so the edge function's requireSuperAdmin
+    // can verify the user (service role key would fail auth.getUser).
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const authHeader = getRequestHeader("authorization");
+
     try {
       const { data: result, error } = await supabaseAdmin.functions.invoke(fnName, {
         body: data.payload ?? {},
+        headers: authHeader ? { Authorization: authHeader } : undefined,
       });
       if (error) {
-        // Try to extract the upstream error body for a useful message
         let detail = error.message ?? "unknown error";
         const ctx = (error as { context?: Response }).context;
         if (ctx && typeof ctx.text === "function") {
