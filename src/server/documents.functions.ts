@@ -182,7 +182,23 @@ export const generateDocument = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => generateSchema.parse(input))
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
-    await getTenantId(ctx.userId); // ensure user belongs to a tenant
+    const tenantId = await getTenantId(ctx.userId);
+
+    if (data.dossierId) {
+      await logTimelineEvent({
+        tenantId,
+        dossierId: data.dossierId,
+        actorId: ctx.userId,
+        eventType: "document.generated",
+        title: data.templateId
+          ? "Document généré depuis un modèle"
+          : "Document généré",
+        metadata: {
+          template_id: data.templateId ?? null,
+          ai_assisted: Boolean(data.prompt && data.prompt.trim().length > 0),
+        },
+      });
+    }
 
     let body = data.body ?? "";
 
