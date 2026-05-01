@@ -2,7 +2,6 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Home,
-  MessageSquare,
   Bell,
   FileText,
   FolderOpen,
@@ -16,7 +15,6 @@ import {
   Database,
   BookMarked,
   Menu,
-  X,
   Activity,
   ShieldCheck,
   Workflow,

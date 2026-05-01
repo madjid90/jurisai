@@ -22,6 +22,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWorkflowsRouteImport } from './routes/_authenticated/workflows'
 import { Route as AuthenticatedVeilleRouteImport } from './routes/_authenticated/veille'
+import { Route as AuthenticatedUpgradeRouteImport } from './routes/_authenticated/upgrade'
 import { Route as AuthenticatedTemplatesRouteImport } from './routes/_authenticated/templates'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -113,6 +114,11 @@ const AuthenticatedWorkflowsRoute = AuthenticatedWorkflowsRouteImport.update({
 const AuthenticatedVeilleRoute = AuthenticatedVeilleRouteImport.update({
   id: '/veille',
   path: '/veille',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedUpgradeRoute = AuthenticatedUpgradeRouteImport.update({
+  id: '/upgrade',
+  path: '/upgrade',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTemplatesRoute = AuthenticatedTemplatesRouteImport.update({
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/templates': typeof AuthenticatedTemplatesRoute
+  '/upgrade': typeof AuthenticatedUpgradeRoute
   '/veille': typeof AuthenticatedVeilleRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -327,6 +334,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/templates': typeof AuthenticatedTemplatesRoute
+  '/upgrade': typeof AuthenticatedUpgradeRoute
   '/veille': typeof AuthenticatedVeilleRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -371,6 +379,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/templates': typeof AuthenticatedTemplatesRoute
+  '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
   '/_authenticated/veille': typeof AuthenticatedVeilleRoute
   '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -415,6 +424,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/team'
     | '/templates'
+    | '/upgrade'
     | '/veille'
     | '/workflows'
     | '/admin/audit'
@@ -457,6 +467,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/team'
     | '/templates'
+    | '/upgrade'
     | '/veille'
     | '/workflows'
     | '/admin/audit'
@@ -500,6 +511,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/team'
     | '/_authenticated/templates'
+    | '/_authenticated/upgrade'
     | '/_authenticated/veille'
     | '/_authenticated/workflows'
     | '/_authenticated/admin/audit'
@@ -634,6 +646,13 @@ declare module '@tanstack/react-router' {
       path: '/veille'
       fullPath: '/veille'
       preLoaderRoute: typeof AuthenticatedVeilleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/upgrade': {
+      id: '/_authenticated/upgrade'
+      path: '/upgrade'
+      fullPath: '/upgrade'
+      preLoaderRoute: typeof AuthenticatedUpgradeRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/templates': {
@@ -871,6 +890,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedTemplatesRoute: typeof AuthenticatedTemplatesRoute
+  AuthenticatedUpgradeRoute: typeof AuthenticatedUpgradeRoute
   AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
   AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
@@ -896,6 +916,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedTemplatesRoute: AuthenticatedTemplatesRoute,
+  AuthenticatedUpgradeRoute: AuthenticatedUpgradeRoute,
   AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
   AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
