@@ -496,3 +496,335 @@ export async function createDeadline(
   });
   return { result: { deadline: data }, succeeded: true };
 }
+
+// ------------------------------------------------------------------ search_dossier
+export async function searchDossier(
+  args: { query: string; limit?: number },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabaseAdmin as any;
+  const limit = Math.min(Math.max(args.limit ?? 8, 1), 20);
+  const q = (args.query ?? "").trim();
+  if (!q) return { result: { dossiers: [] }, succeeded: true };
+
+  // Recherche simple ILIKE sur title/description, scoped tenant.
+  const { data, error } = await sb
+    .from("dossiers")
+    .select("id, title, status, category, risk_level, created_at")
+    .eq("tenant_id", ctx.tenantId)
+    .or(`title.ilike.%${q.replace(/[%,]/g, "")}%,description.ilike.%${q.replace(/[%,]/g, "")}%`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return { result: { error: error.message }, succeeded: false };
+  return { result: { dossiers: data ?? [] }, succeeded: true };
+}
+
+// ------------------------------------------------------------------ create_dossier
+export async function createDossierTool(
+  args: {
+    title: string;
+    category?: string;
+    description?: string;
+    client_id?: string;
+    risk_level?: string;
+  },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabaseAdmin as any;
+  const allowedRisk = new Set(["low", "medium", "high", "critical"]);
+  const risk_level = args.risk_level && allowedRisk.has(args.risk_level) ? args.risk_level : "low";
+
+  const { data, error } = await sb
+    .from("dossiers")
+    .insert({
+      tenant_id: ctx.tenantId,
+      created_by: ctx.userId,
+      title: args.title.slice(0, 200),
+      description: args.description ?? null,
+      category: args.category ?? "general",
+      status: "open",
+      risk_level,
+      client_id: args.client_id ?? null,
+    })
+    .select("id, title, category, status, risk_level")
+    .single();
+  if (error) return { result: { error: error.message }, succeeded: false };
+
+  await logTimelineEvent({
+    tenantId: ctx.tenantId,
+    dossierId: data.id,
+    actorId: ctx.userId,
+    eventType: "dossier.created",
+    title: `Dossier créé : ${data.title}`,
+    metadata: { source: "agent", category: data.category },
+  });
+  return { result: { dossier: data }, succeeded: true };
+}
+
+// ------------------------------------------------------------------ start_workflow
+export async function startWorkflowTool(
+  args: {
+    definition_id?: string;
+    definition_slug?: string;
+    title?: string;
+    dossier_id?: string;
+    client_id?: string;
+    context?: Record<string, unknown>;
+  },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabaseAdmin as any;
+
+  // Résoudre la définition
+  let defRow: { id: string; title: string; tenant_id: string | null } | null = null;
+  if (args.definition_id) {
+    const { data } = await sb
+      .from("workflow_definitions")
+      .select("id, title, tenant_id")
+      .eq("id", args.definition_id)
+      .maybeSingle();
+    defRow = data ?? null;
+  } else if (args.definition_slug) {
+    const { data } = await sb
+      .from("workflow_definitions")
+      .select("id, title, tenant_id")
+      .eq("slug", args.definition_slug)
+      .or(`tenant_id.is.null,tenant_id.eq.${ctx.tenantId}`)
+      .maybeSingle();
+    defRow = data ?? null;
+  }
+  if (!defRow) return { result: { error: "Définition de workflow introuvable" }, succeeded: false };
+  if (defRow.tenant_id && defRow.tenant_id !== ctx.tenantId) {
+    return { result: { error: "Workflow non accessible" }, succeeded: false };
+  }
+
+  // Vérifier dossier si fourni
+  if (args.dossier_id) {
+    const { data: d } = await sb
+      .from("dossiers")
+      .select("id")
+      .eq("id", args.dossier_id)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle();
+    if (!d) return { result: { error: "Dossier introuvable" }, succeeded: false };
+  }
+
+  const { data: inst, error } = await sb
+    .from("workflow_instances")
+    .insert({
+      tenant_id: ctx.tenantId,
+      definition_id: defRow.id,
+      title: (args.title ?? defRow.title).slice(0, 200),
+      dossier_id: args.dossier_id ?? null,
+      client_id: args.client_id ?? null,
+      started_by: ctx.userId,
+      context: args.context ?? {},
+    })
+    .select("id, title, status")
+    .single();
+  if (error) return { result: { error: error.message }, succeeded: false };
+
+  if (args.dossier_id) {
+    await logTimelineEvent({
+      tenantId: ctx.tenantId,
+      dossierId: args.dossier_id,
+      actorId: ctx.userId,
+      eventType: "workflow.started",
+      title: `Procédure démarrée : ${inst.title}`,
+      metadata: { source: "agent", instance_id: inst.id, definition_id: defRow.id },
+    });
+  }
+  return { result: { instance: inst }, succeeded: true };
+}
+
+// ------------------------------------------------------------------ analyze_document
+export async function analyzeDocumentTool(
+  args: { document_id: string; dossier_id?: string },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabaseAdmin as any;
+  const { data: doc } = await sb
+    .from("documents")
+    .select("id, title, content")
+    .eq("id", args.document_id)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  if (!doc) return { result: { error: "Document introuvable" }, succeeded: false };
+
+  const text = String(doc.content ?? "").slice(0, 12000);
+  if (!text.trim()) return { result: { error: "Document vide" }, succeeded: false };
+
+  // LLM : extraction de risques + résumé court
+  const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: CHAT_MODEL,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `Analyse juridique d'un document. Retourne STRICTEMENT un JSON :
+{
+  "summary": "résumé en 3 phrases max",
+  "doc_type_guess": "type probable (contrat, lettre, conclusions, etc.)",
+  "risks": [{"title":"...","severity":"low|medium|high|critical","rationale":"..."}],
+  "missing_clauses": ["..."],
+  "key_points": ["..."]
+}`,
+        },
+        { role: "user", content: `Titre : ${doc.title}\n\nContenu :\n${text}` },
+      ],
+    }),
+  });
+  if (!res.ok) return { result: { error: `IA ${res.status}` }, succeeded: false };
+  const j = await res.json();
+  let parsed: any = {};
+  try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? "{}"); } catch { /* noop */ }
+
+  // Si dossier fourni, persister les risques détectés
+  let riskCount = 0;
+  if (args.dossier_id && Array.isArray(parsed.risks)) {
+    const { data: dCheck } = await sb
+      .from("dossiers").select("id").eq("id", args.dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
+    if (dCheck) {
+      for (const r of parsed.risks.slice(0, 10)) {
+        await sb.from("identified_risks").insert({
+          tenant_id: ctx.tenantId,
+          dossier_id: args.dossier_id,
+          title: String(r.title ?? "Risque").slice(0, 200),
+          severity: ["low","medium","high","critical"].includes(r.severity) ? r.severity : "medium",
+          description: String(r.rationale ?? "").slice(0, 1000),
+          legal_basis: [],
+          status: "open",
+          detected_by: ctx.userId,
+          category: "document_analysis",
+        });
+        riskCount++;
+      }
+      await logTimelineEvent({
+        tenantId: ctx.tenantId,
+        dossierId: args.dossier_id,
+        actorId: ctx.userId,
+        eventType: "analysis.completed",
+        title: `Analyse document : ${doc.title}`,
+        description: parsed.summary ?? null,
+        metadata: { source: "agent", document_id: doc.id, risks_count: riskCount },
+      });
+    }
+  }
+
+  return {
+    result: {
+      document_id: doc.id,
+      title: doc.title,
+      summary: parsed.summary ?? "",
+      doc_type_guess: parsed.doc_type_guess ?? null,
+      risks: parsed.risks ?? [],
+      missing_clauses: parsed.missing_clauses ?? [],
+      key_points: parsed.key_points ?? [],
+      risks_persisted: riskCount,
+    },
+    succeeded: true,
+  };
+}
+
+// ------------------------------------------------------------------ generate_report
+export async function generateReportTool(
+  args: { dossier_id: string; report_type?: string },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabaseAdmin as any;
+  const { data: d } = await sb
+    .from("dossiers")
+    .select("id, title, status, category, risk_level, description, created_at")
+    .eq("id", args.dossier_id)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  if (!d) return { result: { error: "Dossier introuvable" }, succeeded: false };
+
+  const [tl, tasks, risks, deadlines] = await Promise.all([
+    sb.from("case_timeline_events")
+      .select("event_type, title, description, occurred_at")
+      .eq("dossier_id", args.dossier_id)
+      .order("occurred_at", { ascending: false })
+      .limit(50),
+    sb.from("dossier_tasks")
+      .select("title, status, priority, due_date")
+      .eq("dossier_id", args.dossier_id),
+    sb.from("identified_risks")
+      .select("title, severity, status, description")
+      .eq("dossier_id", args.dossier_id),
+    sb.from("dossier_deadlines")
+      .select("title, due_date, status")
+      .eq("dossier_id", args.dossier_id)
+      .order("due_date"),
+  ]);
+
+  const reportType = args.report_type ?? "synthese";
+
+  const lines: string[] = [];
+  lines.push(`# ${reportType === "synthese" ? "Synthèse" : "Rapport"} — ${d.title}`);
+  lines.push("");
+  lines.push(`**Catégorie :** ${d.category} · **Statut :** ${d.status} · **Niveau de risque :** ${d.risk_level}`);
+  lines.push(`**Ouvert le :** ${new Date(d.created_at).toLocaleDateString("fr-FR")}`);
+  if (d.description) { lines.push(""); lines.push(d.description); }
+
+  lines.push("");
+  lines.push("## Risques identifiés");
+  if (!risks.data?.length) lines.push("_Aucun risque enregistré._");
+  for (const r of risks.data ?? []) {
+    lines.push(`- **[${r.severity}]** ${r.title} — _${r.status}_${r.description ? `\n  ${r.description}` : ""}`);
+  }
+
+  lines.push("");
+  lines.push("## Tâches");
+  if (!tasks.data?.length) lines.push("_Aucune tâche._");
+  for (const t of tasks.data ?? []) {
+    lines.push(`- [${t.status}] ${t.title} (priorité ${t.priority}${t.due_date ? `, échéance ${t.due_date}` : ""})`);
+  }
+
+  lines.push("");
+  lines.push("## Échéances");
+  if (!deadlines.data?.length) lines.push("_Aucune échéance._");
+  for (const dl of deadlines.data ?? []) {
+    lines.push(`- ${dl.due_date} — ${dl.title} (${dl.status ?? "à venir"})`);
+  }
+
+  lines.push("");
+  lines.push("## Chronologie récente");
+  for (const e of tl.data ?? []) {
+    lines.push(`- ${new Date(e.occurred_at).toLocaleString("fr-FR")} — **${e.event_type}** : ${e.title}`);
+  }
+
+  const markdown = lines.join("\n");
+
+  await logTimelineEvent({
+    tenantId: ctx.tenantId,
+    dossierId: args.dossier_id,
+    actorId: ctx.userId,
+    eventType: "report.generated",
+    title: `Rapport généré (${reportType})`,
+    metadata: { source: "agent", report_type: reportType, length: markdown.length },
+  });
+
+  return {
+    result: {
+      dossier_id: args.dossier_id,
+      report_type: reportType,
+      markdown,
+      stats: {
+        risks: risks.data?.length ?? 0,
+        tasks: tasks.data?.length ?? 0,
+        deadlines: deadlines.data?.length ?? 0,
+        timeline_events: tl.data?.length ?? 0,
+      },
+    },
+    succeeded: true,
+  };
+}
