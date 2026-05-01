@@ -44,8 +44,7 @@ type NavItemDef = {
 
 const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
-  { to: "/chat", label: "Assistant IA", icon: MessageSquare, perms: ["ia.ask"] },
-  { to: "/agent", label: "Agent IA", icon: Sparkles, perms: ["ia.ask"] },
+  { to: "/agent", label: "Assistant juridique", icon: Sparkles, perms: ["ia.ask"] },
   { to: "/workflows", label: "Procédures", icon: Workflow, perms: ["workflows.run", "workflows.validate"] },
   { to: "/templates", label: "Modèles", icon: Library, perms: ["documents.generate"] },
   { to: "/scan", label: "OCR & scan", icon: ScanLine, perms: ["documents.upload"] },
@@ -135,7 +134,7 @@ function Sidebar() {
 
   const TERRAIN_PATHS = new Set([
     "/dashboard",
-    "/chat",
+    "/agent",
     "/workflows",
     "/documents",
     "/scan",
@@ -272,12 +271,12 @@ function UpgradeCard() {
       <p className="mt-1 text-[11px] leading-snug opacity-80">
         Veille personnalisée et IA illimitée
       </p>
-      <button
-        type="button"
-        className="mt-3 w-full rounded-lg bg-white/15 py-1.5 text-[11px] font-medium backdrop-blur transition hover:bg-white/25"
+      <Link
+        to="/upgrade"
+        className="mt-3 block w-full rounded-lg bg-white/15 py-1.5 text-center text-[11px] font-medium backdrop-blur transition hover:bg-white/25"
       >
         Découvrir
-      </button>
+      </Link>
     </div>
   );
 }
