@@ -421,3 +421,178 @@ function AlertCard({
     </Card>
   );
 }
+
+// ─── Mes abonnements (préférences tenant) ────────────────────────────────────
+
+function SubscriptionPanel() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["alert-subscription"],
+    queryFn: () => getAlertSubscription(),
+  });
+
+  const [emailEnabled, setEmailEnabled] = useState<boolean>(true);
+  const [frequency, setFrequency] = useState<"realtime" | "daily" | "weekly">("daily");
+  const [severityMin, setSeverityMin] = useState<"info" | "warning" | "critical">("info");
+  const [idccInput, setIdccInput] = useState<string>("");
+  const [idccList, setIdccList] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate state once on first load
+  if (data && !hydrated) {
+    setEmailEnabled(Boolean((data as any).email_enabled ?? true));
+    setFrequency(((data as any).frequency ?? "daily") as "realtime" | "daily" | "weekly");
+    setSeverityMin(((data as any).severity_min ?? "info") as "info" | "warning" | "critical");
+    setIdccList(((data as any).idcc_filters ?? []) as string[]);
+    setHydrated(true);
+  }
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateAlertSubscription({
+        data: {
+          email_enabled: emailEnabled,
+          frequency,
+          severity_min: severityMin,
+          idcc_filters: idccList,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Préférences enregistrées");
+      qc.invalidateQueries({ queryKey: ["alert-subscription"] });
+      qc.invalidateQueries({ queryKey: ["legal-alerts"] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erreur — admin tenant requis"),
+  });
+
+  function addIdcc() {
+    const v = idccInput.trim();
+    if (!v || idccList.includes(v) || idccList.length >= 20) return;
+    setIdccList([...idccList, v]);
+    setIdccInput("");
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-[15px]">Notifications</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-sm">Recevoir les alertes par e-mail</span>
+            <input
+              type="checkbox"
+              checked={emailEnabled}
+              onChange={(e) => setEmailEnabled(e.target.checked)}
+              className="h-4 w-4"
+            />
+          </label>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Fréquence</label>
+            <div className="flex gap-2">
+              {(["realtime", "daily", "weekly"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFrequency(f)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition",
+                    frequency === f
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card hover:bg-secondary",
+                  )}
+                >
+                  {f === "realtime" ? "Temps réel" : f === "daily" ? "Quotidien" : "Hebdomadaire"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Sévérité minimale</label>
+            <div className="flex gap-2">
+              {(["info", "warning", "critical"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSeverityMin(s)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs capitalize transition",
+                    severityMin === s
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card hover:bg-secondary",
+                  )}
+                >
+                  {s === "info" ? "Tout" : s === "warning" ? "Important" : "Critique uniquement"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-[15px]">Conventions collectives suivies (IDCC)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Filtrez les alertes par code IDCC. Laissez vide pour recevoir toutes les conventions.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={idccInput}
+              onChange={(e) => setIdccInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIdcc())}
+              placeholder="ex. 1486"
+              className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm focus:border-accent focus:outline-none"
+            />
+            <Button size="sm" onClick={addIdcc} disabled={!idccInput.trim() || idccList.length >= 20}>
+              Ajouter
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {idccList.length === 0 && (
+              <span className="text-xs italic text-muted-foreground">
+                Aucun filtre — toutes les conventions sont surveillées.
+              </span>
+            )}
+            {idccList.map((c) => (
+              <span
+                key={c}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-1 font-mono text-[11px]"
+              >
+                IDCC {c}
+                <button
+                  onClick={() => setIdccList(idccList.filter((x) => x !== c))}
+                  className="ml-1 text-muted-foreground hover:text-destructive"
+                  aria-label={`Retirer ${c}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          {save.isPending && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+          Enregistrer mes préférences
+        </Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Note : modification réservée aux administrateurs du cabinet.
+      </p>
+    </div>
+  );
+}
