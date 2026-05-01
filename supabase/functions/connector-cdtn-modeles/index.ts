@@ -76,13 +76,6 @@ const FALLBACK_TEMPLATES: FallbackTemplate[] = [
   },
 ];
 
-interface GhEntry {
-  name: string;
-  path: string;
-  type: "file" | "dir";
-  download_url: string | null;
-}
-
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -128,47 +121,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    await finishJob(db, jobId, "completed", {
+    await finishJob(db, jobId, processed === 0 && failed > 0 ? "failed" : "completed", {
       items_processed: processed,
       items_failed: failed,
     });
 
-    return json({ job_id: jobId, processed, failed, total: mdFiles.length });
+    return json({ job_id: jobId, processed, failed, total: FALLBACK_TEMPLATES.length });
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);
   }
 });
-
-function parseFrontMatter(md: string): {
-  frontMatter: Record<string, unknown>;
-  body: string;
-} {
-  const m = md.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!m) return { frontMatter: {}, body: md };
-  const fm: Record<string, unknown> = {};
-  for (const line of m[1].split("\n")) {
-    const kv = line.match(/^([a-zA-Z0-9_-]+):\s*(.*)$/);
-    if (kv) {
-      const v = kv[2].trim();
-      if (v.startsWith("[") && v.endsWith("]")) {
-        fm[kv[1]] = v.slice(1, -1).split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""));
-      } else {
-        fm[kv[1]] = v.replace(/^["']|["']$/g, "");
-      }
-    }
-  }
-  return { frontMatter: fm, body: m[2] };
-}
-
-function extractVariables(body: string): Array<{ name: string; label: string }> {
-  const set = new Set<string>();
-  const re = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
-  let m;
-  while ((m = re.exec(body)) !== null) set.add(m[1]);
-  return [...set].map((name) => ({
-    name,
-    label: name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-  }));
-}
 
