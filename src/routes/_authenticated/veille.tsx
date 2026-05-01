@@ -18,7 +18,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { listAlerts, dismissAlert } from "@/server/alerts.functions";
+import {
+  listAlerts,
+  dismissAlert,
+  getAlertSubscription,
+  updateAlertSubscription,
+} from "@/server/alerts.functions";
+import { Settings2 } from "lucide-react";
 import {
   listLegalUpdates,
   createLegalUpdateAction,
@@ -50,12 +56,19 @@ function VeillePage() {
             <TabsList>
               <TabsTrigger value="updates">Mises à jour réglementaires</TabsTrigger>
               <TabsTrigger value="alerts">Alertes système</TabsTrigger>
+              <TabsTrigger value="subscription">
+                <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                Mes abonnements
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="updates">
               <LegalUpdatesPanel />
             </TabsContent>
             <TabsContent value="alerts">
               <AlertsPanel />
+            </TabsContent>
+            <TabsContent value="subscription">
+              <SubscriptionPanel />
             </TabsContent>
           </Tabs>
         </div>
