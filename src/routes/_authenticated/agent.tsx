@@ -224,43 +224,30 @@ function AgentPage() {
               </section>
             )}
 
-            {/* Informations manquantes */}
+            {/* Informations manquantes — formulaire dynamique */}
             {result.missing_information.length > 0 && (
-              <section className="rounded-2xl border border-border bg-card p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <HelpCircle className="h-3.5 w-3.5" /> Informations à fournir
-                </h2>
-                <ul className="space-y-1.5 text-[13px]">
-                  {result.missing_information.map((m, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
-                      <span>{m}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <MissingInfoForm
+                items={result.missing_information}
+                originalMessage={message}
+                onRelaunch={(enrichedMessage) => {
+                  setMessage(enrichedMessage);
+                  void submit(enrichedMessage);
+                }}
+                disabled={loading}
+              />
             )}
 
-            {/* Actions suggérées */}
+            {/* Actions suggérées cliquables */}
             {result.suggested_actions.length > 0 && (
-              <section className="rounded-2xl border border-border bg-card p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Target className="h-3.5 w-3.5" /> Actions suggérées
-                </h2>
-                <ul className="space-y-2 text-[13px]">
-                  {result.suggested_actions.map((a, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-2 rounded-lg border border-border bg-background/40 p-3"
-                    >
-                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-medium uppercase text-muted-foreground">
-                        {a.kind}
-                      </span>
-                      <span className="flex-1">{a.label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <SuggestedActions
+                actions={result.suggested_actions}
+                dossierId={search.dossier_id}
+                onPrompt={(prompt) => {
+                  setMessage(prompt);
+                  void submit(prompt);
+                }}
+                disabled={loading}
+              />
             )}
 
             {/* Outils utilisés (trace) */}
