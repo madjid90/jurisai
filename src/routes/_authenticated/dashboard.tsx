@@ -1,279 +1,600 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Sparkles,
-  MessageSquare,
   Bell,
-  FileText,
   FolderOpen,
-  Users,
   ArrowRight,
   Zap,
-  Workflow,
-  ScanLine,
   ShieldCheck,
-  Briefcase,
-  Calculator,
-  Scale,
-  Building2,
-  UserCog,
+  ScanLine,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  History,
+  Loader2,
+  Workflow,
+  FileText,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getDashboardSummary,
+  type DashboardSummary,
+} from "@/server/dashboard.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Tableau de bord · JurisAI" }] }),
   component: DashboardPage,
 });
 
-type ProfileKind =
-  | "dirigeant"
-  | "rh"
-  | "juriste"
-  | "expert_comptable"
-  | "manager_multi_sites";
-
-type QuickAction = {
-  to: string;
-  icon: typeof MessageSquare;
-  title: string;
-  desc: string;
-};
-
-const PROFILE_CONFIG: Record<
-  ProfileKind,
-  {
-    label: string;
-    icon: typeof Briefcase;
-    tagline: string;
-    actions: QuickAction[];
+function fmtDate(d: string | null) {
+  if (!d) return "—";
+  try {
+    return new Date(d).toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return d;
   }
-> = {
-  dirigeant: {
-    label: "Dirigeant",
-    icon: Briefcase,
-    tagline: "Vos décisions clés et vos obligations légales en un coup d'œil.",
-    actions: [
-      { to: "/chat", icon: MessageSquare, title: "Poser une question RH/juridique", desc: "Décisions d'embauche, ruptures, conformité." },
-      { to: "/workflows", icon: Workflow, title: "Procédures guidées", desc: "Absence injustifiée, entretien, sanction." },
-      { to: "/templates", icon: FileText, title: "Modèles juridiques", desc: "Contrats, courriers, attestations." },
-      { to: "/veille", icon: Bell, title: "Veille réglementaire", desc: "Évolutions du droit qui vous concernent." },
-    ],
-  },
-  rh: {
-    label: "RH",
-    icon: UserCog,
-    tagline: "Votre boîte à outils RH au quotidien.",
-    actions: [
-      { to: "/workflows", icon: Workflow, title: "Procédures RH", desc: "Conduite d'entretien, gestion d'absence, sanction." },
-      { to: "/templates", icon: FileText, title: "Modèles RH", desc: "Convocations, avenants, attestations." },
-      { to: "/chat", icon: MessageSquare, title: "Assistant juridique IA", desc: "Convention collective, congés, temps de travail." },
-      { to: "/dossiers", icon: FolderOpen, title: "Dossiers salariés", desc: "Centralisez documents et historique." },
-    ],
-  },
-  juriste: {
-    label: "Juriste",
-    icon: Scale,
-    tagline: "Recherche sourcée, analyse fine, traçabilité complète.",
-    actions: [
-      { to: "/chat", icon: MessageSquare, title: "Recherche juridique RAG", desc: "Réponses sourcées Légifrance + JO + conventions." },
-      { to: "/agent", icon: Sparkles, title: "Agent légal multi-outils", desc: "Recherche, comparaison, synthèse." },
-      { to: "/analyses", icon: ScanLine, title: "Analyses de documents", desc: "Contrats, accords, jurisprudence." },
-      { to: "/veille", icon: Bell, title: "Veille juridique", desc: "Suivi quotidien JO/URSSAF/Légifrance." },
-    ],
-  },
-  expert_comptable: {
-    label: "Expert-comptable",
-    icon: Calculator,
-    tagline: "Multi-clients, multi-conventions — tout au même endroit.",
-    actions: [
-      { to: "/dossiers", icon: FolderOpen, title: "Dossiers clients", desc: "Vue par société, convention, échéances." },
-      { to: "/chat", icon: MessageSquare, title: "Assistant social/fiscal", desc: "URSSAF, paie, déclarations." },
-      { to: "/templates", icon: FileText, title: "Modèles & courriers", desc: "Pour vos clients en quelques clics." },
-      { to: "/veille", icon: Bell, title: "Veille réglementaire", desc: "Changements à répercuter aux clients." },
-    ],
-  },
-  manager_multi_sites: {
-    label: "Manager multi-sites",
-    icon: Building2,
-    tagline: "Pilotez plusieurs équipes, plusieurs conventions, sans rien oublier.",
-    actions: [
-      { to: "/dossiers", icon: FolderOpen, title: "Dossiers par site", desc: "Une vue consolidée par établissement." },
-      { to: "/workflows", icon: Workflow, title: "Procédures standardisées", desc: "Mêmes process partout, sans erreur." },
-      { to: "/chat", icon: MessageSquare, title: "Question juridique express", desc: "Réponse adaptée à la convention du site." },
-      { to: "/team", icon: Users, title: "Équipe & permissions", desc: "Déléguez aux managers locaux." },
-    ],
-  },
+}
+
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: "bg-destructive/15 text-destructive border-destructive/40",
+  high: "bg-orange-500/10 text-orange-600 border-orange-500/30",
+  medium: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+  low: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
 };
 
-const DEFAULT_ACTIONS: QuickAction[] = [
-  { to: "/chat", icon: MessageSquare, title: "Assistant IA juridique", desc: "Posez votre première question." },
-  { to: "/workflows", icon: Workflow, title: "Procédures guidées", desc: "Absence, entretien, sanction." },
-  { to: "/templates", icon: FileText, title: "Modèles RH", desc: "Bibliothèque prête à l'emploi." },
-  { to: "/veille", icon: Bell, title: "Veille juridique", desc: "Restez informé des évolutions." },
-];
-
-type Tenant = {
-  name: string;
-  plan: string;
-  quota_questions: number;
-  questions_used: number;
+const RISK_LABEL: Record<string, string> = {
+  critical: "Critique",
+  high: "Élevé",
+  medium: "Moyen",
+  low: "Faible",
 };
 
 function DashboardPage() {
   const { profile, user } = useAuth();
+  const fetchSummary = useServerFn(getDashboardSummary);
+  const navigate = useNavigate();
+  const [data, setData] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [agentInput, setAgentInput] = useState("");
+
   const firstName = (profile?.full_name ?? user?.email ?? "").split(" ")[0] ?? "";
-  const [tenant, setTenant] = useState<Tenant | null>(null);
 
   useEffect(() => {
-    if (!profile?.tenant_id) return;
-    void (async () => {
-      const { data } = await supabase
-        .from("tenants")
-        .select("name, plan, quota_questions, questions_used")
-        .eq("id", profile.tenant_id!)
-        .maybeSingle();
-      setTenant((data as Tenant | null) ?? null);
-    })();
-  }, [profile?.tenant_id]);
+    let alive = true;
+    setLoading(true);
+    fetchSummary({})
+      .then((d) => alive && setData(d))
+      .catch((e) => alive && setError(e instanceof Error ? e.message : "Erreur"))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [fetchSummary]);
 
+  const tenant = data?.tenant;
   const quotaPct = tenant
-    ? Math.min(100, Math.round((tenant.questions_used / tenant.quota_questions) * 100))
+    ? Math.min(100, Math.round((tenant.questions_used / Math.max(1, tenant.quota_questions)) * 100))
     : 0;
 
-  const profileKind = (profile as { profile_kind?: ProfileKind } | null)?.profile_kind;
-  const config = profileKind ? PROFILE_CONFIG[profileKind] : null;
-  const ProfileIcon = config?.icon ?? Sparkles;
-  const actions = config?.actions ?? DEFAULT_ACTIONS;
+  function launchAgent() {
+    const q = agentInput.trim();
+    if (!q) return;
+    void navigate({
+      to: "/agent",
+      search: { q } as never,
+    });
+  }
 
   return (
     <AppShell>
-      <div className="space-y-3 overflow-y-auto">
-        {/* Hero welcome — adapté au profil */}
-        <div className="rounded-3xl border border-border bg-card p-8 shadow-[var(--shadow-card)]">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[var(--shadow-glow)]">
-              <ProfileIcon className="h-6 w-6" />
+      <div className="space-y-4 overflow-y-auto pb-8">
+        {/* HERO — Input Agent central */}
+        <section className="rounded-3xl border border-border bg-gradient-to-br from-card via-card to-accent-soft/30 p-6 shadow-[var(--shadow-card)]">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[var(--shadow-glow)]">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-[26px] font-bold tracking-tight text-foreground">
-                  Bonjour {firstName} 👋
-                </h1>
-                {config && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2.5 py-0.5 text-[11.5px] font-semibold uppercase tracking-wide text-accent-soft-foreground">
-                    Espace {config.label}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-[14px] text-muted-foreground">
-                {config?.tagline ??
-                  "Votre assistant juridique IA est prêt. Posez votre première question."}
+              <h1 className="text-[22px] font-bold tracking-tight text-foreground">
+                Bonjour {firstName} 👋
+              </h1>
+              <p className="text-[13px] text-muted-foreground">
+                Posez votre question juridique — l'agent comprend, source, propose et trace.
               </p>
             </div>
           </div>
 
-          {/* Primary CTA + quota */}
-          <div className="mt-6 grid gap-3 lg:grid-cols-3">
-            <Link
-              to={actions[0].to}
-              className="group lg:col-span-2 relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-accent p-6 text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95"
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <input
+              value={agentInput}
+              onChange={(e) => setAgentInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") launchAgent();
+              }}
+              placeholder="Ex : Préparer une rupture conventionnelle pour un cadre embauché en 2019…"
+              className="input-base flex-1"
+            />
+            <button
+              onClick={launchAgent}
+              disabled={!agentInput.trim()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-[13.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95 disabled:opacity-50"
             >
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-                  {(() => {
-                    const Icon = actions[0].icon;
-                    return <Icon className="h-5 w-5" />;
-                  })()}
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-[16px] font-semibold">{actions[0].title}</h3>
-                  <p className="mt-1 text-[13px] opacity-90">{actions[0].desc}</p>
-                </div>
-                <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
-              </div>
-            </Link>
+              <Sparkles className="h-4 w-4" />
+              Lancer l'agent
+            </button>
+          </div>
 
-            <div className="rounded-2xl border border-border bg-background p-5">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-accent" />
-                <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Quota mensuel
-                </h3>
-              </div>
-              {tenant ? (
-                <>
-                  <p className="mt-3 text-[24px] font-bold text-foreground">
-                    {tenant.questions_used}
-                    <span className="text-[14px] font-medium text-muted-foreground">
-                      {" "}
-                      / {tenant.quota_questions}
+          {/* Compteurs */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <CounterCard
+              icon={FolderOpen}
+              label="Dossiers ouverts"
+              value={data?.counters.open_dossiers ?? 0}
+              loading={loading}
+              to="/dossiers"
+            />
+            <CounterCard
+              icon={ShieldCheck}
+              label="Validations"
+              value={data?.counters.pending_validations ?? 0}
+              loading={loading}
+              tone={
+                (data?.counters.pending_validations ?? 0) > 0 ? "warn" : "neutral"
+              }
+            />
+            <CounterCard
+              icon={Clock}
+              label="Rappels actifs"
+              value={data?.counters.active_reminders ?? 0}
+              loading={loading}
+            />
+            <CounterCard
+              icon={Bell}
+              label="Alertes (30j)"
+              value={data?.counters.unread_alerts ?? 0}
+              loading={loading}
+              to="/veille"
+            />
+          </div>
+        </section>
+
+        {error && (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-[13px] text-destructive">
+            Impossible de charger le tableau de bord : {error}
+          </div>
+        )}
+
+        {/* Grille widgets */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* À traiter aujourd'hui */}
+          <Widget
+            icon={AlertTriangle}
+            title="À traiter aujourd'hui"
+            badge={data?.to_treat_today.length ?? 0}
+            tone="warn"
+          >
+            {loading ? (
+              <Skeleton lines={3} />
+            ) : !data || data.to_treat_today.length === 0 ? (
+              <Empty text="Rien d'urgent. 🎉" />
+            ) : (
+              <ul className="space-y-2">
+                {data.to_treat_today.slice(0, 6).map((item) => (
+                  <li
+                    key={`${item.kind}-${item.id}`}
+                    className="flex items-start gap-2 rounded-lg border border-border bg-background/50 p-2.5"
+                  >
+                    <span
+                      className={`mt-0.5 inline-flex h-5 shrink-0 items-center rounded px-1.5 text-[10px] font-bold uppercase ${
+                        item.kind === "validation"
+                          ? "bg-orange-500/10 text-orange-600"
+                          : "bg-blue-500/10 text-blue-600"
+                      }`}
+                    >
+                      {item.kind === "validation" ? "Valid." : "Rappel"}
                     </span>
-                  </p>
-                  <p className="mt-0.5 text-[12px] text-muted-foreground">
-                    questions · plan{" "}
-                    <span className="font-semibold capitalize text-foreground">{tenant.plan}</span>
-                  </p>
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
-                      style={{ width: `${quotaPct}%` }}
-                    />
-                  </div>
-                </>
-              ) : (
-                <p className="mt-3 text-[12px] text-muted-foreground">Chargement…</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Raccourcis adaptés au profil */}
-        <div className="rounded-3xl border border-border bg-card p-8 shadow-[var(--shadow-card)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-[18px] font-bold tracking-tight text-foreground">
-                Vos raccourcis
-              </h2>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                {config
-                  ? `Sélection adaptée à votre profil ${config.label.toLowerCase()}.`
-                  : "Définissez votre profil dans les réglages pour personnaliser cette page."}
-              </p>
-            </div>
-            {!profileKind && (
-              <Link
-                to="/settings"
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-[12.5px] font-semibold text-foreground hover:bg-secondary"
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Définir mon profil
-              </Link>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12.5px] font-medium text-foreground">
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {fmtDate(item.due_at)}
+                        {item.dossier_id && (
+                          <>
+                            {" · "}
+                            <Link
+                              to="/dossiers/$id"
+                              params={{ id: item.dossier_id }}
+                              className="text-accent hover:underline"
+                            >
+                              dossier
+                            </Link>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
+          </Widget>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {actions.map((a) => (
-              <Link
-                key={a.to + a.title}
-                to={a.to}
-                className="group relative overflow-hidden rounded-2xl border border-border bg-background p-5 transition hover:shadow-[var(--shadow-card)]"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                  <a.icon className="h-5 w-5" />
+          {/* Dossiers récents */}
+          <Widget
+            icon={FolderOpen}
+            title="Dossiers récents"
+            badge={data?.recent_dossiers.length ?? 0}
+            actionLabel="Tous"
+            actionTo="/dossiers"
+          >
+            {loading ? (
+              <Skeleton lines={3} />
+            ) : !data || data.recent_dossiers.length === 0 ? (
+              <Empty text="Aucun dossier. Créez-en via l'agent." />
+            ) : (
+              <ul className="space-y-2">
+                {data.recent_dossiers.slice(0, 6).map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      to="/dossiers/$id"
+                      params={{ id: d.id }}
+                      className="flex items-center gap-2 rounded-lg border border-border bg-background/50 p-2.5 transition hover:bg-secondary/40"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12.5px] font-medium text-foreground">
+                          {d.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {d.category ?? "—"} · {fmtDate(d.updated_at)}
+                        </p>
+                      </div>
+                      {d.risk_level && d.risk_level !== "low" && (
+                        <span
+                          className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
+                            SEVERITY_COLOR[d.risk_level] ?? ""
+                          }`}
+                        >
+                          {RISK_LABEL[d.risk_level] ?? d.risk_level}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Widget>
+
+          {/* Validations en attente */}
+          <Widget
+            icon={ShieldCheck}
+            title="Validations en attente"
+            badge={data?.pending_validations.length ?? 0}
+            tone={
+              (data?.pending_validations.length ?? 0) > 0 ? "warn" : "neutral"
+            }
+          >
+            {loading ? (
+              <Skeleton lines={2} />
+            ) : !data || data.pending_validations.length === 0 ? (
+              <Empty text="Aucune décision en attente." />
+            ) : (
+              <ul className="space-y-2">
+                {data.pending_validations.slice(0, 5).map((v) => (
+                  <li
+                    key={v.id}
+                    className="rounded-lg border border-border bg-background/50 p-2.5"
+                  >
+                    <p className="truncate text-[12.5px] font-medium text-foreground">
+                      {v.comment ?? `Validation ${v.subject_type}`}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {fmtDate(v.created_at)}
+                      {v.dossier_id && (
+                        <>
+                          {" · "}
+                          <Link
+                            to="/dossiers/$id"
+                            params={{ id: v.dossier_id }}
+                            className="text-accent hover:underline"
+                          >
+                            ouvrir
+                          </Link>
+                        </>
+                      )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Widget>
+
+          {/* Alertes veille */}
+          <Widget
+            icon={Bell}
+            title="Veille juridique"
+            badge={data?.legal_alerts.length ?? 0}
+            actionLabel="Tout voir"
+            actionTo="/veille"
+          >
+            {loading ? (
+              <Skeleton lines={3} />
+            ) : !data || data.legal_alerts.length === 0 ? (
+              <Empty text="Aucune alerte récente." />
+            ) : (
+              <ul className="space-y-2">
+                {data.legal_alerts.slice(0, 5).map((a) => (
+                  <li
+                    key={a.id}
+                    className="rounded-lg border border-border bg-background/50 p-2.5"
+                  >
+                    <div className="flex items-start gap-2">
+                      {a.severity && (
+                        <span
+                          className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
+                            SEVERITY_COLOR[a.severity] ?? "bg-secondary text-foreground"
+                          }`}
+                        >
+                          {a.severity}
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12.5px] font-medium text-foreground">
+                          {a.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {a.source_type ?? "—"} · {fmtDate(a.legal_date)}
+                          {a.official_url && (
+                            <>
+                              {" · "}
+                              <a
+                                href={a.official_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-accent hover:underline"
+                              >
+                                source ↗
+                              </a>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Widget>
+
+          {/* Activité agent */}
+          <Widget
+            icon={History}
+            title="Activité agent"
+            badge={data?.recent_agent_runs.length ?? 0}
+            actionLabel="Agent"
+            actionTo="/agent"
+          >
+            {loading ? (
+              <Skeleton lines={3} />
+            ) : !data || data.recent_agent_runs.length === 0 ? (
+              <Empty text="Lancez votre première requête." />
+            ) : (
+              <ul className="space-y-2">
+                {data.recent_agent_runs.map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded-lg border border-border bg-background/50 p-2.5"
+                  >
+                    <p className="truncate text-[12.5px] font-medium text-foreground">
+                      {r.message}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {r.intent ?? "—"} · {r.domain ?? "—"} · {fmtDate(r.created_at)}
+                      {r.refused && (
+                        <span className="ml-1 rounded bg-amber-500/10 px-1 text-amber-600">
+                          refus
+                        </span>
+                      )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Widget>
+
+          {/* Quota */}
+          <Widget icon={Zap} title="Quota mensuel" actionLabel="Plan" actionTo="/upgrade">
+            {!tenant ? (
+              <Skeleton lines={2} />
+            ) : (
+              <>
+                <p className="text-[22px] font-bold text-foreground">
+                  {tenant.questions_used}
+                  <span className="text-[13px] font-medium text-muted-foreground">
+                    {" "}
+                    / {tenant.quota_questions}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                  questions · plan{" "}
+                  <span className="font-semibold capitalize text-foreground">
+                    {tenant.plan ?? "—"}
+                  </span>
+                </p>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      quotaPct > 90
+                        ? "bg-destructive"
+                        : "bg-gradient-to-r from-primary to-accent"
+                    }`}
+                    style={{ width: `${quotaPct}%` }}
+                  />
                 </div>
-                <h3 className="mt-3 text-[15px] font-semibold text-foreground">{a.title}</h3>
-                <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{a.desc}</p>
-                <div className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-accent">
-                  Ouvrir
-                  <ArrowRight className="h-3 w-3 transition group-hover:translate-x-1" />
-                </div>
-              </Link>
-            ))}
-          </div>
+              </>
+            )}
+          </Widget>
         </div>
+
+        {/* Raccourcis rapides */}
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Raccourcis
+          </h2>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <ShortcutLink to="/dossiers" icon={FolderOpen} label="Dossiers" />
+            <ShortcutLink to="/workflows" icon={Workflow} label="Procédures" />
+            <ShortcutLink to="/templates" icon={FileText} label="Modèles" />
+            <ShortcutLink to="/scan" icon={ScanLine} label="Scanner un document" />
+          </div>
+        </section>
       </div>
     </AppShell>
+  );
+}
+
+/* ---------- Sub-components ---------- */
+
+function CounterCard({
+  icon: Icon,
+  label,
+  value,
+  loading,
+  to,
+  tone = "neutral",
+}: {
+  icon: typeof Bell;
+  label: string;
+  value: number;
+  loading: boolean;
+  to?: string;
+  tone?: "neutral" | "warn";
+}) {
+  const content = (
+    <div
+      className={`rounded-xl border p-3 transition ${
+        tone === "warn"
+          ? "border-orange-500/30 bg-orange-500/5"
+          : "border-border bg-background/50"
+      } ${to ? "hover:bg-secondary/40 cursor-pointer" : ""}`}
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <p className="mt-1 text-[20px] font-bold text-foreground">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : value}
+      </p>
+    </div>
+  );
+  return to ? (
+    <Link to={to}>{content}</Link>
+  ) : (
+    content
+  );
+}
+
+function Widget({
+  icon: Icon,
+  title,
+  badge,
+  tone = "neutral",
+  actionLabel,
+  actionTo,
+  children,
+}: {
+  icon: typeof Bell;
+  title: string;
+  badge?: number;
+  tone?: "neutral" | "warn";
+  actionLabel?: string;
+  actionTo?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon
+            className={`h-4 w-4 ${
+              tone === "warn" ? "text-orange-600" : "text-accent"
+            }`}
+          />
+          <h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
+          {typeof badge === "number" && badge > 0 && (
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                tone === "warn"
+                  ? "bg-orange-500/15 text-orange-600"
+                  : "bg-accent-soft text-accent"
+              }`}
+            >
+              {badge}
+            </span>
+          )}
+        </div>
+        {actionTo && actionLabel && (
+          <Link
+            to={actionTo}
+            className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent hover:underline"
+          >
+            {actionLabel}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-background/40 px-3 py-4 text-[12px] text-muted-foreground">
+      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+      {text}
+    </div>
+  );
+}
+
+function Skeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div
+          key={i}
+          className="h-10 animate-pulse rounded-lg bg-secondary/40"
+        />
+      ))}
+    </div>
+  );
+}
+
+function ShortcutLink({
+  to,
+  icon: Icon,
+  label,
+}: {
+  to: string;
+  icon: typeof Bell;
+  label: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group flex items-center gap-2 rounded-lg border border-border bg-background/50 px-3 py-2.5 text-[13px] font-medium text-foreground transition hover:bg-secondary/40"
+    >
+      <Icon className="h-4 w-4 text-accent" />
+      <span className="flex-1">{label}</span>
+      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition group-hover:translate-x-0.5" />
+    </Link>
   );
 }
