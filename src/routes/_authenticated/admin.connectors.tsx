@@ -110,9 +110,15 @@ function ConnectorsAdminPage() {
     mutationFn: (vars: { connector: typeof CONNECTORS[number]["id"]; payload: Record<string, unknown> }) =>
       triggerConnector({ data: vars }),
     onSuccess: (res, vars) => {
-      toast.success(`Connecteur ${vars.connector} lancé`, {
-        description: JSON.stringify(res.result).slice(0, 120),
-      });
+      if (res.ok === false) {
+        toast.error(`Connecteur ${vars.connector} indisponible`, {
+          description: (res.error ?? "Erreur inconnue").slice(0, 200),
+        });
+      } else {
+        toast.success(`Connecteur ${vars.connector} lancé`, {
+          description: JSON.stringify(res.result ?? {}).slice(0, 120),
+        });
+      }
       qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] });
       qc.invalidateQueries({ queryKey: ["admin", "connector-stats"] });
     },

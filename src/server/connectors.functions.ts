@@ -126,11 +126,39 @@ export const triggerConnector = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
     const fnName = `connector-${data.connector}`;
-    const { data: result, error } = await supabaseAdmin.functions.invoke(fnName, {
-      body: data.payload ?? {},
-    });
-    if (error) throw new Error(`${fnName}: ${error.message}`);
-    return { result };
+    try {
+      const { data: result, error } = await supabaseAdmin.functions.invoke(fnName, {
+        body: data.payload ?? {},
+      });
+      if (error) {
+        // Try to extract the upstream error body for a useful message
+        let detail = error.message ?? "unknown error";
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.text === "function") {
+          try {
+            const body = await ctx.text();
+            if (body) detail = body.slice(0, 500);
+          } catch { /* ignore */ }
+        }
+        console.error(`[${fnName}] edge invoke failed:`, detail);
+        return {
+          ok: false,
+          fallback: true,
+          connector: data.connector,
+          error: `${fnName}: ${detail}`,
+        };
+      }
+      return { ok: true, fallback: false, connector: data.connector, result };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[${fnName}] unexpected error:`, msg);
+      return {
+        ok: false,
+        fallback: true,
+        connector: data.connector,
+        error: `${fnName}: ${msg}`,
+      };
+    }
   });
 
 export const checkConnectorSecrets = createServerFn({ method: "POST" })
