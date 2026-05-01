@@ -123,26 +123,66 @@ export async function ingestSource(
   src: SourceInput,
   jobId?: string,
 ): Promise<{ source_id: string; chunks: number; promoted: boolean }> {
-  // 1. Upsert source
-  const { data: srcRow, error: upErr } = await db
-    .from("legal_sources")
-    .upsert({
-      connector,
-      external_id: src.external_id,
-      source_type: src.source_type,
-      title: src.title,
-      reference_code: src.reference_code ?? null,
-      official_url: src.official_url ?? null,
-      legal_date: src.legal_date ?? null,
-      idcc: src.idcc ?? null,
-      raw_metadata: src.raw_metadata ?? {},
-      is_active: true,
-      last_synced_at: new Date().toISOString(),
-    }, { onConflict: "connector,external_id" })
-    .select("id")
-    .single();
-  if (upErr) throw upErr;
-  const sourceId = srcRow.id as string;
+  // 1. Upsert source.
+  // Avoid PostgREST ON CONFLICT inference here because the current project uses
+  // a partial unique index on (connector, external_id), which can fail to match
+  // during upsert for some connectors in production.
+  const sourcePayload = {
+    connector,
+    external_id: src.external_id,
+    source_type: src.source_type,
+    title: src.title,
+    reference_code: src.reference_code ?? null,
+    official_url: src.official_url ?? null,
+    legal_date: src.legal_date ?? null,
+    idcc: src.idcc ?? null,
+    raw_metadata: src.raw_metadata ?? {},
+    is_active: true,
+    last_synced_at: new Date().toISOString(),
+  };
+
+  let sourceId: string;
+
+  if (src.external_id) {
+    const { data: existing, error: existingErr } = await db
+      .from("legal_sources")
+      .select("id")
+      .eq("connector", connector)
+      .eq("external_id", src.external_id)
+      .maybeSingle();
+
+    if (existingErr) throw existingErr;
+
+    if (existing?.id) {
+      const { data: updated, error: updateErr } = await db
+        .from("legal_sources")
+        .update(sourcePayload)
+        .eq("id", existing.id)
+        .select("id")
+        .single();
+
+      if (updateErr) throw updateErr;
+      sourceId = updated.id as string;
+    } else {
+      const { data: inserted, error: insertErr } = await db
+        .from("legal_sources")
+        .insert(sourcePayload)
+        .select("id")
+        .single();
+
+      if (insertErr) throw insertErr;
+      sourceId = inserted.id as string;
+    }
+  } else {
+    const { data: inserted, error: insertErr } = await db
+      .from("legal_sources")
+      .insert(sourcePayload)
+      .select("id")
+      .single();
+
+    if (insertErr) throw insertErr;
+    sourceId = inserted.id as string;
+  }
 
   // 2. Chunk
   const chunks = smartChunk(src.content, src.source_type);
