@@ -49,6 +49,12 @@ Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   try {
     await requireSuperAdmin(req);
     const body = await req.json().catch(() => ({}));
@@ -67,7 +73,7 @@ Deno.serve(async (req) => {
         items_total: 0,
         items_processed: 0,
       });
-      return jsonResponse({ error: `KALI index fetch failed: ${indexRes.status}` }, 502);
+      return json({ error: `KALI index fetch failed: ${indexRes.status}` }, 502);
     }
     const index: KaliIndexEntry[] = await indexRes.json();
 
