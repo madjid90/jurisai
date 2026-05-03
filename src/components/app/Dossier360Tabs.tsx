@@ -354,6 +354,7 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
               />
             )}
             {tab === "documents" && <DocumentsView docs={data.generatedDocuments} />}
+            {tab === "links" && <LinksView dossierId={dossierId} />}
             {tab === "workflows" && <WorkflowsView workflows={data.workflows} />}
             {tab === "sources" && <SourcesView sources={data.sources} />}
             {tab === "agent" && <AgentDossierPanel dossierId={dossierId} onActed={refresh} />}
