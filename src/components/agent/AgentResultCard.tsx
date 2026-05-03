@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
   BookOpen,
@@ -6,13 +7,20 @@ import {
   ExternalLink,
   HelpCircle,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Target,
   Wrench,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { AgentRunOutput } from "@/server/agent.functions";
+import { createAgentValidationRequest } from "@/server/agent-validations.functions";
+import { pickRule } from "@/lib/agent/business-rules";
+import { MissingInfoModal } from "./MissingInfoModal";
+import { ConfirmationModal } from "./ConfirmationModal";
+import { HumanValidationModal } from "./HumanValidationModal";
 
 const INTENT_LABEL: Record<string, string> = {
   question_juridique: "Question juridique",
@@ -53,6 +61,32 @@ type Props = {
  */
 export function AgentResultCard({ result, onRelaunch, onClose }: Props) {
   const [showTrace, setShowTrace] = useState(false);
+  const [missingOpen, setMissingOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
+  const createValidation = useServerFn(createAgentValidationRequest);
+
+  const rule = useMemo(() => pickRule(result), [result]);
+  const hasMissing = result.missing_information.length > 0 || rule.required_fields.length > 0;
+  const hasSensitive = result.requires_validation || rule.kind !== "generic";
+
+  async function submitValidation(payload: { roles: string[]; message: string; sla_days: number }) {
+    try {
+      await createValidation({
+        data: {
+          action_type: rule.title,
+          rule_kind: rule.kind,
+          roles: payload.roles,
+          message: payload.message,
+          sla_days: payload.sla_days,
+          agent_run_id: result.run_id,
+        },
+      });
+      toast.success("Demande de validation envoyée");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  }
 
   return (
     <section className="space-y-3 rounded-3xl border border-border bg-card/80 p-5 shadow-[var(--shadow-card)]">
@@ -104,13 +138,42 @@ export function AgentResultCard({ result, onRelaunch, onClose }: Props) {
         </div>
       )}
 
-      {/* Informations manquantes */}
-      {result.missing_information.length > 0 && onRelaunch && (
-        <MissingInfoForm
-          items={result.missing_information}
-          onSubmit={onRelaunch}
-        />
+      {/* Barre d'actions métier */}
+      {(hasMissing || hasSensitive || rule.steps.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background/40 p-2.5">
+          {hasMissing && onRelaunch && (
+            <button
+              type="button"
+              onClick={() => setMissingOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[12.5px] font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Compléter les informations
+            </button>
+          )}
+          {rule.steps.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground hover:opacity-95"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Préparer : {rule.title}
+            </button>
+          )}
+          {hasSensitive && (
+            <button
+              type="button"
+              onClick={() => setValidationOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent hover:bg-accent-soft/80"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Demander validation
+            </button>
+          )}
+        </div>
       )}
+
 
       {/* Actions suggérées */}
       {result.suggested_actions.length > 0 && (
@@ -206,70 +269,36 @@ export function AgentResultCard({ result, onRelaunch, onClose }: Props) {
           journal d'audit
         </Link>
       </p>
+
+      {/* Modales métier */}
+      {onRelaunch && (
+        <MissingInfoModal
+          open={missingOpen}
+          onOpenChange={setMissingOpen}
+          rule={rule}
+          freeformQuestions={result.missing_information}
+          onSubmit={(enriched) => {
+            onRelaunch(enriched);
+          }}
+        />
+      )}
+      <ConfirmationModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        rule={rule}
+        onConfirm={() => {
+          // Pour l'instant : relance l'agent avec instruction de préparer les étapes.
+          onRelaunch?.(`Confirmé : prépare la procédure "${rule.title}" en suivant les étapes prévues. Génère les documents et programme les rappels nécessaires (sans envoi externe).`);
+          toast.success("Procédure transmise à l'agent");
+        }}
+      />
+      <HumanValidationModal
+        open={validationOpen}
+        onOpenChange={setValidationOpen}
+        rule={rule}
+        onSubmit={submitValidation}
+      />
     </section>
   );
 }
 
-/* ---------- Missing info form ---------- */
-
-function MissingInfoForm({
-  items,
-  onSubmit,
-}: {
-  items: string[];
-  onSubmit: (enriched: string) => void;
-}) {
-  const [values, setValues] = useState<Record<number, string>>({});
-  const filled = Object.values(values).filter((v) => v.trim()).length;
-
-  function relaunch() {
-    const lines = items
-      .map((q, i) => {
-        const v = (values[i] ?? "").trim();
-        return v ? `- ${q} → ${v}` : null;
-      })
-      .filter(Boolean);
-    if (lines.length === 0) return;
-    onSubmit(`Informations complémentaires :\n${lines.join("\n")}`);
-  }
-
-  return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-      <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
-        <HelpCircle className="h-3.5 w-3.5" />
-        Pour aller plus loin, précisez :
-      </p>
-      <div className="space-y-2.5">
-        {items.map((q, i) => (
-          <div key={i}>
-            <label className="block text-[12.5px] font-medium text-foreground">
-              {q}
-            </label>
-            <input
-              value={values[i] ?? ""}
-              onChange={(e) =>
-                setValues((p) => ({ ...p, [i]: e.target.value }))
-              }
-              placeholder="Votre réponse…"
-              className="input-base mt-1"
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">
-          {filled}/{items.length} renseigné(s)
-        </span>
-        <button
-          type="button"
-          onClick={relaunch}
-          disabled={filled === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground hover:opacity-95 disabled:opacity-50"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          Relancer avec ces infos
-        </button>
-      </div>
-    </div>
-  );
-}
