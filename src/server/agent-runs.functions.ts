@@ -373,8 +373,6 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
 // s'appuyant sur templates / generation.functions existants.)
 // ---------------------------------------------------------------------------
 
-import { searchLegalSources } from "./_shared/legal-rag.server";
-
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const CHAT_MODEL = "google/gemini-3-flash-preview";
 
