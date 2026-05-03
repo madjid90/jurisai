@@ -34,9 +34,10 @@ const CreateInput = z.object({
  * Le worker prendra le relais en asynchrone (étape suivante).
  */
 export const createAgentRun = createServerFn({ method: "POST" })
-  .inputValidator((d) => CreateInput.parse(d))
-  .handler(async ({ data }) => {
-    const userId = await requireSupabaseAuth();
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => CreateInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
     const draft = {
@@ -69,9 +70,10 @@ export const createAgentRun = createServerFn({ method: "POST" })
 
 /** Récupère une demande (RLS limite au tenant). */
 export const getAgentRun = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
-  .handler(async ({ data }) => {
-    const userId = await requireSupabaseAuth();
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
     const { data: row, error } = await supabaseAdmin
@@ -94,9 +96,10 @@ const ListInput = z.object({
 
 /** Liste les demandes (par défaut : les miennes, toutes statuts). */
 export const listMyRuns = createServerFn({ method: "GET" })
-  .inputValidator((d) => ListInput.parse(d ?? {}))
-  .handler(async ({ data }) => {
-    const userId = await requireSupabaseAuth();
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ListInput.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
     let q = supabaseAdmin
