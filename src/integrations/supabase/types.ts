@@ -755,6 +755,73 @@ export type Database = {
           },
         ]
       }
+      document_links: {
+        Row: {
+          confidence: number
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          document_id: string
+          dossier_id: string
+          id: string
+          link_method: string
+          signals: Json
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id: string
+          dossier_id: string
+          id?: string
+          link_method: string
+          signals?: Json
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          document_id?: string
+          dossier_id?: string
+          id?: string
+          link_method?: string
+          signals?: Json
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_links_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_links_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_templates: {
         Row: {
           archive_to_case: boolean
@@ -958,6 +1025,57 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      dossier_context_index: {
+        Row: {
+          content: string
+          created_at: string
+          dossier_id: string
+          embedding: string | null
+          id: string
+          source_kind: string
+          source_ref: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          dossier_id: string
+          embedding?: string | null
+          id?: string
+          source_kind?: string
+          source_ref?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          dossier_id?: string
+          embedding?: string | null
+          id?: string
+          source_kind?: string
+          source_ref?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_context_index_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dossier_context_index_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dossier_deadlines: {
         Row: {
@@ -1288,6 +1406,60 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_mentions: {
+        Row: {
+          created_at: string
+          document_id: string
+          entity_type: string
+          id: string
+          metadata: Json
+          normalized_value: string | null
+          position_end: number | null
+          position_start: number | null
+          raw_value: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json
+          normalized_value?: string | null
+          position_end?: number | null
+          position_start?: number | null
+          raw_value: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json
+          normalized_value?: string | null
+          position_end?: number | null
+          position_start?: number | null
+          raw_value?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_mentions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_mentions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -3392,6 +3564,20 @@ export type Database = {
           _user_id: string
         }
         Returns: string
+      }
+      match_dossier_context: {
+        Args: {
+          p_embedding: string
+          p_match_count?: number
+          p_min_score?: number
+          p_tenant_id: string
+        }
+        Returns: {
+          best_score: number
+          dossier_id: string
+          matched_content: string
+          source_kind: string
+        }[]
       }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
       run_data_quality_checks: { Args: never; Returns: undefined }
