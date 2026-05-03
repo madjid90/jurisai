@@ -128,14 +128,14 @@ export async function findRelatedContext(opts: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: dossiers } = await (supabaseAdmin as any)
       .from("dossiers")
-      .select("id, title, case_number")
+      .select("id, title, description")
       .eq("tenant_id", tenantId);
     for (const d of (dossiers ?? []) as Array<{
       id: string;
       title: string | null;
-      case_number: string | null;
+      description: string | null;
     }>) {
-      const hay = `${d.title ?? ""} ${d.case_number ?? ""}`.toLowerCase();
+      const hay = `${d.title ?? ""} ${d.description ?? ""}`.toLowerCase();
       const found = refs.find((r) => hay.includes(r.toLowerCase()));
       if (!found) continue;
       const cur = matches.get(d.id) ?? { dossierId: d.id, score: 0, signals: {} };
