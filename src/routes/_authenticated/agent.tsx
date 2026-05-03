@@ -82,11 +82,14 @@ function AssistantPage() {
   const process = useServerFn(processAgentRun);
   const execute = useServerFn(executeAgentRun);
   const list = useServerFn(listMyRuns);
+  const ocr = useServerFn(runOcrDocument);
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = async () => {
     try {
@@ -103,16 +106,47 @@ function AssistantPage() {
     return () => clearInterval(t);
   }, []);
 
+  const uploadAttachments = async (): Promise<Array<{ analysis_id: string; filename: string }>> => {
+    if (pendingFiles.length === 0) return [];
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth.user?.id;
+    if (!userId) throw new Error("Session expirée");
+    const out: Array<{ analysis_id: string; filename: string }> = [];
+    for (const file of pendingFiles) {
+      const path = `${userId}/agent/${Date.now()}-${file.name}`;
+      const up = await supabase.storage.from("dossier-files").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (up.error) throw new Error(`Upload ${file.name} : ${up.error.message}`);
+      const result = (await ocr({
+        data: {
+          storage_path: path,
+          filename: file.name,
+          file_type: file.type || "application/octet-stream",
+        },
+      })) as { id: string };
+      out.push({ analysis_id: result.id, filename: file.name });
+    }
+    return out;
+  };
+
   const handleSubmit = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() && pendingFiles.length === 0) return;
     setSubmitting(true);
-    const text = message.trim();
+    const text = message.trim() || `Analyse du document : ${pendingFiles.map((f) => f.name).join(", ")}`;
     setMessage("");
+    const filesSnapshot = pendingFiles;
+    setPendingFiles([]);
     try {
-      const created = (await create({ data: { message: text } })) as { id: string };
+      let attachments: Array<{ analysis_id: string; filename: string }> = [];
+      if (filesSnapshot.length > 0) {
+        toast.info("Analyse de votre document…");
+        attachments = await uploadAttachments();
+      }
+      const created = (await create({ data: { message: text, attachments } })) as { id: string };
       setActiveId(created.id);
       await refresh();
-      // Pipeline auto — invisible pour l'utilisateur
       try {
         const r1 = (await process({ data: { id: created.id } })) as { status: string };
         await refresh();
@@ -125,6 +159,7 @@ function AssistantPage() {
       }
     } catch (e) {
       toast.error((e as Error).message);
+      setPendingFiles(filesSnapshot);
     } finally {
       setSubmitting(false);
     }
@@ -137,6 +172,12 @@ function AssistantPage() {
     }
   };
 
+  const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length) setPendingFiles((p) => [...p, ...files]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   return (
     <div className="container max-w-3xl py-8 space-y-6">
       <div className="flex items-center gap-3">
@@ -146,12 +187,11 @@ function AssistantPage() {
         <div>
           <h1 className="text-2xl font-bold">Votre assistant juridique</h1>
           <p className="text-sm text-muted-foreground">
-            Posez votre question ou décrivez votre besoin — je m'occupe du reste.
+            Posez votre question, joignez un document — je m'occupe du reste.
           </p>
         </div>
       </div>
 
-      {/* Saisie principale */}
       <Card className="border-border/60">
         <CardContent className="p-4 space-y-3">
           <Textarea
@@ -163,17 +203,48 @@ function AssistantPage() {
             disabled={submitting}
             className="resize-none border-0 focus-visible:ring-0 px-0 text-base"
           />
+          {pendingFiles.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {pendingFiles.map((f, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs"
+                >
+                  <FileText className="h-3 w-3" />
+                  {f.name}
+                  <button
+                    type="button"
+                    onClick={() => setPendingFiles((p) => p.filter((_, j) => j !== i))}
+                    className="text-muted-foreground hover:text-destructive ml-1"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.docx,.txt"
+              className="hidden"
+              onChange={onPickFiles}
+            />
             <button
               type="button"
+              onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
-              title="Bientôt : joindre un document directement ici"
-              disabled
+              disabled={submitting}
             >
               <Paperclip className="h-3.5 w-3.5" />
               Joindre un document
             </button>
-            <Button onClick={handleSubmit} disabled={submitting || !message.trim()}>
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting || (!message.trim() && pendingFiles.length === 0)}
+            >
               {submitting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
