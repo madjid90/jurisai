@@ -202,6 +202,11 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
       icon: FileText,
     },
     {
+      key: "links",
+      label: "Liaisons",
+      icon: Link2,
+    },
+    {
       key: "workflows",
       label: "Workflows",
       count: data.workflows.filter((w) => w.status !== "completed" && w.status !== "cancelled").length,
