@@ -69,6 +69,21 @@
   --shadow-elevated:
     0 4px 12px -2px oklch(0.2 0.04 264 / 0.06), 0 12px 32px -8px oklch(0.2 0.04 264 / 0.12);
   --shadow-glow: 0 8px 32px -8px oklch(0.55 0.22 286 / 0.35);
+  --shadow-aurora:
+    0 0 0 1px oklch(1 0 0 / 0.6),
+    0 1px 2px oklch(0.2 0.04 264 / 0.04),
+    0 24px 64px -24px oklch(0.55 0.22 286 / 0.35);
+
+  /* Aurora gradients (Orb, hero, premium CTAs) */
+  --gradient-aurora:
+    radial-gradient(circle at 20% 20%, oklch(0.78 0.18 286) 0%, transparent 55%),
+    radial-gradient(circle at 80% 30%, oklch(0.75 0.18 220) 0%, transparent 55%),
+    radial-gradient(circle at 50% 80%, oklch(0.82 0.16 320) 0%, transparent 55%),
+    linear-gradient(135deg, oklch(0.55 0.22 286), oklch(0.5 0.2 250));
+  --gradient-aurora-soft:
+    linear-gradient(135deg, oklch(0.96 0.025 286), oklch(0.96 0.025 250));
+  --gradient-text-aurora:
+    linear-gradient(120deg, oklch(0.45 0.22 286) 0%, oklch(0.5 0.2 250) 50%, oklch(0.55 0.18 320) 100%);
 }
 
 :root {
