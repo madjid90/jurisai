@@ -112,6 +112,19 @@ function DashboardPage() {
     };
   }, [fetchSummary]);
 
+  // Auto-trigger via ?q=… (one-shot)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q && q.trim()) {
+      void runIntake(q);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("q");
+      window.history.replaceState({}, "", url.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const tenant = data?.tenant;
   const quotaPct = tenant
     ? Math.min(100, Math.round((tenant.questions_used / Math.max(1, tenant.quota_questions)) * 100))
