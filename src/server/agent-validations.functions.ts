@@ -86,5 +86,5 @@ export const createAgentValidationRequest = createServerFn({ method: "POST" })
       });
     }
 
-    return row as { id: string; subject_type: string; status: string; due_at: string };
+    return row as { id: string; subject_type: string; status: string };
   });
