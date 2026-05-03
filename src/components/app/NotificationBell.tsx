@@ -36,7 +36,31 @@ export function NotificationBell() {
     if (authLoading || !user) return;
     void refresh();
     const t = setInterval(refresh, 60_000);
-    return () => clearInterval(t);
+
+    // Realtime push : nouvelle notification pour cet utilisateur
+    const channel = supabase
+      .channel(`notif-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const n = payload.new as Notif;
+          setItems((prev) =>
+            prev.some((p) => p.id === n.id) ? prev : [n, ...prev].slice(0, 30),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(t);
+      void supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id]);
 
