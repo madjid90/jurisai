@@ -21,6 +21,7 @@ import {
   ScrollText,
   Library,
   ServerCrash,
+  Link2,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { to: "/templates", label: "Modèles", icon: Library, perms: ["documents.generate"] },
   { to: "/scan", label: "OCR & scan", icon: ScanLine, perms: ["documents.upload"] },
   { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
+  { to: "/links", label: "Liaisons", icon: Link2, perms: ["documents.upload"] },
   { to: "/analyses", label: "Analyses", icon: ScanSearch, perms: ["documents.analyze"] },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
   { to: "/veille", label: "Veille juridique", icon: Bell, perms: ["veille.view"] },
