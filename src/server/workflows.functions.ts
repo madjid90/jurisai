@@ -189,7 +189,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
 
     const { data: inst, error: instErr } = await supabaseAdmin
       .from("workflow_instances")
-      .select("id, tenant_id, current_step_index, definition_id")
+      .select("id, tenant_id, current_step_index, definition_id, dossier_id, title")
       .eq("id", data.instanceId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
@@ -199,6 +199,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
     const { data: def } = await supabaseAdmin
       .from("workflow_definitions").select("steps").eq("id", (inst as any).definition_id).maybeSingle();
     const steps = ((def as any)?.steps ?? []) as WorkflowStep[];
+    const currentStep = steps[data.stepIndex];
 
     // Insert step run
     await (supabaseAdmin as any).from("workflow_step_runs").insert({
@@ -223,6 +224,41 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
         completed_at: isComplete ? new Date().toISOString() : null,
       })
       .eq("id", data.instanceId);
+
+    const dossierId = (inst as any).dossier_id as string | null;
+    const instTitle = (inst as any).title as string;
+
+    // Timeline
+    if (dossierId) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId,
+          actorId: userId,
+          eventType: isComplete ? "workflow.completed" : "workflow.advanced",
+          title: isComplete
+            ? `Procédure terminée : ${instTitle}`
+            : `Étape « ${currentStep?.title ?? data.stepKey} » validée`,
+          description: data.notes ?? null,
+          metadata: {
+            workflow_instance_id: data.instanceId,
+            step_index: data.stepIndex,
+            step_key: data.stepKey,
+          },
+        });
+      } catch (e) { console.warn("[workflow] timeline log failed:", e); }
+    }
+
+    // Rappel automatique pour l'étape suivante
+    if (!isComplete) {
+      const nextStep = steps[nextIndex];
+      if (nextStep) {
+        await maybeCreateStepReminder({
+          tenantId, userId, dossierId, instanceId: data.instanceId,
+          instanceTitle: instTitle, step: nextStep, stepIndex: nextIndex,
+        });
+      }
+    }
 
     return { ok: true, completed: isComplete };
   });
