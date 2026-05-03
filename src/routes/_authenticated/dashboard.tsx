@@ -125,10 +125,10 @@ function DashboardPage() {
   return (
     <AppShell>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        {/* Hero — chat box */}
-        <section className="glass-panel relative overflow-hidden rounded-3xl p-6 shadow-[var(--shadow-card)] sm:p-8">
-          <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-          <div className="relative">
+        {/* Hero — chat box (centré, sans fond) */}
+        <section className="relative overflow-hidden rounded-3xl px-2 py-8 sm:py-12">
+          <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-56 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Sparkles className="h-4 w-4 text-primary" />
               Bonjour{firstName ? ` ${firstName}` : ""},
@@ -142,7 +142,7 @@ function DashboardPage() {
             </p>
 
             {/* Chat input */}
-            <div className="mt-5 rounded-2xl border border-border bg-background p-3 shadow-sm focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
+            <div className="mt-6 w-full rounded-2xl border border-border bg-background/70 p-3 shadow-sm backdrop-blur focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
               <Textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -154,7 +154,7 @@ function DashboardPage() {
                 }}
                 placeholder="Posez votre question juridique ou déposez un document…"
                 rows={2}
-                className="min-h-[60px] resize-none border-0 bg-transparent p-1 text-[15px] focus-visible:ring-0"
+                className="min-h-[60px] resize-none border-0 bg-transparent p-1 text-left text-[15px] focus-visible:ring-0"
               />
               {files.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -202,13 +202,13 @@ function DashboardPage() {
             </div>
 
             {/* Suggestions */}
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s.label}
                   type="button"
                   onClick={() => setMessage(s.prompt)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 transition hover:border-primary/40 hover:bg-secondary"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur transition hover:border-primary/40 hover:bg-secondary"
                 >
                   <s.icon className="h-3.5 w-3.5 text-primary" />
                   {s.label}
@@ -218,33 +218,29 @@ function DashboardPage() {
           </div>
         </section>
 
-        {/* Derniers dossiers — visuel riche */}
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Vos derniers dossiers</h2>
+        {/* Dossiers à suivre — liste */}
+        <section className="glass-panel rounded-3xl p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Dossiers à suivre</h2>
             <Link to="/dossiers" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
               Tout voir <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           {loading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="glass-panel h-32 animate-pulse rounded-2xl" />
+                <div key={i} className="h-12 animate-pulse rounded-xl bg-secondary/50" />
               ))}
             </div>
           ) : !summary?.recent_dossiers.length ? (
-            <div className="glass-panel rounded-2xl p-8 text-center">
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center">
               <FolderOpen className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Aucun dossier pour l'instant. Posez votre première question ci-dessus, JurisAI créera le dossier automatiquement.
+                Aucun dossier. Posez votre première question ci-dessus, JurisAI créera le dossier automatiquement.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {summary.recent_dossiers.slice(0, 6).map((d) => (
-                <DossierCard key={d.id} dossier={d} />
-              ))}
-            </div>
+            <DossierList dossiers={summary.recent_dossiers.slice(0, 8)} />
           )}
         </section>
 
