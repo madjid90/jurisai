@@ -51,6 +51,7 @@ import { Route as ApiPublicV1DossiersRouteImport } from './routes/api/public/v1.
 import { Route as ApiPublicV1DeadlinesRouteImport } from './routes/api/public/v1.deadlines'
 import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1.clients'
 import { Route as ApiPublicHooksDigestRouteImport } from './routes/api/public/hooks/digest'
+import { Route as ApiPublicHooksContractDeadlinesRouteImport } from './routes/api/public/hooks/contract-deadlines'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar.$token'
 
 const SignupRoute = SignupRouteImport.update({
@@ -271,6 +272,12 @@ const ApiPublicHooksDigestRoute = ApiPublicHooksDigestRouteImport.update({
   path: '/api/public/hooks/digest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksContractDeadlinesRoute =
+  ApiPublicHooksContractDeadlinesRouteImport.update({
+    id: '/api/public/hooks/contract-deadlines',
+    path: '/api/public/hooks/contract-deadlines',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
   id: '/api/public/calendar/$token',
   path: '/api/public/calendar/$token',
@@ -315,6 +322,7 @@ export interface FileRoutesByFullPath {
   '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -359,6 +367,7 @@ export interface FileRoutesByTo {
   '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -405,6 +414,7 @@ export interface FileRoutesById {
   '/_authenticated/workflows_/$id': typeof AuthenticatedWorkflowsIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -451,6 +461,7 @@ export interface FileRouteTypes {
     | '/workflows/$id'
     | '/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -495,6 +506,7 @@ export interface FileRouteTypes {
     | '/workflows/$id'
     | '/documents'
     | '/api/public/calendar/$token'
+    | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -540,6 +552,7 @@ export interface FileRouteTypes {
     | '/_authenticated/workflows_/$id'
     | '/_authenticated/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -560,6 +573,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
+  ApiPublicHooksContractDeadlinesRoute: typeof ApiPublicHooksContractDeadlinesRoute
   ApiPublicHooksDigestRoute: typeof ApiPublicHooksDigestRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
   ApiPublicV1DeadlinesRoute: typeof ApiPublicV1DeadlinesRoute
@@ -863,6 +877,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDigestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/contract-deadlines': {
+      id: '/api/public/hooks/contract-deadlines'
+      path: '/api/public/hooks/contract-deadlines'
+      fullPath: '/api/public/hooks/contract-deadlines'
+      preLoaderRoute: typeof ApiPublicHooksContractDeadlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/calendar/$token': {
       id: '/api/public/calendar/$token'
       path: '/api/public/calendar/$token'
@@ -970,6 +991,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
+  ApiPublicHooksContractDeadlinesRoute: ApiPublicHooksContractDeadlinesRoute,
   ApiPublicHooksDigestRoute: ApiPublicHooksDigestRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
   ApiPublicV1DeadlinesRoute: ApiPublicV1DeadlinesRoute,
