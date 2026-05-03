@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
   BookOpen,
@@ -6,13 +7,20 @@ import {
   ExternalLink,
   HelpCircle,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Target,
   Wrench,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { AgentRunOutput } from "@/server/agent.functions";
+import { createAgentValidationRequest } from "@/server/agent-validations.functions";
+import { pickRule } from "@/lib/agent/business-rules";
+import { MissingInfoModal } from "./MissingInfoModal";
+import { ConfirmationModal } from "./ConfirmationModal";
+import { HumanValidationModal } from "./HumanValidationModal";
 
 const INTENT_LABEL: Record<string, string> = {
   question_juridique: "Question juridique",
