@@ -280,26 +280,31 @@ function NavItem({
   to,
   active,
   soon,
+  collapsed,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   to: string;
   active?: boolean;
   soon?: boolean;
+  collapsed?: boolean;
 }) {
   return (
     <Link
       to={to}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
       className={cn(
-        "group flex h-10 w-full items-center gap-3 rounded-xl px-3 text-[13.5px] font-medium transition",
+        "group flex h-10 w-full items-center rounded-xl text-[13.5px] font-medium transition",
+        collapsed ? "justify-center px-0" : "gap-3 px-3",
         active
           ? "bg-accent-soft text-accent-soft-foreground"
           : "text-foreground/70 hover:bg-secondary hover:text-foreground",
       )}
     >
       <Icon className={cn("h-[17px] w-[17px]", active ? "text-accent" : "text-foreground/60")} />
-      <span className="flex-1">{label}</span>
-      {soon && (
+      {!collapsed && <span className="flex-1">{label}</span>}
+      {!collapsed && soon && (
         <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
           bientôt
         </span>
