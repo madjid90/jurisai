@@ -185,13 +185,30 @@ function WorkflowsPage() {
                 ))}
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {filteredDefs.length === 0 ? (
-                <div className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-[13px] text-muted-foreground">
-                  Aucune procédure ne correspond à vos filtres.
-                </div>
-              ) : (
-                filteredDefs.map((d) => (
+            {filteredDefs.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-[13px] text-muted-foreground">
+                Aucune procédure ne correspond à vos filtres.
+              </div>
+            ) : (
+              Object.entries(
+                filteredDefs.reduce<Record<string, Definition[]>>((acc, d) => {
+                  (acc[d.category] ??= []).push(d);
+                  return acc;
+                }, {}),
+              )
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([cat, list]) => (
+                  <section key={cat} className="space-y-3">
+                    <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <span className="h-px flex-1 bg-border" />
+                      {DOMAIN_LABELS[cat] ?? cat}
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[10.5px] font-medium normal-case text-foreground">
+                        {list.length}
+                      </span>
+                      <span className="h-px flex-1 bg-border" />
+                    </h2>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {list.map((d) => (
                   <article key={d.id} className="glass-panel flex flex-col gap-3 rounded-2xl p-5">
                     <div className="flex items-start justify-between gap-2">
                       <div>
