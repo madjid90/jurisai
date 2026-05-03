@@ -28,13 +28,20 @@ import {
   type DashboardSummary,
 } from "@/server/dashboard.functions";
 import { runLegalAgent, type AgentRunOutput } from "@/server/agent.functions";
+import { runOcrDocument } from "@/server/ocr.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { AuroraOrb } from "@/components/aurora/AuroraOrb";
 import { HeroPromptInput } from "@/components/aurora/HeroPromptInput";
 import { SuggestionChip } from "@/components/aurora/SuggestionChip";
 import { AgentResultCard } from "@/components/agent/AgentResultCard";
+import {
+  DocumentResultCard,
+  type DocumentAgentResult,
+} from "@/components/agent/DocumentResultCard";
 import { useAccess } from "@/lib/auth/useAccess";
 import { getProfileSuggestions } from "@/lib/auth/profileSuggestions";
 import { buildIntakeMessage } from "@/lib/agent/home-intake";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Tableau de bord · JurisAI" }] }),
@@ -73,6 +80,7 @@ function DashboardPage() {
   const { profile, user } = useAuth();
   const fetchSummary = useServerFn(getDashboardSummary);
   const runAgent = useServerFn(runLegalAgent);
+  const ocr = useServerFn(runOcrDocument);
   const navigate = useNavigate();
   const { access } = useAccess();
   const profileSuggestions = getProfileSuggestions(access, 5);
@@ -85,6 +93,10 @@ function DashboardPage() {
   const [agentResult, setAgentResult] = useState<AgentRunOutput | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<string>("");
+
+  // État upload document inline
+  const [docResult, setDocResult] = useState<DocumentAgentResult | null>(null);
+  const [docProgress, setDocProgress] = useState<string>("");
 
   const firstName = (profile?.full_name ?? user?.email ?? "").split(" ")[0] ?? "";
 
@@ -123,11 +135,74 @@ function DashboardPage() {
     }
   }
 
+  async function processFile(file: File, optionalPrompt?: string) {
+    if (!user) return;
+    setAgentLoading(true);
+    setAgentError(null);
+    setDocResult(null);
+    try {
+      setDocProgress("Préparation…");
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const tenantId = profile?.tenant_id;
+      if (!tenantId) throw new Error("Aucun tenant rattaché");
+
+      setDocProgress("Upload…");
+      const safeName = file.name.replace(/[^\w.\-]/g, "_");
+      const path = `${tenantId}/${user.id}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from("dossier-files")
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (upErr) throw new Error(upErr.message);
+
+      setDocProgress("Analyse OCR & rattachement…");
+      const r = await ocr({
+        data: {
+          storage_path: path,
+          filename: file.name,
+          file_type: file.type || "application/octet-stream",
+        },
+      });
+      const docRes: DocumentAgentResult = {
+        document_id: r.id,
+        filename: file.name,
+        text_length: r.length,
+        text_preview: (r.text ?? "").slice(0, 1200),
+        pipeline: r.pipeline ?? null,
+      };
+      setDocResult(docRes);
+      toast.success(`Document analysé — ${r.length} caractères`);
+      setTimeout(() => {
+        document.getElementById("doc-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+
+      // Si l'utilisateur a aussi tapé un prompt → enchaîne sur l'agent
+      if (optionalPrompt && optionalPrompt.trim()) {
+        const message = buildIntakeMessage({
+          message: optionalPrompt,
+          source: "document",
+          document_id: r.id,
+          extracted_context: (r.text ?? "").slice(0, 2000),
+        });
+        await runIntake(message);
+      }
+    } catch (e) {
+      setAgentError(e instanceof Error ? e.message : "Erreur upload");
+      toast.error(e instanceof Error ? e.message : "Erreur upload");
+    } finally {
+      setAgentLoading(false);
+      setDocProgress("");
+    }
+  }
+
   async function handlePromptSubmit(text: string, files: File[]) {
     if (!text && !files.length) return;
-    // Cas fichier(s) — Lot C : pour l'instant on route vers /scan
     if (files.length > 0) {
-      void navigate({ to: "/scan" });
+      // Pour l'instant : un seul fichier traité (le premier).
+      await processFile(files[0], text);
       return;
     }
     const message = buildIntakeMessage({ message: text, source: "dashboard" });
@@ -232,10 +307,36 @@ function DashboardPage() {
           </div>
         )}
 
+        {/* Résultat document inline (pipeline upload) */}
+        {docResult && (
+          <div id="doc-result">
+            <DocumentResultCard
+              result={docResult}
+              onClose={() => setDocResult(null)}
+              onAsk={(prompt) => {
+                const message = buildIntakeMessage({
+                  message: prompt,
+                  source: "document",
+                  document_id: docResult.document_id,
+                });
+                void runIntake(message);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Loader pendant l'upload/OCR */}
+        {agentLoading && docProgress && !docResult && (
+          <div className="flex items-center gap-3 rounded-3xl border border-border bg-card/80 p-5 text-[13px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            {docProgress}
+          </div>
+        )}
+
         {/* Résultat agent inline */}
-        {(agentResult || agentLoading) && (
+        {(agentResult || (agentLoading && !docProgress)) && (
           <div id="agent-result">
-            {agentLoading && !agentResult && (
+            {agentLoading && !agentResult && !docProgress && (
               <div className="flex items-center gap-3 rounded-3xl border border-border bg-card/80 p-5 text-[13px] text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-accent" />
                 L'agent travaille en arrière-plan…
