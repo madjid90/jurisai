@@ -22,6 +22,8 @@ import {
   Library,
   ServerCrash,
   Link2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
