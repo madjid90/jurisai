@@ -330,7 +330,12 @@ async function generateDraftDocument(opts: {
       actorId: opts.userId,
       eventType: "agent.document_generated",
       title: `Document préparé par l'agent : ${tpl.name}`,
-      metadata: { document_id: doc.id, run_id: opts.runId, template_id: tpl.id },
+      metadata: {
+        document_id: doc.id,
+        run_id: opts.runId,
+        template_id: tpl.id,
+        uncertain_fields: uncertain,
+      },
     });
   }
 
