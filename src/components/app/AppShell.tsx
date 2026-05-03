@@ -370,18 +370,26 @@ function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card p-2 text-left transition hover:bg-secondary"
+        title={collapsed ? (profile?.full_name ?? user?.email ?? "Utilisateur") : undefined}
+        className={cn(
+          "flex w-full items-center rounded-xl border border-border/60 bg-card p-2 text-left transition hover:bg-secondary",
+          collapsed ? "justify-center" : "gap-2",
+        )}
       >
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[12px] font-semibold text-primary-foreground">
           {initials}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[12.5px] font-semibold text-foreground">
-            {profile?.full_name ?? user?.email ?? "Utilisateur"}
-          </p>
-          <p className="truncate text-[10.5px] text-muted-foreground">{user?.email}</p>
-        </div>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        {!collapsed && (
+          <>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12.5px] font-semibold text-foreground">
+                {profile?.full_name ?? user?.email ?? "Utilisateur"}
+              </p>
+              <p className="truncate text-[10.5px] text-muted-foreground">{user?.email}</p>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </>
+        )}
       </button>
 
       {open && (
