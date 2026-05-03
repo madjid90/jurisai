@@ -30,7 +30,6 @@ import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/s
 import { Route as AuthenticatedLinksRouteImport } from './routes/_authenticated/links'
 import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticated/dossiers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedAnalysesRouteImport } from './routes/_authenticated/analyses'
 import { Route as AuthenticatedAgentRouteImport } from './routes/_authenticated/agent'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents.index'
@@ -156,11 +155,6 @@ const AuthenticatedDossiersRoute = AuthenticatedDossiersRouteImport.update({
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedAnalysesRoute = AuthenticatedAnalysesRouteImport.update({
@@ -297,7 +291,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/agent': typeof AuthenticatedAgentRoute
   '/analyses': typeof AuthenticatedAnalysesRouteWithChildren
-  '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/links': typeof AuthenticatedLinksRoute
@@ -342,7 +335,6 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/agent': typeof AuthenticatedAgentRoute
   '/analyses': typeof AuthenticatedAnalysesRouteWithChildren
-  '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/links': typeof AuthenticatedLinksRoute
@@ -389,7 +381,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/agent': typeof AuthenticatedAgentRoute
   '/_authenticated/analyses': typeof AuthenticatedAnalysesRouteWithChildren
-  '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/_authenticated/links': typeof AuthenticatedLinksRoute
@@ -436,7 +427,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/agent'
     | '/analyses'
-    | '/chat'
     | '/dashboard'
     | '/dossiers'
     | '/links'
@@ -481,7 +471,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/agent'
     | '/analyses'
-    | '/chat'
     | '/dashboard'
     | '/dossiers'
     | '/links'
@@ -527,7 +516,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/agent'
     | '/_authenticated/analyses'
-    | '/_authenticated/chat'
     | '/_authenticated/dashboard'
     | '/_authenticated/dossiers'
     | '/_authenticated/links'
@@ -730,13 +718,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/chat': {
-      id: '/_authenticated/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof AuthenticatedChatRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/analyses': {
       id: '/_authenticated/analyses'
       path: '/analyses'
@@ -923,7 +904,6 @@ const AuthenticatedDossiersRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAgentRoute: typeof AuthenticatedAgentRoute
   AuthenticatedAnalysesRoute: typeof AuthenticatedAnalysesRouteWithChildren
-  AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
   AuthenticatedLinksRoute: typeof AuthenticatedLinksRoute
@@ -950,7 +930,6 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgentRoute: AuthenticatedAgentRoute,
   AuthenticatedAnalysesRoute: AuthenticatedAnalysesRouteWithChildren,
-  AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
   AuthenticatedLinksRoute: AuthenticatedLinksRoute,
