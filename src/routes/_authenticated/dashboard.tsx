@@ -153,18 +153,18 @@ function DashboardPage() {
           </div>
           {loading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : !summary?.recentAlerts?.length ? (
+          ) : !summary?.legal_alerts.length ? (
             <p className="text-sm text-muted-foreground">Aucune alerte récente.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {summary.recentAlerts.slice(0, 5).map((a) => (
+              {summary.legal_alerts.slice(0, 5).map((a) => (
                 <li key={a.id} className="flex items-start gap-3 py-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{a.title}</p>
-                    {a.summary && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {a.summary}
+                    {a.legal_date && (
+                      <p className="text-xs text-muted-foreground">
+                        {fmtDate(a.legal_date)}
                       </p>
                     )}
                   </div>
