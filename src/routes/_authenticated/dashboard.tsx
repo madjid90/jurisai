@@ -20,6 +20,7 @@ import {
   FileSearch,
   MessageSquare,
   FolderPlus,
+  Link2,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
