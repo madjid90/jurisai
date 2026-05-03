@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { processUploadedDocument } from "@/server/_shared/document-pipeline.server";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? "https://yuvysjsyumxpekzvlzsx.supabase.co";
@@ -34,9 +35,10 @@ export const runOcrDocument = createServerFn({ method: "POST" })
     }
     const result = (await res.json()) as { id: string; text: string; length: number };
 
+    const tenantId = await getTenantId(ctx.userId);
+
     if (data.dossier_id) {
       try {
-        const tenantId = await getTenantId(ctx.userId);
         await logTimelineEvent({
           tenantId,
           dossierId: data.dossier_id,
@@ -53,5 +55,19 @@ export const runOcrDocument = createServerFn({ method: "POST" })
         console.error("[ocr] timeline log failed", e);
       }
     }
-    return result;
+
+    // Pipeline auto (entités → contexte → liaison → index → timeline). Non bloquant.
+    let pipeline: Awaited<ReturnType<typeof processUploadedDocument>> | null = null;
+    try {
+      pipeline = await processUploadedDocument({
+        documentId: result.id,
+        tenantId,
+        actorId: ctx.userId,
+        forcedDossierId: data.dossier_id ?? null,
+      });
+    } catch (e) {
+      console.error("[ocr] pipeline failed", e);
+    }
+
+    return { ...result, pipeline };
   });
