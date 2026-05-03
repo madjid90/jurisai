@@ -31,6 +31,8 @@ import {
 import { AuroraOrb } from "@/components/aurora/AuroraOrb";
 import { HeroPromptInput } from "@/components/aurora/HeroPromptInput";
 import { SuggestionChip } from "@/components/aurora/SuggestionChip";
+import { useAccess } from "@/lib/auth/useAccess";
+import { getProfileSuggestions } from "@/lib/auth/profileSuggestions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Tableau de bord · JurisAI" }] }),
