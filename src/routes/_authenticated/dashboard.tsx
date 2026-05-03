@@ -326,52 +326,84 @@ function DashboardPage() {
   );
 }
 
-function DossierCard({ dossier }: { dossier: DashboardSummary["recent_dossiers"][number] }) {
-  const statusTone =
-    dossier.status === "closed"
-      ? "bg-muted text-muted-foreground"
-      : dossier.status === "in_progress"
-      ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-      : dossier.status === "blocked"
-      ? "bg-red-500/10 text-red-700 dark:text-red-400"
-      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+type DossierItem = DashboardSummary["recent_dossiers"][number];
 
-  const riskTone =
-    dossier.risk_level === "high" || dossier.risk_level === "critical"
-      ? "bg-red-500/10 text-red-700 dark:text-red-400"
-      : dossier.risk_level === "medium"
-      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-      : null;
+function statusLabel(status: string | null): { label: string; tone: string } {
+  switch (status) {
+    case "closed": return { label: "Clôturé", tone: "bg-muted text-muted-foreground" };
+    case "in_progress": return { label: "En cours", tone: "bg-blue-500/10 text-blue-700 dark:text-blue-400" };
+    case "blocked": return { label: "Bloqué", tone: "bg-red-500/10 text-red-700 dark:text-red-400" };
+    case "waiting": return { label: "En attente", tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400" };
+    default: return { label: "Ouvert", tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" };
+  }
+}
 
+function riskLabel(risk: string | null): { label: string; tone: string } | null {
+  if (!risk || risk === "low" || risk === "none") return null;
+  if (risk === "critical") return { label: "Critique", tone: "bg-red-500/15 text-red-700 dark:text-red-400" };
+  if (risk === "high") return { label: "Élevé", tone: "bg-red-500/10 text-red-700 dark:text-red-400" };
+  if (risk === "medium") return { label: "Moyen", tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400" };
+  return { label: risk, tone: "bg-secondary text-foreground/70" };
+}
+
+function DossierList({ dossiers }: { dossiers: DossierItem[] }) {
   return (
-    <Link
-      to="/dossiers/$id"
-      params={{ id: dossier.id }}
-      className="glass-panel group flex flex-col gap-3 rounded-2xl p-4 transition hover:shadow-md hover:-translate-y-0.5"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <FolderOpen className="h-5 w-5" />
-        </div>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTone}`}>
-          {dossier.status ?? "ouvert"}
-        </span>
+    <div className="overflow-hidden rounded-xl border border-border">
+      {/* Header (desktop) */}
+      <div className="hidden grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.6fr] gap-3 border-b border-border bg-secondary/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
+        <span>Personne / objet</span>
+        <span>Procédure</span>
+        <span>Risque</span>
+        <span>État</span>
+        <span className="text-right">Maj</span>
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold">{dossier.title}</p>
-        {dossier.category && (
-          <p className="truncate text-xs text-muted-foreground capitalize">{dossier.category}</p>
-        )}
-      </div>
-      <div className="mt-auto flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>Maj {fmtRelative(dossier.updated_at)}</span>
-        {riskTone && (
-          <span className={`rounded-full px-1.5 py-0.5 font-medium ${riskTone}`}>
-            risque {dossier.risk_level}
-          </span>
-        )}
-      </div>
-    </Link>
+      <ul className="divide-y divide-border">
+        {dossiers.map((d) => {
+          const st = statusLabel(d.status);
+          const rk = riskLabel(d.risk_level);
+          return (
+            <li key={d.id}>
+              <Link
+                to="/dossiers/$id"
+                params={{ id: d.id }}
+                className="grid grid-cols-1 gap-2 px-4 py-3 transition hover:bg-secondary/40 sm:grid-cols-[1.4fr_1fr_0.7fr_0.7fr_0.6fr] sm:items-center sm:gap-3"
+              >
+                {/* Personne / objet */}
+                <div className="flex min-w-0 items-center gap-2">
+                  <FolderOpen className="h-4 w-4 shrink-0 text-primary/70" />
+                  <span className="truncate text-sm font-medium">{d.title}</span>
+                </div>
+                {/* Procédure */}
+                <div className="min-w-0 text-xs text-muted-foreground">
+                  <span className="sm:hidden font-semibold text-foreground/60">Procédure : </span>
+                  <span className="capitalize">{d.category ?? "—"}</span>
+                </div>
+                {/* Risque */}
+                <div>
+                  {rk ? (
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-medium ${rk.tone}`}>
+                      {rk.label}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">—</span>
+                  )}
+                </div>
+                {/* État */}
+                <div>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-medium ${st.tone}`}>
+                    {st.label}
+                  </span>
+                </div>
+                {/* Maj */}
+                <div className="text-[11px] text-muted-foreground sm:text-right">
+                  {fmtRelative(d.updated_at)}
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
