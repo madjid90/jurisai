@@ -364,3 +364,164 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---------------------------------------------------------------------------
+// EXÉCUTION FINALE — status=ready → executed.
+// Sourcing RAG obligatoire si requires_rag, rédaction de la réponse + procédure.
+// (Génération des documents pré-remplis viendra dans une étape suivante en
+// s'appuyant sur templates / generation.functions existants.)
+// ---------------------------------------------------------------------------
+
+import { searchLegalSources } from "./_shared/legal-rag.server";
+
+const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+const CHAT_MODEL = "google/gemini-3-flash-preview";
+
+const EXEC_SYSTEM = `Tu es JurisAI, copilote juridique transverse.
+Tu reçois une demande utilisateur, sa classification, les infos collectées et des extraits juridiques sourcés.
+Rédige une réponse en JSON STRICT :
+{
+  "answer": string (markdown, ton professionnel, cite [source:N]),
+  "procedure": [{ "step": number, "title": string, "description": string, "legal_basis": [number] }],
+  "risks": [string],
+  "next_actions": [string]
+}
+RÈGLES:
+- Toute affirmation juridique doit citer [source:N]. Si aucune source n'a été fournie, mets answer="Je ne peux pas répondre sans source juridique fiable" et procedure=[].
+- Date courante : 2026.
+- Reste dans le périmètre demandé. Pas d'avis hors juridique.`;
+
+export const executeAgentRun = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
+    const tenantId = await getTenantId(userId);
+
+    const { data: run, error } = await supabaseAdmin
+      .from("agent_runs")
+      .select("*")
+      .eq("id", data.id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!run) throw new Error("Demande introuvable");
+
+    const r = run as {
+      status: string;
+      message: string;
+      draft: DraftShape;
+      requires_rag: boolean | null;
+      topic: string | null;
+      dossier_id: string | null;
+    };
+    if (r.status !== "ready") throw new Error(`Statut invalide: ${r.status}`);
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY manquant");
+
+    try {
+      // 1. Tenant IDCC pour le RAG
+      const { data: tenant } = await supabaseAdmin
+        .from("tenants")
+        .select("idcc")
+        .eq("id", tenantId)
+        .maybeSingle();
+      const idcc = (tenant as { idcc: string | null } | null)?.idcc ?? null;
+
+      // 2. RAG si nécessaire
+      let sources: Array<Record<string, unknown>> = [];
+      if (r.requires_rag !== false) {
+        const ragQuery = r.topic || r.message;
+        const result = await searchLegalSources(ragQuery, { idcc, limit: 6 });
+        sources = result.sources as unknown as Array<Record<string, unknown>>;
+        if (!result.ok || sources.length === 0) {
+          await supabaseAdmin
+            .from("agent_runs")
+            .update({
+              status: "failed",
+              error_message: "Aucune source juridique fiable — refus motivé",
+              refused: true,
+              refusal_reason: result.reason ?? "Aucune source pertinente trouvée",
+            } as never)
+            .eq("id", data.id);
+          throw new Error("RAG insuffisant — refus");
+        }
+      }
+
+      // 3. Construire le contexte pour l'IA
+      const sourcesBlock = sources
+        .map((s, i) => `[source:${i + 1}] ${s.title} — ${s.reference ?? ""}\n${s.excerpt}`)
+        .join("\n\n");
+      const collected = r.draft?.form ?? {};
+
+      const userMsg = `DEMANDE: ${r.message}
+
+INFOS COLLECTÉES:
+${JSON.stringify(collected, null, 2)}
+
+SOURCES JURIDIQUES:
+${sourcesBlock || "(aucune)"}`;
+
+      // 4. Appel IA
+      const aiRes = await fetch(`${AI_GATEWAY}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          messages: [
+            { role: "system", content: EXEC_SYSTEM },
+            { role: "user", content: userMsg },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
+      if (!aiRes.ok) throw new Error(`IA ${aiRes.status}`);
+      const aiJson = await aiRes.json();
+      const raw = aiJson.choices?.[0]?.message?.content ?? "{}";
+      let parsed: { answer?: string; procedure?: unknown[]; risks?: unknown[]; next_actions?: unknown[] } = {};
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = { answer: raw };
+      }
+
+      // 5. Mettre à jour la run
+      const draft = { ...(r.draft ?? {}) } as DraftShape;
+      draft.analysis = { answer: parsed.answer ?? "", risks: parsed.risks ?? [] };
+      draft.procedure = parsed.procedure ?? [];
+      draft.sources = sources;
+
+      await supabaseAdmin
+        .from("agent_runs")
+        .update({
+          status: "executed",
+          executed_at: new Date().toISOString(),
+          answer: parsed.answer ?? "",
+          sources,
+          draft,
+        } as never)
+        .eq("id", data.id);
+
+      // 6. Timeline
+      if (r.dossier_id) {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: r.dossier_id,
+          actorId: userId,
+          eventType: "agent.run.executed",
+          title: "Réponse de l'agent générée",
+          metadata: { run_id: data.id, sources_count: sources.length },
+        });
+      }
+
+      return { ok: true, answer: parsed.answer, sources_count: sources.length };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      await supabaseAdmin
+        .from("agent_runs")
+        .update({ status: "failed", error_message: msg } as never)
+        .eq("id", data.id);
+      throw err;
+    }
+  });
