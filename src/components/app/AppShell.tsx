@@ -22,6 +22,8 @@ import {
   Library,
   ServerCrash,
   Link2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -67,16 +69,27 @@ function isPathActive(currentPath: string, target: string): boolean {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("jurisai.sidebar.collapsed") === "1";
+  });
   const router = useRouter();
   const path = router.state.location.pathname;
-  // Auto-close drawer on route change
   useEffect(() => { setMobileOpen(false); }, [path]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try { window.localStorage.setItem("jurisai.sidebar.collapsed", next ? "1" : "0"); } catch { /* noop */ }
+      return next;
+    });
+  };
 
   return (
     <div className="mesh-bg flex min-h-screen md:p-3">
       {/* Desktop sidebar */}
       <div className="hidden md:block">
-        <Sidebar />
+        <Sidebar collapsed={collapsed} />
       </div>
       {/* Mobile drawer */}
       {mobileOpen && (
@@ -86,7 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 z-50 w-[280px] overflow-y-auto p-3 md:hidden">
-            <Sidebar />
+            <Sidebar collapsed={false} />
           </div>
         </>
       )}
@@ -99,6 +112,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Ouvrir le menu"
           >
             <Menu className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground md:flex"
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
           <div className="md:hidden">
             <JurisAIWordmark />
@@ -116,23 +138,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-function Sidebar() {
+function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const currentPath = router.state.location.pathname;
   const { access, serviceUnavailable } = useAccess();
   const isSuperAdmin = access.isSuperAdmin;
 
-  // Profil "terrain" = vue ultra-simplifiée
   const isTerrainOnly =
     access.roles.length > 0 &&
     access.roles.every((r) => r === "operationnel_terrain");
 
-  const TERRAIN_PATHS = new Set([
-    "/dashboard",
-    "/agent",
-    "/dossiers",
-    "/documents",
-  ]);
+  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/dossiers", "/documents"]);
 
   const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
@@ -141,14 +157,25 @@ function Sidebar() {
   const visibleSecondary = SECONDARY_ITEMS.filter((it) => canSee(access, it));
 
   return (
-    <aside className="glass-panel flex h-full w-full flex-shrink-0 flex-col rounded-3xl p-4 shadow-[var(--shadow-card)] md:w-[244px]">
-      <div className="flex items-center px-2 py-1.5">
-        <JurisAIWordmark />
+    <aside
+      className={cn(
+        "glass-panel flex h-full flex-shrink-0 flex-col rounded-3xl shadow-[var(--shadow-card)] transition-[width] duration-200",
+        collapsed ? "w-[68px] p-2" : "w-full p-4 md:w-[244px]",
+      )}
+    >
+      <div className={cn("flex items-center py-1.5", collapsed ? "justify-center px-0" : "px-2")}>
+        {collapsed ? (
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
+            J
+          </div>
+        ) : (
+          <JurisAIWordmark />
+        )}
       </div>
 
       <div className="my-4 h-px w-full bg-border" />
 
-      {serviceUnavailable && (
+      {serviceUnavailable && !collapsed && (
         <div className="mb-4 rounded-2xl border border-border bg-secondary p-3">
           <p className="text-[12px] font-semibold text-foreground">Service d’authentification indisponible</p>
           <p className="mt-1 text-[11.5px] text-muted-foreground">
@@ -165,14 +192,17 @@ function Sidebar() {
             icon={item.icon}
             to={item.to}
             active={isPathActive(currentPath, item.to)}
+            collapsed={collapsed}
           />
         ))}
       </nav>
 
-      <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        Workspace
-      </div>
-      <nav className="mt-2 flex flex-col gap-1">
+      {!collapsed && (
+        <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Workspace
+        </div>
+      )}
+      <nav className={cn("flex flex-col gap-1", collapsed ? "mt-4" : "mt-2")}>
         {visibleSecondary.map((item) => (
           <NavItem
             key={item.label}
@@ -180,47 +210,51 @@ function Sidebar() {
             icon={item.icon}
             to={item.to}
             active={isPathActive(currentPath, item.to)}
+            collapsed={collapsed}
           />
         ))}
       </nav>
 
       {(isSuperAdmin || access.isTenantAdmin) && (
         <>
-          <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Admin
-          </div>
-          <nav className="mt-2 flex flex-col gap-1">
+          {!collapsed && (
+            <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Admin
+            </div>
+          )}
+          <nav className={cn("flex flex-col gap-1", collapsed ? "mt-4" : "mt-2")}>
             {isSuperAdmin && (
               <>
-                <NavItem label="Connecteurs data" icon={Database} to="/admin/connectors" active={currentPath === "/admin/connectors"} />
-                <NavItem label="Sources légales" icon={BookMarked} to="/admin/legal-sources" active={currentPath === "/admin/legal-sources"} />
-                <NavItem label="Tenants" icon={Users} to="/admin/tenants" active={currentPath === "/admin/tenants"} />
-                <NavItem label="Usage" icon={Sparkles} to="/admin/usage" active={currentPath === "/admin/usage"} />
+                <NavItem label="Connecteurs data" icon={Database} to="/admin/connectors" active={currentPath === "/admin/connectors"} collapsed={collapsed} />
+                <NavItem label="Sources légales" icon={BookMarked} to="/admin/legal-sources" active={currentPath === "/admin/legal-sources"} collapsed={collapsed} />
+                <NavItem label="Tenants" icon={Users} to="/admin/tenants" active={currentPath === "/admin/tenants"} collapsed={collapsed} />
+                <NavItem label="Usage" icon={Sparkles} to="/admin/usage" active={currentPath === "/admin/usage"} collapsed={collapsed} />
               </>
             )}
             {hasPermission(access, "data_quality.view") && (
-              <NavItem label="Qualité données" icon={ShieldCheck} to="/admin/data-quality" active={currentPath === "/admin/data-quality"} />
+              <NavItem label="Qualité données" icon={ShieldCheck} to="/admin/data-quality" active={currentPath === "/admin/data-quality"} collapsed={collapsed} />
             )}
             {hasPermission(access, "rag_quality.view") && (
-              <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} />
+              <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} collapsed={collapsed} />
             )}
             {hasPermission(access, "monitoring.view") && (
-              <NavItem label="Erreurs serveur" icon={ServerCrash} to="/admin/server-errors" active={currentPath === "/admin/server-errors"} />
+              <NavItem label="Erreurs serveur" icon={ServerCrash} to="/admin/server-errors" active={currentPath === "/admin/server-errors"} collapsed={collapsed} />
             )}
             {hasPermission(access, "audit.view") && (
-              <NavItem label="Audit" icon={ScrollText} to="/admin/audit" active={currentPath === "/admin/audit"} />
+              <NavItem label="Audit" icon={ScrollText} to="/admin/audit" active={currentPath === "/admin/audit"} collapsed={collapsed} />
             )}
-            {/* Outils techniques (anciennement dans le menu principal) */}
             {(isSuperAdmin || access.isTenantAdmin) && (
               <>
-                <div className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
-                  Outils
-                </div>
-                <NavItem label="Modèles" icon={Library} to="/templates" active={currentPath.startsWith("/templates")} />
-                <NavItem label="Procédures" icon={Workflow} to="/workflows" active={currentPath.startsWith("/workflows")} />
-                <NavItem label="OCR & scan" icon={ScanLine} to="/scan" active={currentPath === "/scan"} />
-                <NavItem label="Analyses" icon={ScanSearch} to="/analyses" active={currentPath.startsWith("/analyses")} />
-                <NavItem label="Liaisons" icon={Link2} to="/links" active={currentPath === "/links"} />
+                {!collapsed && (
+                  <div className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+                    Outils
+                  </div>
+                )}
+                <NavItem label="Modèles" icon={Library} to="/templates" active={currentPath.startsWith("/templates")} collapsed={collapsed} />
+                <NavItem label="Procédures" icon={Workflow} to="/workflows" active={currentPath.startsWith("/workflows")} collapsed={collapsed} />
+                <NavItem label="OCR & scan" icon={ScanLine} to="/scan" active={currentPath === "/scan"} collapsed={collapsed} />
+                <NavItem label="Analyses" icon={ScanSearch} to="/analyses" active={currentPath.startsWith("/analyses")} collapsed={collapsed} />
+                <NavItem label="Liaisons" icon={Link2} to="/links" active={currentPath === "/links"} collapsed={collapsed} />
               </>
             )}
           </nav>
@@ -228,9 +262,13 @@ function Sidebar() {
       )}
 
       <div className="mt-auto pt-6">
-        <QuotaBadge />
-        <UpgradeCard />
-        <UserMenu />
+        {!collapsed && (
+          <>
+            <QuotaBadge />
+            <UpgradeCard />
+          </>
+        )}
+        <UserMenu collapsed={collapsed} />
       </div>
     </aside>
   );
@@ -242,26 +280,31 @@ function NavItem({
   to,
   active,
   soon,
+  collapsed,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   to: string;
   active?: boolean;
   soon?: boolean;
+  collapsed?: boolean;
 }) {
   return (
     <Link
       to={to}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
       className={cn(
-        "group flex h-10 w-full items-center gap-3 rounded-xl px-3 text-[13.5px] font-medium transition",
+        "group flex h-10 w-full items-center rounded-xl text-[13.5px] font-medium transition",
+        collapsed ? "justify-center px-0" : "gap-3 px-3",
         active
           ? "bg-accent-soft text-accent-soft-foreground"
           : "text-foreground/70 hover:bg-secondary hover:text-foreground",
       )}
     >
       <Icon className={cn("h-[17px] w-[17px]", active ? "text-accent" : "text-foreground/60")} />
-      <span className="flex-1">{label}</span>
-      {soon && (
+      {!collapsed && <span className="flex-1">{label}</span>}
+      {!collapsed && soon && (
         <span className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
           bientôt
         </span>
@@ -288,7 +331,7 @@ function UpgradeCard() {
   );
 }
 
-function UserMenu() {
+function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -327,18 +370,26 @@ function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card p-2 text-left transition hover:bg-secondary"
+        title={collapsed ? (profile?.full_name ?? user?.email ?? "Utilisateur") : undefined}
+        className={cn(
+          "flex w-full items-center rounded-xl border border-border/60 bg-card p-2 text-left transition hover:bg-secondary",
+          collapsed ? "justify-center" : "gap-2",
+        )}
       >
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[12px] font-semibold text-primary-foreground">
           {initials}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[12.5px] font-semibold text-foreground">
-            {profile?.full_name ?? user?.email ?? "Utilisateur"}
-          </p>
-          <p className="truncate text-[10.5px] text-muted-foreground">{user?.email}</p>
-        </div>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        {!collapsed && (
+          <>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12.5px] font-semibold text-foreground">
+                {profile?.full_name ?? user?.email ?? "Utilisateur"}
+              </p>
+              <p className="truncate text-[10.5px] text-muted-foreground">{user?.email}</p>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </>
+        )}
       </button>
 
       {open && (

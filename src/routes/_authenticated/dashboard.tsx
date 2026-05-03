@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Sparkles,
   Bell,
@@ -8,6 +9,12 @@ import {
   AlertTriangle,
   Clock,
   Loader2,
+  Send,
+  Paperclip,
+  FileSignature,
+  Search,
+  Workflow,
+  ShieldAlert,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -15,6 +22,11 @@ import {
   getDashboardSummary,
   type DashboardSummary,
 } from "@/server/dashboard.functions";
+import { createAgentRun } from "@/server/agent-runs.functions";
+import { runOcrDocument } from "@/server/ocr.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Accueil · JurisAI" }] }),
@@ -33,10 +45,36 @@ function fmtDate(d: string | null) {
   }
 }
 
+function fmtRelative(d: string | null) {
+  if (!d) return "";
+  const diff = Date.now() - new Date(d).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days <= 0) return "aujourd'hui";
+  if (days === 1) return "hier";
+  if (days < 7) return `il y a ${days} j`;
+  if (days < 30) return `il y a ${Math.floor(days / 7)} sem`;
+  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+}
+
+const SUGGESTIONS = [
+  { label: "Analyser un contrat", icon: FileSignature, prompt: "Analyse ce contrat et identifie les risques et clauses sensibles." },
+  { label: "Lancer une procédure", icon: Workflow, prompt: "Aide-moi à lancer une procédure : " },
+  { label: "Rechercher un dossier", icon: Search, prompt: "Retrouve le dossier concernant " },
+  { label: "Vérifier une obligation", icon: ShieldAlert, prompt: "Quelles sont mes obligations légales sur " },
+];
+
 function DashboardPage() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
+  const create = useServerFn(createAgentRun);
+  const ocr = useServerFn(runOcrDocument);
+
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -51,44 +89,167 @@ function DashboardPage() {
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "";
 
+  const handleAsk = async () => {
+    if (!message.trim() && files.length === 0) return;
+    setSubmitting(true);
+    const text = message.trim() || `Analyse du document : ${files.map((f) => f.name).join(", ")}`;
+    try {
+      let attachments: Array<{ analysis_id: string; filename: string }> = [];
+      if (files.length > 0) {
+        toast.info("Analyse du document…");
+        const { data: auth } = await supabase.auth.getUser();
+        const userId = auth.user?.id;
+        if (!userId) throw new Error("Session expirée");
+        for (const file of files) {
+          const path = `${userId}/agent/${Date.now()}-${file.name}`;
+          const up = await supabase.storage.from("dossier-files").upload(path, file, {
+            contentType: file.type || "application/octet-stream",
+            upsert: false,
+          });
+          if (up.error) throw new Error(up.error.message);
+          const r = (await ocr({
+            data: { storage_path: path, filename: file.name, file_type: file.type || "application/octet-stream" },
+          })) as { id: string };
+          attachments.push({ analysis_id: r.id, filename: file.name });
+        }
+      }
+      const created = (await create({ data: { message: text, attachments } })) as { id: string };
+      navigate({ to: "/agent", search: { run: created.id } as never });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec de la demande");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        {/* Hero — entrée unique vers l'assistant */}
-        <section className="glass-panel rounded-3xl p-8 shadow-[var(--shadow-card)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Bonjour{firstName ? ` ${firstName}` : ""},
-              </p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-                Que puis-je faire pour vous aujourd'hui&nbsp;?
-              </h1>
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                Posez votre question, joignez un contrat ou décrivez la procédure
-                à lancer. JurisAI s'occupe du reste et classe tout dans le bon dossier.
-              </p>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+        {/* Hero — chat box */}
+        <section className="glass-panel relative overflow-hidden rounded-3xl p-6 shadow-[var(--shadow-card)] sm:p-8">
+          <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Bonjour{firstName ? ` ${firstName}` : ""},
             </div>
-            <Sparkles className="h-8 w-8 shrink-0 text-primary" />
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Link
-              to="/agent"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
-            >
-              Ouvrir l'assistant <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/dossiers"
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium hover:bg-secondary"
-            >
-              <FolderOpen className="h-4 w-4" /> Mes dossiers
-            </Link>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+              Que puis-je faire pour vous&nbsp;?
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              Posez votre question, joignez un contrat ou décrivez la procédure à lancer.
+              JurisAI s'occupe du reste et classe tout dans le bon dossier.
+            </p>
+
+            {/* Chat input */}
+            <div className="mt-5 rounded-2xl border border-border bg-background p-3 shadow-sm focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
+              <Textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleAsk();
+                  }
+                }}
+                placeholder="Posez votre question juridique ou déposez un document…"
+                rows={2}
+                className="min-h-[60px] resize-none border-0 bg-transparent p-1 text-[15px] focus-visible:ring-0"
+              />
+              {files.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {files.map((f, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs">
+                      <Paperclip className="h-3 w-3" /> {f.name}
+                      <button
+                        onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
+                        className="ml-1 text-muted-foreground hover:text-foreground"
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                  Joindre un document
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const list = Array.from(e.target.files ?? []);
+                    if (list.length) setFiles((p) => [...p, ...list]);
+                    if (fileRef.current) fileRef.current.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAsk}
+                  disabled={submitting || (!message.trim() && files.length === 0)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Demander
+                </button>
+              </div>
+            </div>
+
+            {/* Suggestions */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => setMessage(s.prompt)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 transition hover:border-primary/40 hover:bg-secondary"
+                >
+                  <s.icon className="h-3.5 w-3.5 text-primary" />
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Stats rapides */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* Derniers dossiers — visuel riche */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Vos derniers dossiers</h2>
+            <Link to="/dossiers" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+              Tout voir <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="glass-panel h-32 animate-pulse rounded-2xl" />
+              ))}
+            </div>
+          ) : !summary?.recent_dossiers.length ? (
+            <div className="glass-panel rounded-2xl p-8 text-center">
+              <FolderOpen className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Aucun dossier pour l'instant. Posez votre première question ci-dessus, JurisAI créera le dossier automatiquement.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {summary.recent_dossiers.slice(0, 6).map((d) => (
+                <DossierCard key={d.id} dossier={d} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Stats compactes */}
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <StatCard
             icon={<FolderOpen className="h-5 w-5" />}
             label="Dossiers ouverts"
@@ -112,69 +273,109 @@ function DashboardPage() {
           />
         </section>
 
-        {/* Échéances à venir */}
-        <section className="glass-panel rounded-3xl p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Prochaines échéances</h2>
-            <Link to="/dossiers" className="text-xs text-primary hover:underline">
-              Tout voir
-            </Link>
-          </div>
-          {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : !summary?.to_treat_today.length ? (
-            <p className="text-sm text-muted-foreground">
-              Rien d'urgent. Tout est à jour.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {summary.to_treat_today.slice(0, 5).map((d) => (
-                <li key={d.id} className="flex items-center gap-3 py-3">
-                  <Clock className="h-4 w-4 shrink-0 text-amber-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{d.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fmtDate(d.due_at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {/* Échéances + Veille */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section className="glass-panel rounded-3xl p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Prochaines échéances</h2>
+              <Link to="/dossiers" className="text-xs text-primary hover:underline">Tout voir</Link>
+            </div>
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : !summary?.to_treat_today.length ? (
+              <p className="text-sm text-muted-foreground">Rien d'urgent. Tout est à jour.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {summary.to_treat_today.slice(0, 5).map((d) => (
+                  <li key={d.id} className="flex items-center gap-3 py-3">
+                    <Clock className="h-4 w-4 shrink-0 text-amber-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{d.title}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDate(d.due_at)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-        {/* Alertes veille */}
-        <section className="glass-panel rounded-3xl p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Veille juridique</h2>
-            <Link to="/veille" className="text-xs text-primary hover:underline">
-              Ouvrir la veille
-            </Link>
-          </div>
-          {loading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : !summary?.legal_alerts.length ? (
-            <p className="text-sm text-muted-foreground">Aucune alerte récente.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {summary.legal_alerts.slice(0, 5).map((a) => (
-                <li key={a.id} className="flex items-start gap-3 py-3">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{a.title}</p>
-                    {a.legal_date && (
-                      <p className="text-xs text-muted-foreground">
-                        {fmtDate(a.legal_date)}
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          <section className="glass-panel rounded-3xl p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Veille juridique</h2>
+              <Link to="/veille" className="text-xs text-primary hover:underline">Ouvrir</Link>
+            </div>
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : !summary?.legal_alerts.length ? (
+              <p className="text-sm text-muted-foreground">Aucune alerte récente.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {summary.legal_alerts.slice(0, 5).map((a) => (
+                  <li key={a.id} className="flex items-start gap-3 py-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{a.title}</p>
+                      {a.legal_date && (
+                        <p className="text-xs text-muted-foreground">{fmtDate(a.legal_date)}</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
     </AppShell>
+  );
+}
+
+function DossierCard({ dossier }: { dossier: DashboardSummary["recent_dossiers"][number] }) {
+  const statusTone =
+    dossier.status === "closed"
+      ? "bg-muted text-muted-foreground"
+      : dossier.status === "in_progress"
+      ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+      : dossier.status === "blocked"
+      ? "bg-red-500/10 text-red-700 dark:text-red-400"
+      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+
+  const riskTone =
+    dossier.risk_level === "high" || dossier.risk_level === "critical"
+      ? "bg-red-500/10 text-red-700 dark:text-red-400"
+      : dossier.risk_level === "medium"
+      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+      : null;
+
+  return (
+    <Link
+      to="/dossiers/$id"
+      params={{ id: dossier.id }}
+      className="glass-panel group flex flex-col gap-3 rounded-2xl p-4 transition hover:shadow-md hover:-translate-y-0.5"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <FolderOpen className="h-5 w-5" />
+        </div>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTone}`}>
+          {dossier.status ?? "ouvert"}
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">{dossier.title}</p>
+        {dossier.category && (
+          <p className="truncate text-xs text-muted-foreground capitalize">{dossier.category}</p>
+        )}
+      </div>
+      <div className="mt-auto flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>Maj {fmtRelative(dossier.updated_at)}</span>
+        {riskTone && (
+          <span className={`rounded-full px-1.5 py-0.5 font-medium ${riskTone}`}>
+            risque {dossier.risk_level}
+          </span>
+        )}
+      </div>
+    </Link>
   );
 }
 
@@ -200,9 +401,7 @@ function StatCard({
         {icon}
       </div>
       <div className="flex-1">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="text-2xl font-semibold">
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : value}
         </p>
