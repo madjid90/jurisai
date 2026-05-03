@@ -8,6 +8,8 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
 import { extractEntities } from "./entity-extraction.server";
+import { prefillSession } from "./prefill.server";
+import type { PrefillSource, TemplateField } from "@/lib/templates/template-config";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabaseAdmin as any;
@@ -25,6 +27,7 @@ type Extras = {
   timeline?: unknown[];
   deadlines?: unknown[];
   suggestedTemplates?: unknown[];
+  risks?: Array<{ id: string; title: string; severity: string }>;
 };
 
 const DOC_INTENTS = new Set(["redaction_document", "lancer_procedure"]);
@@ -44,7 +47,7 @@ export async function runIntentActions(opts: {
 
   try {
     if (ANALYSIS_INTENTS.has(intent)) {
-      // Analyse de document/contrat : extraire échéances depuis attachments
+      // Analyse de document/contrat : extraire échéances + récupérer risques détectés
       const attachmentIds = collectAttachmentIds(draft);
       out.deadlines = await extractAndPersistDeadlines({
         tenantId,
@@ -53,6 +56,18 @@ export async function runIntentActions(opts: {
         dossierId: run.dossier_id,
         analysisIds: attachmentIds,
       });
+      // Risques déjà identifiés sur le dossier (alimentés par analysis.functions.ts)
+      if (run.dossier_id) {
+        const { data: risks } = await db
+          .from("identified_risks")
+          .select("id, title, severity")
+          .eq("tenant_id", tenantId)
+          .eq("dossier_id", run.dossier_id)
+          .eq("status", "open")
+          .order("created_at", { ascending: false })
+          .limit(10);
+        out.risks = (risks ?? []) as Array<{ id: string; title: string; severity: string }>;
+      }
     }
 
     if (DOC_INTENTS.has(intent)) {
@@ -248,18 +263,40 @@ async function generateDraftDocument(opts: {
   collected: Record<string, unknown>;
   uploadedAnalysisId: string | null;
 }): Promise<string | null> {
-  // Charge le modèle
+  // Charge le modèle (avec variables/prefill_sources)
   const { data: tpl } = await db
     .from("document_templates")
-    .select("id, name, body, archive_to_case, risk_level")
+    .select("id, name, body, archive_to_case, risk_level, variables, prefill_sources")
     .eq("id", opts.templateId)
     .maybeSingle();
   if (!tpl) return null;
 
-  // Pré-remplissage simple : substitution {{key}} depuis collected
+  // Prefill avancé : dossier + client + OCR (sans écraser ce que l'user a fourni)
+  const fields = (Array.isArray(tpl.variables) ? tpl.variables : []) as TemplateField[];
+  const prefillSources = (Array.isArray(tpl.prefill_sources)
+    ? tpl.prefill_sources
+    : ["dossier", "client", "ocr"]) as PrefillSource[];
+
+  let merged: Record<string, unknown> = { ...opts.collected };
+  let uncertain: Array<{ key: string; reason: string }> = [];
+  try {
+    const pf = await prefillSession(fields, {
+      tenantId: opts.tenantId,
+      dossierId: opts.dossierId,
+      uploadedAnalysisId: opts.uploadedAnalysisId,
+      enabledSources: prefillSources,
+    });
+    // user-provided values win over prefill
+    merged = { ...pf.data, ...opts.collected };
+    uncertain = pf.uncertain;
+  } catch (err) {
+    console.warn("[agent-intent-actions] prefill failed", err);
+  }
+
+  // Substitution {{key}}
   const body = (tpl.body as string) ?? "";
   const filled = body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key: string) => {
-    const v = opts.collected[key];
+    const v = merged[key];
     return v == null || v === "" ? `[à compléter : ${key}]` : String(v);
   });
 
@@ -275,7 +312,7 @@ async function generateDraftDocument(opts: {
       title,
       content_html: filled,
       output_format: "html",
-      variables_used: opts.collected,
+      variables_used: merged,
       status: "draft",
     })
     .select("id")
@@ -293,7 +330,12 @@ async function generateDraftDocument(opts: {
       actorId: opts.userId,
       eventType: "agent.document_generated",
       title: `Document préparé par l'agent : ${tpl.name}`,
-      metadata: { document_id: doc.id, run_id: opts.runId, template_id: tpl.id },
+      metadata: {
+        document_id: doc.id,
+        run_id: opts.runId,
+        template_id: tpl.id,
+        uncertain_fields: uncertain,
+      },
     });
   }
 
