@@ -17,11 +17,16 @@ export type Database = {
       agent_runs: {
         Row: {
           answer: string | null
+          archived_at: string | null
           confidence: number | null
           created_at: string
           domain: string | null
           dossier_id: string | null
+          draft: Json
           duration_ms: number | null
+          error_message: string | null
+          executed_at: string | null
+          final_document_ids: string[]
           id: string
           intent: string | null
           message: string
@@ -33,18 +38,26 @@ export type Database = {
           requires_rag: boolean | null
           requires_validation: boolean | null
           sources: Json | null
+          status: string
           suggested_actions: Json | null
           tenant_id: string
+          title: string | null
           topic: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
           answer?: string | null
+          archived_at?: string | null
           confidence?: number | null
           created_at?: string
           domain?: string | null
           dossier_id?: string | null
+          draft?: Json
           duration_ms?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          final_document_ids?: string[]
           id?: string
           intent?: string | null
           message: string
@@ -56,18 +69,26 @@ export type Database = {
           requires_rag?: boolean | null
           requires_validation?: boolean | null
           sources?: Json | null
+          status?: string
           suggested_actions?: Json | null
           tenant_id: string
+          title?: string | null
           topic?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
           answer?: string | null
+          archived_at?: string | null
           confidence?: number | null
           created_at?: string
           domain?: string | null
           dossier_id?: string | null
+          draft?: Json
           duration_ms?: number | null
+          error_message?: string | null
+          executed_at?: string | null
+          final_document_ids?: string[]
           id?: string
           intent?: string | null
           message?: string
@@ -79,9 +100,12 @@ export type Database = {
           requires_rag?: boolean | null
           requires_validation?: boolean | null
           sources?: Json | null
+          status?: string
           suggested_actions?: Json | null
           tenant_id?: string
+          title?: string | null
           topic?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
