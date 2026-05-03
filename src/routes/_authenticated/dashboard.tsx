@@ -28,13 +28,20 @@ import {
   type DashboardSummary,
 } from "@/server/dashboard.functions";
 import { runLegalAgent, type AgentRunOutput } from "@/server/agent.functions";
+import { runOcrDocument } from "@/server/ocr.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { AuroraOrb } from "@/components/aurora/AuroraOrb";
 import { HeroPromptInput } from "@/components/aurora/HeroPromptInput";
 import { SuggestionChip } from "@/components/aurora/SuggestionChip";
 import { AgentResultCard } from "@/components/agent/AgentResultCard";
+import {
+  DocumentResultCard,
+  type DocumentAgentResult,
+} from "@/components/agent/DocumentResultCard";
 import { useAccess } from "@/lib/auth/useAccess";
 import { getProfileSuggestions } from "@/lib/auth/profileSuggestions";
 import { buildIntakeMessage } from "@/lib/agent/home-intake";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Tableau de bord · JurisAI" }] }),
