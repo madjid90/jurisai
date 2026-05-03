@@ -1,10 +1,13 @@
-// Boîte aux lettres de l'agent JurisAI.
-// Vue unique listant toutes les demandes de l'utilisateur, avec leur état
-// dans le cycle de vie : pending → running → waiting_info / waiting_validation
-// → ready → executed → archived (ou failed).
+// Vue "assistant" — l'utilisateur ne voit JAMAIS la machine à états.
+// Il pose sa question (ou joint un document), l'agent fait tout le reste :
+//   • réfléchit  • pose des questions si besoin  • demande validation si sensible
+//   • affiche la réponse sourcée + les documents prêts à télécharger / imprimer / envoyer
+//
+// Toute la terminologie technique (pending, running, waiting_info, ready, executed…)
+// est cachée derrière des libellés naturels.
 
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   createAgentRun,
@@ -18,23 +21,25 @@ import {
 } from "@/server/agent-runs.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Send, Inbox, CheckCircle2, AlertCircle, Clock, Archive } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Printer,
+  Mail,
+  FileText,
+  Paperclip,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/agent")({
-  component: AgentInboxPage,
+  component: AssistantPage,
 });
 
 type Run = {
@@ -42,25 +47,34 @@ type Run = {
   title: string | null;
   message: string;
   status: string;
-  intent: string | null;
-  domain: string | null;
-  dossier_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
-const STATUS_META: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  pending: { label: "En attente", color: "bg-muted text-muted-foreground", icon: Clock },
-  running: { label: "En cours", color: "bg-blue-500/10 text-blue-700", icon: Loader2 },
-  waiting_info: { label: "Infos requises", color: "bg-amber-500/10 text-amber-700", icon: AlertCircle },
-  waiting_validation: { label: "Validation requise", color: "bg-orange-500/10 text-orange-700", icon: AlertCircle },
-  ready: { label: "Prêt à exécuter", color: "bg-emerald-500/10 text-emerald-700", icon: CheckCircle2 },
-  executed: { label: "Terminé", color: "bg-green-500/10 text-green-700", icon: CheckCircle2 },
-  archived: { label: "Archivé", color: "bg-muted text-muted-foreground", icon: Archive },
-  failed: { label: "Échec", color: "bg-destructive/10 text-destructive", icon: AlertCircle },
-};
+// Libellés "humains" — jamais de jargon technique côté UI.
+function humanLabel(status: string): { label: string; tone: "work" | "ask" | "ok" | "err" } {
+  switch (status) {
+    case "pending":
+    case "running":
+      return { label: "L'agent travaille…", tone: "work" };
+    case "waiting_info":
+      return { label: "Quelques précisions nécessaires", tone: "ask" };
+    case "waiting_validation":
+      return { label: "Votre validation est demandée", tone: "ask" };
+    case "ready":
+      return { label: "Finalisation…", tone: "work" };
+    case "executed":
+      return { label: "Terminé", tone: "ok" };
+    case "archived":
+      return { label: "Archivé", tone: "ok" };
+    case "failed":
+      return { label: "Une erreur est survenue", tone: "err" };
+    default:
+      return { label: "En cours", tone: "work" };
+  }
+}
 
-function AgentInboxPage() {
+function AssistantPage() {
   const create = useServerFn(createAgentRun);
   const process = useServerFn(processAgentRun);
   const execute = useServerFn(executeAgentRun);
@@ -69,11 +83,11 @@ function AgentInboxPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
-      const data = await list({ data: { scope: "mine", limit: 50 } });
+      const data = await list({ data: { scope: "mine", limit: 30 } });
       setRuns(data as unknown as Run[]);
     } catch (e) {
       console.error(e);
@@ -82,36 +96,29 @@ function AgentInboxPage() {
 
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 4000); // polling léger
+    const t = setInterval(refresh, 4000);
     return () => clearInterval(t);
   }, []);
 
   const handleSubmit = async () => {
     if (!message.trim()) return;
     setSubmitting(true);
+    const text = message.trim();
+    setMessage("");
     try {
-      const created = (await create({ data: { message: message.trim() } })) as { id: string };
-      setMessage("");
-      toast.success("Demande créée — l'agent analyse…");
+      const created = (await create({ data: { message: text } })) as { id: string };
+      setActiveId(created.id);
       await refresh();
-
-      // Auto-pipeline : process puis execute si pas d'attente humaine
+      // Pipeline auto — invisible pour l'utilisateur
       try {
         const r1 = (await process({ data: { id: created.id } })) as { status: string };
         await refresh();
         if (r1.status === "ready") {
           await execute({ data: { id: created.id } });
-          toast.success("Réponse prête !");
           await refresh();
-        } else if (r1.status === "waiting_info") {
-          toast.info("L'agent a besoin d'informations complémentaires");
-          setOpenId(created.id);
-        } else if (r1.status === "waiting_validation") {
-          toast.info("Validation requise");
-          setOpenId(created.id);
         }
       } catch (e) {
-        toast.error((e as Error).message);
+        console.error(e);
       }
     } catch (e) {
       toast.error((e as Error).message);
@@ -120,138 +127,207 @@ function AgentInboxPage() {
     }
   };
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      void handleSubmit();
+    }
+  };
+
   return (
-    <div className="container max-w-4xl py-8 space-y-6">
+    <div className="container max-w-3xl py-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Inbox className="h-7 w-7 text-primary" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
+          <Sparkles className="h-5 w-5" />
+        </div>
         <div>
-          <h1 className="text-2xl font-bold">Boîte de l'agent</h1>
+          <h1 className="text-2xl font-bold">Votre assistant juridique</h1>
           <p className="text-sm text-muted-foreground">
-            Posez votre demande — l'agent travaille en arrière-plan, rien ne se perd.
+            Posez votre question ou décrivez votre besoin — je m'occupe du reste.
           </p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nouvelle demande</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Saisie principale */}
+      <Card className="border-border/60">
+        <CardContent className="p-4 space-y-3">
           <Textarea
-            placeholder="Ex : Je veux licencier un salarié en CDI pour faute grave, par où commencer ?"
+            placeholder="Ex : Je veux licencier un salarié pour faute grave / Vérifier mon contrat fournisseur / Préparer une mise en demeure…"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={onKeyDown}
             rows={3}
             disabled={submitting}
+            className="resize-none border-0 focus-visible:ring-0 px-0 text-base"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
+              title="Bientôt : joindre un document directement ici"
+              disabled
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Joindre un document
+            </button>
             <Button onClick={handleSubmit} disabled={submitting || !message.trim()}>
-              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
               Envoyer
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Mes demandes
-        </h2>
+      {/* Fil des échanges */}
+      <div className="space-y-3">
         {runs.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">Aucune demande pour l'instant.</p>
+          <p className="text-sm text-muted-foreground py-12 text-center">
+            Aucune demande pour l'instant. Commencez par décrire votre besoin ci-dessus.
+          </p>
         ) : (
-          runs.map((r) => {
-            const meta = STATUS_META[r.status] ?? STATUS_META.pending;
-            const Icon = meta.icon;
-            return (
-              <Card
-                key={r.id}
-                className="cursor-pointer hover:bg-accent/50 transition-colors"
-                onClick={() => setOpenId(r.id)}
-              >
-                <CardContent className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{r.title || r.message.slice(0, 80)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(r.updated_at).toLocaleString("fr-FR")}
-                      {r.intent ? ` • ${r.intent}` : ""}
-                      {r.domain ? ` • ${r.domain}` : ""}
-                    </p>
-                  </div>
-                  <Badge variant="outline" className={meta.color}>
-                    <Icon className={`h-3 w-3 mr-1 ${r.status === "running" ? "animate-spin" : ""}`} />
-                    {meta.label}
-                  </Badge>
-                </CardContent>
-              </Card>
-            );
-          })
+          runs.map((r) => (
+            <RunCard
+              key={r.id}
+              summary={r}
+              expanded={activeId === r.id}
+              onToggle={() => setActiveId(activeId === r.id ? null : r.id)}
+              onChanged={refresh}
+            />
+          ))
         )}
       </div>
-
-      {openId ? <RunDetailDialog runId={openId} onClose={() => { setOpenId(null); refresh(); }} /> : null}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Détail d'une run + actions contextuelles (répondre, valider, archiver)
+// Carte d'une demande — affiche l'état naturellement et déroule le détail
 // ---------------------------------------------------------------------------
-function RunDetailDialog({ runId, onClose }: { runId: string; onClose: () => void }) {
+function RunCard({
+  summary,
+  expanded,
+  onToggle,
+  onChanged,
+}: {
+  summary: Run;
+  expanded: boolean;
+  onToggle: () => void;
+  onChanged: () => void;
+}) {
   const get = useServerFn(getAgentRun);
+  const [run, setRun] = useState<Record<string, unknown> | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  const load = async () => {
+    try {
+      const r = (await get({ data: { id: summary.id } })) as Record<string, unknown>;
+      setRun(r);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Recharger en continu tant que l'agent n'a pas fini
+  useEffect(() => {
+    if (!expanded) {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      return;
+    }
+    void load();
+    const inFlight = ["pending", "running", "ready"].includes(summary.status);
+    if (inFlight) {
+      pollingRef.current = setInterval(load, 2500);
+    }
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, summary.status]);
+
+  const meta = humanLabel(summary.status);
+  const dotColor =
+    meta.tone === "work"
+      ? "bg-blue-500 animate-pulse"
+      : meta.tone === "ask"
+        ? "bg-amber-500"
+        : meta.tone === "err"
+          ? "bg-destructive"
+          : "bg-emerald-500";
+
+  return (
+    <Card className="border-border/60 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left hover:bg-accent/30 transition-colors"
+      >
+        <CardContent className="py-3 px-4 flex items-center gap-3">
+          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${dotColor}`} />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium truncate text-sm">
+              {summary.title || summary.message.slice(0, 80)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {meta.label} · {new Date(summary.updated_at).toLocaleString("fr-FR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+            </p>
+          </div>
+        </CardContent>
+      </button>
+
+      {expanded && run ? <RunDetail run={run} onChanged={onChanged} reload={load} /> : null}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Détail conversationnel — pas de jargon, actions naturelles
+// ---------------------------------------------------------------------------
+function RunDetail({
+  run,
+  onChanged,
+  reload,
+}: {
+  run: Record<string, unknown>;
+  onChanged: () => void;
+  reload: () => Promise<void>;
+}) {
   const answer = useServerFn(answerAgentRun);
   const validate = useServerFn(validateAgentRun);
   const archive = useServerFn(archiveAgentRun);
   const execute = useServerFn(executeAgentRun);
   const process = useServerFn(processAgentRun);
 
-  const [run, setRun] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
   const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
-
-  const load = async () => {
-    try {
-      const r = (await get({ data: { id: runId } })) as Record<string, unknown>;
-      setRun(r);
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [runId]);
-
-  if (!run) {
-    return (
-      <Dialog open onOpenChange={onClose}>
-        <DialogContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   const status = run.status as string;
   const draft = (run.draft as Record<string, unknown>) ?? {};
   const missing = ((run.missing_information as unknown[]) ?? []) as Array<
     string | { key?: string; label?: string; question?: string }
   >;
-  const procedure = (draft.procedure as Array<{ step: number; title: string; description: string }>) ?? [];
-  const sources = (run.sources as Array<{ title: string; reference?: string; url?: string }>) ?? [];
+  const procedure =
+    (draft.procedure as Array<{ step: number; title: string; description: string }>) ?? [];
+  const sources =
+    (run.sources as Array<{ title: string; reference?: string; url?: string }>) ?? [];
   const answerText = (run.answer as string) ?? "";
+  const refused = run.refused as boolean | null;
+  const refusalReason = run.refusal_reason as string | null;
 
   const submitAnswers = async () => {
     setBusy(true);
     try {
-      await answer({ data: { id: runId, answers: formAnswers } });
-      toast.success("Infos transmises — l'agent reprend");
-      // Relance auto
-      const r1 = (await process({ data: { id: runId } })) as { status: string };
-      if (r1.status === "ready") await execute({ data: { id: runId } });
-      await load();
+      await answer({ data: { id: run.id as string, answers: formAnswers } });
+      const r1 = (await process({ data: { id: run.id as string } })) as { status: string };
+      if (r1.status === "ready") await execute({ data: { id: run.id as string } });
+      await reload();
+      onChanged();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -262,10 +338,11 @@ function RunDetailDialog({ runId, onClose }: { runId: string; onClose: () => voi
   const decideValidation = async (approved: boolean) => {
     setBusy(true);
     try {
-      await validate({ data: { id: runId, approved } });
-      if (approved) await execute({ data: { id: runId } });
-      toast.success(approved ? "Validé et exécuté" : "Rejeté et archivé");
-      await load();
+      await validate({ data: { id: run.id as string, approved } });
+      if (approved) await execute({ data: { id: run.id as string } });
+      toast.success(approved ? "C'est parti !" : "Demande annulée");
+      await reload();
+      onChanged();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -276,9 +353,9 @@ function RunDetailDialog({ runId, onClose }: { runId: string; onClose: () => voi
   const doArchive = async () => {
     setBusy(true);
     try {
-      await archive({ data: { id: runId } });
-      toast.success("Archivé");
-      onClose();
+      await archive({ data: { id: run.id as string } });
+      toast.success("Classé");
+      onChanged();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -286,99 +363,165 @@ function RunDetailDialog({ runId, onClose }: { runId: string; onClose: () => voi
     }
   };
 
-  return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{(run.title as string) || "Demande"}</DialogTitle>
-          <DialogDescription className="text-sm">
-            <Badge variant="outline" className={STATUS_META[status]?.color}>
-              {STATUS_META[status]?.label ?? status}
-            </Badge>
-          </DialogDescription>
-        </DialogHeader>
+  const handlePrint = () => window.print();
 
-        <div className="space-y-4 text-sm">
-          <div>
-            <Label className="text-muted-foreground">Demande initiale</Label>
-            <p className="mt-1">{run.message as string}</p>
+  return (
+    <div className="border-t border-border/60 px-4 py-4 space-y-4 bg-muted/20">
+      {/* Demande initiale rappelée discrètement */}
+      <div className="text-xs text-muted-foreground italic">
+        « {run.message as string} »
+      </div>
+
+      {/* L'agent travaille */}
+      {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
+        <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>
+            L'agent analyse votre demande et prépare une réponse sourcée…
+          </span>
+        </div>
+      ) : null}
+
+      {/* Questions naturelles */}
+      {status === "waiting_info" && missing.length > 0 ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm font-medium">
+              Pour vous donner la meilleure réponse, j'ai besoin de quelques précisions :
+            </p>
+          </div>
+          <div className="space-y-3 pl-6">
+            {missing.map((m, i) => {
+              const key = typeof m === "string" ? m : m.key ?? `q_${i}`;
+              const label = typeof m === "string" ? m : m.label ?? m.question ?? key;
+              return (
+                <div key={key} className="space-y-1.5">
+                  <Label htmlFor={key} className="text-sm font-normal">
+                    {label}
+                  </Label>
+                  <Input
+                    id={key}
+                    value={formAnswers[key] ?? ""}
+                    onChange={(e) => setFormAnswers({ ...formAnswers, [key]: e.target.value })}
+                    className="bg-background"
+                  />
+                </div>
+              );
+            })}
+            <Button onClick={submitAnswers} disabled={busy} size="sm" className="mt-2">
+              {busy ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : null}
+              Continuer
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Validation naturelle */}
+      {status === "waiting_validation" ? (
+        <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm font-medium">
+              Cette action est sensible — confirmez-vous le lancement ?
+            </p>
+          </div>
+          <div className="flex gap-2 pl-6">
+            <Button onClick={() => decideValidation(true)} disabled={busy} size="sm">
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              Confirmer et lancer
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => decideValidation(false)}
+              disabled={busy}
+              size="sm"
+            >
+              Annuler
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Refus motivé */}
+      {refused && refusalReason ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          <p className="font-medium mb-1">Je préfère ne pas répondre :</p>
+          <p className="text-muted-foreground">{refusalReason}</p>
+        </div>
+      ) : null}
+
+      {/* Réponse */}
+      {answerText ? (
+        <div className="space-y-3">
+          <div className="rounded-lg bg-background border border-border/60 p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Réponse
+            </p>
+            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
+              {answerText}
+            </div>
           </div>
 
-          {/* État : waiting_info → formulaire dynamique */}
-          {status === "waiting_info" && missing.length > 0 ? (
-            <div className="space-y-3 border-l-2 border-amber-500 pl-4">
-              <p className="font-medium">L'agent a besoin de précisions :</p>
-              {missing.map((m, i) => {
-                const key = typeof m === "string" ? m : m.key ?? `q_${i}`;
-                const label = typeof m === "string" ? m : m.label ?? m.question ?? key;
-                return (
-                  <div key={key} className="space-y-1">
-                    <Label htmlFor={key}>{label}</Label>
-                    <Input
-                      id={key}
-                      value={formAnswers[key] ?? ""}
-                      onChange={(e) => setFormAnswers({ ...formAnswers, [key]: e.target.value })}
-                    />
-                  </div>
-                );
-              })}
-              <Button onClick={submitAnswers} disabled={busy} className="w-full">
-                {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                Transmettre à l'agent
-              </Button>
-            </div>
-          ) : null}
-
-          {/* État : waiting_validation */}
-          {status === "waiting_validation" ? (
-            <div className="space-y-3 border-l-2 border-orange-500 pl-4">
-              <p className="font-medium">Action sensible — votre validation est requise.</p>
-              <div className="flex gap-2">
-                <Button variant="default" onClick={() => decideValidation(true)} disabled={busy}>
-                  Approuver et exécuter
-                </Button>
-                <Button variant="outline" onClick={() => decideValidation(false)} disabled={busy}>
-                  Rejeter
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
-          {/* Réponse finale */}
-          {answerText ? (
-            <div>
-              <Label className="text-muted-foreground">Réponse</Label>
-              <div className="mt-1 whitespace-pre-wrap rounded border bg-muted/30 p-3">{answerText}</div>
-            </div>
-          ) : null}
-
-          {/* Procédure */}
           {procedure.length > 0 ? (
-            <div>
-              <Label className="text-muted-foreground">Procédure</Label>
-              <ol className="mt-2 space-y-2">
+            <div className="rounded-lg bg-background border border-border/60 p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Procédure à suivre
+              </p>
+              <ol className="space-y-3">
                 {procedure.map((p) => (
-                  <li key={p.step} className="rounded border p-3">
-                    <p className="font-medium">
-                      {p.step}. {p.title}
-                    </p>
-                    <p className="text-muted-foreground mt-1">{p.description}</p>
+                  <li key={p.step} className="flex gap-3">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {p.step}
+                    </span>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{p.title}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">{p.description}</p>
+                    </div>
                   </li>
                 ))}
               </ol>
             </div>
           ) : null}
 
-          {/* Sources */}
+          {/* Documents générés (placeholder — branché quand executeAgentRun produira des docs) */}
+          {Array.isArray(run.final_document_ids) && (run.final_document_ids as unknown[]).length > 0 ? (
+            <div className="rounded-lg bg-background border border-border/60 p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Documents prêts
+              </p>
+              <div className="space-y-2">
+                {(run.final_document_ids as string[]).map((docId) => (
+                  <div key={docId} className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2">
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="text-sm flex-1 truncate">Document #{docId.slice(0, 8)}</span>
+                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handlePrint}>
+                      <Printer className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                      <Mail className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Sources discrètes */}
           {sources.length > 0 ? (
-            <div>
-              <Label className="text-muted-foreground">Sources juridiques</Label>
-              <ul className="mt-1 space-y-1 text-xs">
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                Voir les sources juridiques ({sources.length})
+              </summary>
+              <ul className="mt-2 space-y-1 pl-4">
                 {sources.map((s, i) => (
-                  <li key={i}>
-                    [source:{i + 1}]{" "}
+                  <li key={i} className="text-muted-foreground">
+                    [{i + 1}]{" "}
                     {s.url ? (
-                      <a href={s.url} target="_blank" rel="noreferrer" className="underline">
+                      <a href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
                         {s.title}
                       </a>
                     ) : (
@@ -388,28 +531,24 @@ function RunDetailDialog({ runId, onClose }: { runId: string; onClose: () => voi
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           ) : null}
 
-          {(run.error_message as string) ? (
-            <div className="rounded border border-destructive/30 bg-destructive/5 p-3 text-destructive">
-              {run.error_message as string}
+          {status !== "archived" ? (
+            <div className="flex justify-end pt-2">
+              <Button variant="ghost" size="sm" onClick={doArchive} disabled={busy}>
+                Classer cette demande
+              </Button>
             </div>
           ) : null}
         </div>
+      ) : null}
 
-        <DialogFooter>
-          {status !== "archived" ? (
-            <Button variant="ghost" onClick={doArchive} disabled={busy}>
-              <Archive className="h-4 w-4 mr-2" />
-              Archiver
-            </Button>
-          ) : null}
-          <Button variant="outline" onClick={onClose}>
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {status === "failed" && !refused ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          {(run.error_message as string) ?? "Une erreur s'est produite. Réessayez plus tard."}
+        </div>
+      ) : null}
+    </div>
   );
 }
