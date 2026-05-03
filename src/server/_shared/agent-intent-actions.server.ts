@@ -47,7 +47,7 @@ export async function runIntentActions(opts: {
 
   try {
     if (ANALYSIS_INTENTS.has(intent)) {
-      // Analyse de document/contrat : extraire échéances depuis attachments
+      // Analyse de document/contrat : extraire échéances + récupérer risques détectés
       const attachmentIds = collectAttachmentIds(draft);
       out.deadlines = await extractAndPersistDeadlines({
         tenantId,
@@ -56,6 +56,18 @@ export async function runIntentActions(opts: {
         dossierId: run.dossier_id,
         analysisIds: attachmentIds,
       });
+      // Risques déjà identifiés sur le dossier (alimentés par analysis.functions.ts)
+      if (run.dossier_id) {
+        const { data: risks } = await db
+          .from("identified_risks")
+          .select("id, title, severity")
+          .eq("tenant_id", tenantId)
+          .eq("dossier_id", run.dossier_id)
+          .eq("status", "open")
+          .order("created_at", { ascending: false })
+          .limit(10);
+        out.risks = (risks ?? []) as Array<{ id: string; title: string; severity: string }>;
+      }
     }
 
     if (DOC_INTENTS.has(intent)) {
