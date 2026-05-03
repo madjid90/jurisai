@@ -61,6 +61,32 @@ type Props = {
  */
 export function AgentResultCard({ result, onRelaunch, onClose }: Props) {
   const [showTrace, setShowTrace] = useState(false);
+  const [missingOpen, setMissingOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
+  const createValidation = useServerFn(createAgentValidationRequest);
+
+  const rule = useMemo(() => pickRule(result), [result]);
+  const hasMissing = result.missing_information.length > 0 || rule.required_fields.length > 0;
+  const hasSensitive = result.requires_validation || rule.kind !== "generic";
+
+  async function submitValidation(payload: { roles: string[]; message: string; sla_days: number }) {
+    try {
+      await createValidation({
+        data: {
+          action_type: rule.title,
+          rule_kind: rule.kind,
+          roles: payload.roles,
+          message: payload.message,
+          sla_days: payload.sla_days,
+          agent_run_id: result.run_id,
+        },
+      });
+      toast.success("Demande de validation envoyée");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  }
 
   return (
     <section className="space-y-3 rounded-3xl border border-border bg-card/80 p-5 shadow-[var(--shadow-card)]">
@@ -112,13 +138,42 @@ export function AgentResultCard({ result, onRelaunch, onClose }: Props) {
         </div>
       )}
 
-      {/* Informations manquantes */}
-      {result.missing_information.length > 0 && onRelaunch && (
-        <MissingInfoForm
-          items={result.missing_information}
-          onSubmit={onRelaunch}
-        />
+      {/* Barre d'actions métier */}
+      {(hasMissing || hasSensitive || rule.steps.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background/40 p-2.5">
+          {hasMissing && onRelaunch && (
+            <button
+              type="button"
+              onClick={() => setMissingOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[12.5px] font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Compléter les informations
+            </button>
+          )}
+          {rule.steps.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground hover:opacity-95"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Préparer : {rule.title}
+            </button>
+          )}
+          {hasSensitive && (
+            <button
+              type="button"
+              onClick={() => setValidationOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent hover:bg-accent-soft/80"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Demander validation
+            </button>
+          )}
+        </div>
       )}
+
 
       {/* Actions suggérées */}
       {result.suggested_actions.length > 0 && (
