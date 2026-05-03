@@ -307,10 +307,36 @@ function DashboardPage() {
           </div>
         )}
 
+        {/* Résultat document inline (pipeline upload) */}
+        {docResult && (
+          <div id="doc-result">
+            <DocumentResultCard
+              result={docResult}
+              onClose={() => setDocResult(null)}
+              onAsk={(prompt) => {
+                const message = buildIntakeMessage({
+                  message: prompt,
+                  source: "document",
+                  document_id: docResult.document_id,
+                });
+                void runIntake(message);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Loader pendant l'upload/OCR */}
+        {agentLoading && docProgress && !docResult && (
+          <div className="flex items-center gap-3 rounded-3xl border border-border bg-card/80 p-5 text-[13px] text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            {docProgress}
+          </div>
+        )}
+
         {/* Résultat agent inline */}
-        {(agentResult || agentLoading) && (
+        {(agentResult || (agentLoading && !docProgress)) && (
           <div id="agent-result">
-            {agentLoading && !agentResult && (
+            {agentLoading && !agentResult && !docProgress && (
               <div className="flex items-center gap-3 rounded-3xl border border-border bg-card/80 p-5 text-[13px] text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-accent" />
                 L'agent travaille en arrière-plan…
