@@ -263,18 +263,40 @@ async function generateDraftDocument(opts: {
   collected: Record<string, unknown>;
   uploadedAnalysisId: string | null;
 }): Promise<string | null> {
-  // Charge le modèle
+  // Charge le modèle (avec variables/prefill_sources)
   const { data: tpl } = await db
     .from("document_templates")
-    .select("id, name, body, archive_to_case, risk_level")
+    .select("id, name, body, archive_to_case, risk_level, variables, prefill_sources")
     .eq("id", opts.templateId)
     .maybeSingle();
   if (!tpl) return null;
 
-  // Pré-remplissage simple : substitution {{key}} depuis collected
+  // Prefill avancé : dossier + client + OCR (sans écraser ce que l'user a fourni)
+  const fields = (Array.isArray(tpl.variables) ? tpl.variables : []) as TemplateField[];
+  const prefillSources = (Array.isArray(tpl.prefill_sources)
+    ? tpl.prefill_sources
+    : ["dossier", "client", "ocr"]) as PrefillSource[];
+
+  let merged: Record<string, unknown> = { ...opts.collected };
+  let uncertain: Array<{ key: string; reason: string }> = [];
+  try {
+    const pf = await prefillSession(fields, {
+      tenantId: opts.tenantId,
+      dossierId: opts.dossierId,
+      uploadedAnalysisId: opts.uploadedAnalysisId,
+      enabledSources: prefillSources,
+    });
+    // user-provided values win over prefill
+    merged = { ...pf.data, ...opts.collected };
+    uncertain = pf.uncertain;
+  } catch (err) {
+    console.warn("[agent-intent-actions] prefill failed", err);
+  }
+
+  // Substitution {{key}}
   const body = (tpl.body as string) ?? "";
   const filled = body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key: string) => {
-    const v = opts.collected[key];
+    const v = merged[key];
     return v == null || v === "" ? `[à compléter : ${key}]` : String(v);
   });
 
@@ -290,7 +312,7 @@ async function generateDraftDocument(opts: {
       title,
       content_html: filled,
       output_format: "html",
-      variables_used: opts.collected,
+      variables_used: merged,
       status: "draft",
     })
     .select("id")
