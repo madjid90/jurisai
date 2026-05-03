@@ -27,6 +27,7 @@ type Extras = {
   timeline?: unknown[];
   deadlines?: unknown[];
   suggestedTemplates?: unknown[];
+  risks?: Array<{ id: string; title: string; severity: string }>;
 };
 
 const DOC_INTENTS = new Set(["redaction_document", "lancer_procedure"]);
