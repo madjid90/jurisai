@@ -269,12 +269,30 @@ export const cancelWorkflow = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
+    const { data: inst } = await supabaseAdmin
+      .from("workflow_instances")
+      .select("dossier_id, title")
+      .eq("id", data.instanceId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
     const { error } = await (supabaseAdmin as any)
       .from("workflow_instances")
       .update({ status: "cancelled", completed_at: new Date().toISOString() })
       .eq("id", data.instanceId)
       .eq("tenant_id", tenantId);
     if (error) throw new Error(error.message);
+    if ((inst as any)?.dossier_id) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: (inst as any).dossier_id,
+          actorId: userId,
+          eventType: "workflow.cancelled",
+          title: `Procédure annulée : ${(inst as any).title}`,
+          metadata: { workflow_instance_id: data.instanceId },
+        });
+      } catch (e) { console.warn("[workflow] timeline log failed:", e); }
+    }
     return { ok: true };
   });
 
