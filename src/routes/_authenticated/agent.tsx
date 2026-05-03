@@ -439,12 +439,25 @@ function RunDetail({
 
   const handlePrint = () => window.print();
 
+  const dossierId = (run.dossier_id as string | null) ?? null;
+
   return (
     <div className="border-t border-border/60 px-4 py-4 space-y-4 bg-muted/20">
       {/* Demande initiale rappelée discrètement */}
       <div className="text-xs text-muted-foreground italic">
         « {run.message as string} »
       </div>
+
+      {/* Suivi dans un dossier */}
+      {dossierId && (
+        <Link
+          to="/dossiers/$id"
+          params={{ id: dossierId }}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
+        >
+          📁 Suivi dans le dossier — ouvrir
+        </Link>
+      )}
 
       {/* L'agent travaille */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
