@@ -384,6 +384,21 @@ export const analyzeDocument = createServerFn({ method: "POST" })
         metadata: { filename: data.filename, file_type: data.file_type, domain: analysis.domain },
       });
 
+      // Pipeline post-ingestion (entités → contexte → liaisons → index → timeline)
+      try {
+        const { processUploadedDocument } = await import(
+          "@/server/_shared/document-pipeline.server"
+        );
+        await processUploadedDocument({
+          documentId: record.id,
+          tenantId,
+          actorId: ctx.userId,
+          forcedDossierId: data.dossier_id ?? null,
+        });
+      } catch (e) {
+        console.error("[analysis] pipeline failed", e);
+      }
+
       return { id: record.id as string, analysis, tokens };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
