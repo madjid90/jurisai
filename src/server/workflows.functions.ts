@@ -113,8 +113,62 @@ export const startWorkflow = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+
+    if (data.dossierId) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: data.dossierId,
+          actorId: userId,
+          eventType: "workflow.started",
+          title: `Procédure démarrée : ${data.title}`,
+          metadata: { workflow_instance_id: inserted.id, definition_id: data.definitionId },
+        });
+      } catch (e) { console.warn("[workflow] timeline log failed:", e); }
+    }
+
     return { id: inserted.id as string };
   });
+
+// Crée un rappel (reminders) pour l'étape `step` à partir d'aujourd'hui.
+// `delay_days` ou `reminder_days` (priorité au + petit) déclenchent le rappel.
+async function maybeCreateStepReminder(opts: {
+  tenantId: string;
+  userId: string;
+  dossierId: string | null;
+  instanceId: string;
+  instanceTitle: string;
+  step: WorkflowStep & { reminder_days?: number };
+  stepIndex: number;
+}) {
+  const days = (() => {
+    const candidates = [opts.step.delay_days, (opts.step as any).reminder_days].filter(
+      (v): v is number => typeof v === "number" && v > 0,
+    );
+    return candidates.length ? Math.min(...candidates) : null;
+  })();
+  if (days == null) return;
+  const remindAt = new Date(Date.now() + days * 86400_000).toISOString();
+  try {
+    await (supabaseAdmin as any).from("reminders").insert({
+      tenant_id: opts.tenantId,
+      user_id: opts.userId,
+      created_by: opts.userId,
+      dossier_id: opts.dossierId,
+      title: `Procédure « ${opts.instanceTitle} » — ${opts.step.title}`,
+      body: opts.step.description ?? null,
+      remind_at: remindAt,
+      metadata: {
+        source: "workflow",
+        workflow_instance_id: opts.instanceId,
+        step_index: opts.stepIndex,
+        step_key: opts.step.key,
+      },
+    });
+  } catch (e) {
+    console.warn("[workflow] reminder insert failed:", e);
+  }
+}
 
 // ─── Mark a step as completed and advance ──────────────────────────────────
 
@@ -135,7 +189,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
 
     const { data: inst, error: instErr } = await supabaseAdmin
       .from("workflow_instances")
-      .select("id, tenant_id, current_step_index, definition_id")
+      .select("id, tenant_id, current_step_index, definition_id, dossier_id, title")
       .eq("id", data.instanceId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
@@ -145,6 +199,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
     const { data: def } = await supabaseAdmin
       .from("workflow_definitions").select("steps").eq("id", (inst as any).definition_id).maybeSingle();
     const steps = ((def as any)?.steps ?? []) as WorkflowStep[];
+    const currentStep = steps[data.stepIndex];
 
     // Insert step run
     await (supabaseAdmin as any).from("workflow_step_runs").insert({
@@ -170,6 +225,41 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
       })
       .eq("id", data.instanceId);
 
+    const dossierId = (inst as any).dossier_id as string | null;
+    const instTitle = (inst as any).title as string;
+
+    // Timeline
+    if (dossierId) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId,
+          actorId: userId,
+          eventType: isComplete ? "workflow.completed" : "workflow.advanced",
+          title: isComplete
+            ? `Procédure terminée : ${instTitle}`
+            : `Étape « ${currentStep?.title ?? data.stepKey} » validée`,
+          description: data.notes ?? null,
+          metadata: {
+            workflow_instance_id: data.instanceId,
+            step_index: data.stepIndex,
+            step_key: data.stepKey,
+          },
+        });
+      } catch (e) { console.warn("[workflow] timeline log failed:", e); }
+    }
+
+    // Rappel automatique pour l'étape suivante
+    if (!isComplete) {
+      const nextStep = steps[nextIndex];
+      if (nextStep) {
+        await maybeCreateStepReminder({
+          tenantId, userId, dossierId, instanceId: data.instanceId,
+          instanceTitle: instTitle, step: nextStep, stepIndex: nextIndex,
+        });
+      }
+    }
+
     return { ok: true, completed: isComplete };
   });
 
@@ -179,12 +269,30 @@ export const cancelWorkflow = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
+    const { data: inst } = await supabaseAdmin
+      .from("workflow_instances")
+      .select("dossier_id, title")
+      .eq("id", data.instanceId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
     const { error } = await (supabaseAdmin as any)
       .from("workflow_instances")
       .update({ status: "cancelled", completed_at: new Date().toISOString() })
       .eq("id", data.instanceId)
       .eq("tenant_id", tenantId);
     if (error) throw new Error(error.message);
+    if ((inst as any)?.dossier_id) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: (inst as any).dossier_id,
+          actorId: userId,
+          eventType: "workflow.cancelled",
+          title: `Procédure annulée : ${(inst as any).title}`,
+          metadata: { workflow_instance_id: data.instanceId },
+        });
+      } catch (e) { console.warn("[workflow] timeline log failed:", e); }
+    }
     return { ok: true };
   });
 
@@ -415,6 +523,22 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
           completed_at: isComplete ? new Date().toISOString() : null,
         })
         .eq("id", data.instanceId);
+
+      // Rappel automatique pour l'étape suivante
+      if (!isComplete) {
+        const nextStep = steps[nextIndex];
+        if (nextStep) {
+          await maybeCreateStepReminder({
+            tenantId,
+            userId,
+            dossierId: (inst as any).dossier_id ?? null,
+            instanceId: data.instanceId,
+            instanceTitle: (inst as any).title ?? "Procédure",
+            step: nextStep,
+            stepIndex: nextIndex,
+          });
+        }
+      }
 
       return { ok: true, documentId: doc.id as string, advanced: true, completed: isComplete, sources_used: sources.length };
     }
