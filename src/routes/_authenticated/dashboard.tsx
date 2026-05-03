@@ -92,21 +92,21 @@ function DashboardPage() {
           <StatCard
             icon={<FolderOpen className="h-5 w-5" />}
             label="Dossiers ouverts"
-            value={summary?.openCases ?? 0}
+            value={summary?.counters.open_dossiers ?? 0}
             loading={loading}
             to="/dossiers"
           />
           <StatCard
             icon={<Clock className="h-5 w-5" />}
-            label="Échéances 30j"
-            value={summary?.upcomingDeadlines?.length ?? 0}
+            label="À traiter aujourd'hui"
+            value={summary?.to_treat_today.length ?? 0}
             loading={loading}
             to="/dossiers"
           />
           <StatCard
             icon={<Bell className="h-5 w-5" />}
             label="Alertes veille"
-            value={summary?.recentAlerts?.length ?? 0}
+            value={summary?.counters.unread_alerts ?? 0}
             loading={loading}
             to="/veille"
           />
