@@ -60,6 +60,7 @@ export type DashboardSummary = {
     pending_validations: number;
     active_reminders: number;
     unread_alerts: number;
+    pending_links: number;
   };
 };
 
@@ -89,6 +90,7 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       pendingValidationsCount,
       activeRemindersCount,
       alertsCount,
+      pendingLinksCount,
       tenantIdcc,
     ] = await Promise.all([
       sb
@@ -148,6 +150,11 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
         .from("legal_alerts")
         .select("id", { count: "exact", head: true })
         .gte("created_at", since30),
+      sb
+        .from("document_links")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .eq("status", "pending"),
       sb.from("tenants").select("idcc").eq("id", tenantId).maybeSingle(),
     ]);
 
@@ -208,6 +215,7 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
         pending_validations: pendingValidationsCount.count ?? 0,
         active_reminders: activeRemindersCount.count ?? 0,
         unread_alerts: alertsCount.count ?? 0,
+        pending_links: pendingLinksCount.count ?? 0,
       },
     };
   });

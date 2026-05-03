@@ -20,6 +20,7 @@ import {
   FileSearch,
   MessageSquare,
   FolderPlus,
+  Link2,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -172,7 +173,15 @@ function DashboardPage() {
           </div>
 
           {/* Compteurs */}
-          <div className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <CounterCard
+              icon={Link2}
+              label="Liaisons à valider"
+              value={data?.counters.pending_links ?? 0}
+              loading={loading}
+              to="/links"
+              tone={(data?.counters.pending_links ?? 0) > 0 ? "warn" : "neutral"}
+            />
             <CounterCard
               icon={FolderOpen}
               label="Dossiers ouverts"
