@@ -71,7 +71,7 @@ function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [agentInput, setAgentInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const firstName = (profile?.full_name ?? user?.email ?? "").split(" ")[0] ?? "";
 
@@ -92,56 +92,87 @@ function DashboardPage() {
     ? Math.min(100, Math.round((tenant.questions_used / Math.max(1, tenant.quota_questions)) * 100))
     : 0;
 
-  function launchAgent() {
-    const q = agentInput.trim();
-    if (!q) return;
-    void navigate({
-      to: "/agent",
-      search: { q } as never,
-    });
+  async function handlePromptSubmit(text: string, files: File[]) {
+    if (!text && !files.length) return;
+    setSubmitting(true);
+    try {
+      // Si fichiers : router vers /scan pour ingestion + analyse
+      if (files.length > 0) {
+        void navigate({ to: "/scan" });
+        return;
+      }
+      void navigate({ to: "/agent", search: { q: text } as never });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function quickPrompt(q: string) {
+    void navigate({ to: "/agent", search: { q } as never });
   }
 
   return (
     <AppShell>
-      <div className="space-y-4 overflow-y-auto pb-8">
-        {/* HERO — Input Agent central */}
-        <section className="rounded-3xl border border-border bg-gradient-to-br from-card via-card to-accent-soft/30 p-6 shadow-[var(--shadow-card)]">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[var(--shadow-glow)]">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-[22px] font-bold tracking-tight text-foreground">
-                Bonjour {firstName} 👋
+      <div className="space-y-8 overflow-y-auto pb-10">
+        {/* HERO — Home AI : orb + prompt central + chips */}
+        <section className="relative isolate overflow-hidden rounded-3xl border border-border bg-card/60 px-4 py-10 shadow-[var(--shadow-card)] sm:px-8 sm:py-14">
+          <div
+            className="pointer-events-none absolute inset-0 -z-10 mesh-bg opacity-70"
+            aria-hidden
+          />
+
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+            <AuroraOrb size={140} active={submitting} />
+
+            <div className="space-y-2">
+              <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                Bonjour {firstName}
               </h1>
-              <p className="text-[13px] text-muted-foreground">
-                Posez votre question juridique — l'agent comprend, source, propose et trace.
+              <p className="text-pretty text-[14px] text-muted-foreground sm:text-base">
+                Posez votre question, joignez un document, ou choisissez une action.
+                <br className="hidden sm:inline" />
+                JurisAI comprend, source, propose, prépare, exécute et trace.
               </p>
             </div>
-          </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <input
-              value={agentInput}
-              onChange={(e) => setAgentInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") launchAgent();
-              }}
+            <HeroPromptInput
+              className="w-full max-w-2xl"
+              loading={submitting}
+              onSubmit={handlePromptSubmit}
               placeholder="Ex : Préparer une rupture conventionnelle pour un cadre embauché en 2019…"
-              className="input-base flex-1"
             />
-            <button
-              onClick={launchAgent}
-              disabled={!agentInput.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-[13.5px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95 disabled:opacity-50"
-            >
-              <Sparkles className="h-4 w-4" />
-              Lancer l'agent
-            </button>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <SuggestionChip
+                icon={<PenLine className="h-3.5 w-3.5" />}
+                label="Rédiger un contrat"
+                onClick={() => quickPrompt("Rédige un contrat ")}
+              />
+              <SuggestionChip
+                icon={<FileSearch className="h-3.5 w-3.5" />}
+                label="Analyser un document"
+                onClick={() => void navigate({ to: "/scan" })}
+              />
+              <SuggestionChip
+                icon={<MessageSquare className="h-3.5 w-3.5" />}
+                label="Demander à l'IA"
+                onClick={() => quickPrompt("")}
+              />
+              <SuggestionChip
+                icon={<FolderPlus className="h-3.5 w-3.5" />}
+                label="Ouvrir un dossier"
+                onClick={() => quickPrompt("Ouvre un nouveau dossier pour ")}
+              />
+              <SuggestionChip
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                label="Veille du jour"
+                onClick={() => void navigate({ to: "/veille" })}
+              />
+            </div>
           </div>
 
           {/* Compteurs */}
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4">
             <CounterCard
               icon={FolderOpen}
               label="Dossiers ouverts"
