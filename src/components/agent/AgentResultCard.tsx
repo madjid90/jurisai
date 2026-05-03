@@ -269,70 +269,36 @@ export function AgentResultCard({ result, onRelaunch, onClose }: Props) {
           journal d'audit
         </Link>
       </p>
+
+      {/* Modales métier */}
+      {onRelaunch && (
+        <MissingInfoModal
+          open={missingOpen}
+          onOpenChange={setMissingOpen}
+          rule={rule}
+          freeformQuestions={result.missing_information}
+          onSubmit={(enriched) => {
+            onRelaunch(enriched);
+          }}
+        />
+      )}
+      <ConfirmationModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        rule={rule}
+        onConfirm={() => {
+          // Pour l'instant : relance l'agent avec instruction de préparer les étapes.
+          onRelaunch?.(`Confirmé : prépare la procédure "${rule.title}" en suivant les étapes prévues. Génère les documents et programme les rappels nécessaires (sans envoi externe).`);
+          toast.success("Procédure transmise à l'agent");
+        }}
+      />
+      <HumanValidationModal
+        open={validationOpen}
+        onOpenChange={setValidationOpen}
+        rule={rule}
+        onSubmit={submitValidation}
+      />
     </section>
   );
 }
 
-/* ---------- Missing info form ---------- */
-
-function MissingInfoForm({
-  items,
-  onSubmit,
-}: {
-  items: string[];
-  onSubmit: (enriched: string) => void;
-}) {
-  const [values, setValues] = useState<Record<number, string>>({});
-  const filled = Object.values(values).filter((v) => v.trim()).length;
-
-  function relaunch() {
-    const lines = items
-      .map((q, i) => {
-        const v = (values[i] ?? "").trim();
-        return v ? `- ${q} → ${v}` : null;
-      })
-      .filter(Boolean);
-    if (lines.length === 0) return;
-    onSubmit(`Informations complémentaires :\n${lines.join("\n")}`);
-  }
-
-  return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-      <p className="mb-3 flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 dark:text-amber-400">
-        <HelpCircle className="h-3.5 w-3.5" />
-        Pour aller plus loin, précisez :
-      </p>
-      <div className="space-y-2.5">
-        {items.map((q, i) => (
-          <div key={i}>
-            <label className="block text-[12.5px] font-medium text-foreground">
-              {q}
-            </label>
-            <input
-              value={values[i] ?? ""}
-              onChange={(e) =>
-                setValues((p) => ({ ...p, [i]: e.target.value }))
-              }
-              placeholder="Votre réponse…"
-              className="input-base mt-1"
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">
-          {filled}/{items.length} renseigné(s)
-        </span>
-        <button
-          type="button"
-          onClick={relaunch}
-          disabled={filled === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground hover:opacity-95 disabled:opacity-50"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          Relancer avec ces infos
-        </button>
-      </div>
-    </div>
-  );
-}
