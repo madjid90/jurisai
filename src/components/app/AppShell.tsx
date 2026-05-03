@@ -69,16 +69,27 @@ function isPathActive(currentPath: string, target: string): boolean {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("jurisai.sidebar.collapsed") === "1";
+  });
   const router = useRouter();
   const path = router.state.location.pathname;
-  // Auto-close drawer on route change
   useEffect(() => { setMobileOpen(false); }, [path]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      try { window.localStorage.setItem("jurisai.sidebar.collapsed", next ? "1" : "0"); } catch { /* noop */ }
+      return next;
+    });
+  };
 
   return (
     <div className="mesh-bg flex min-h-screen md:p-3">
       {/* Desktop sidebar */}
       <div className="hidden md:block">
-        <Sidebar />
+        <Sidebar collapsed={collapsed} />
       </div>
       {/* Mobile drawer */}
       {mobileOpen && (
@@ -88,7 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
           />
           <div className="fixed inset-y-0 left-0 z-50 w-[280px] overflow-y-auto p-3 md:hidden">
-            <Sidebar />
+            <Sidebar collapsed={false} />
           </div>
         </>
       )}
@@ -101,6 +112,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Ouvrir le menu"
           >
             <Menu className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground md:flex"
+            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+            title={collapsed ? "Déplier le menu" : "Replier le menu"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
           <div className="md:hidden">
             <JurisAIWordmark />
