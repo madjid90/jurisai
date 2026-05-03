@@ -238,6 +238,28 @@ function AnalysisDetailPage() {
               )}
             </div>
 
+            {/* Actions agent rapides */}
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card/50 p-3">
+              <span className="self-center text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Demander à l'agent
+              </span>
+              {[
+                { label: "Résumer en 5 points", prompt: `Résume le document analysé (id: ${row.id}) en 5 points clairs.` },
+                { label: "Identifier risques majeurs", prompt: `Identifie les risques juridiques majeurs du document (id: ${row.id}) avec sources.` },
+                { label: "Étapes à suivre", prompt: `Quelles sont les prochaines étapes recommandées concernant le document (id: ${row.id}) ?` },
+                { label: "Préparer une réponse", prompt: `Aide-moi à préparer une réponse écrite au document (id: ${row.id}).` },
+              ].map((s) => (
+                <Link
+                  key={s.label}
+                  to="/dashboard"
+                  search={{ q: s.prompt }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:bg-secondary"
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </div>
+
             {/* Résumé */}
             <Section title="Résumé" icon={FileText}>
               <p className="text-[14px] leading-relaxed text-foreground">{a.summary}</p>
