@@ -45,6 +45,16 @@ export const createAgentValidationRequest = createServerFn({ method: "POST" })
 
     const dueAt = new Date(Date.now() + data.sla_days * 86400000).toISOString();
 
+    const commentLines = [
+      data.message?.trim(),
+      `[Échéance souhaitée : ${dueAt}]`,
+      `[Profils demandés : ${data.roles.join(", ")}]`,
+      `[Règle métier : ${data.rule_kind}]`,
+      data.agent_run_id ? `[Agent run : ${data.agent_run_id}]` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     const { data: row, error } = await sb
       .from("validation_requests")
       .insert({
@@ -53,17 +63,10 @@ export const createAgentValidationRequest = createServerFn({ method: "POST" })
         requested_by: userId,
         assigned_to,
         subject_type: data.action_type,
-        comment: data.message ?? null,
+        comment: commentLines,
         status: "pending",
-        due_at: dueAt,
-        metadata: {
-          source: "agent_modal",
-          rule_kind: data.rule_kind,
-          requested_roles: data.roles,
-          agent_run_id: data.agent_run_id ?? null,
-        },
       })
-      .select("id, subject_type, status, due_at")
+      .select("id, subject_type, status")
       .single();
 
     if (error) throw new Error(error.message);
