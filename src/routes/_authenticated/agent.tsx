@@ -613,3 +613,60 @@ function RunDetail({
     </div>
   );
 }
+
+// Ligne d'un document généré : charge le titre/HTML et propose télécharger/imprimer.
+function GeneratedDocRow({ docId }: { docId: string }) {
+  const getDoc = useServerFn(getGeneratedDocument);
+  const [doc, setDoc] = useState<{ title?: string; content_html?: string } | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = (await getDoc({ data: { id: docId } })) as { title: string; content_html: string };
+        setDoc(r);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [docId]);
+
+  const download = () => {
+    if (!doc?.content_html) return;
+    const blob = new Blob(
+      [`<!doctype html><meta charset="utf-8"><title>${doc.title ?? "Document"}</title>${doc.content_html}`],
+      { type: "text/html;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(doc.title ?? "document").replace(/[^\w.-]+/g, "_")}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const print = () => {
+    if (!doc?.content_html) return;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!doctype html><title>${doc.title ?? ""}</title>${doc.content_html}`);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2">
+      <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+      <span className="text-sm flex-1 truncate">{doc?.title ?? `Document #${docId.slice(0, 8)}`}</span>
+      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={download} disabled={!doc}>
+        <Download className="h-3.5 w-3.5" />
+      </Button>
+      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={print} disabled={!doc}>
+        <Printer className="h-3.5 w-3.5" />
+      </Button>
+      <Button variant="ghost" size="sm" className="h-7 px-2" disabled>
+        <Mail className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
