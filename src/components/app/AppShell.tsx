@@ -210,6 +210,19 @@ function Sidebar() {
             {hasPermission(access, "audit.view") && (
               <NavItem label="Audit" icon={ScrollText} to="/admin/audit" active={currentPath === "/admin/audit"} />
             )}
+            {/* Outils techniques (anciennement dans le menu principal) */}
+            {(isSuperAdmin || access.isTenantAdmin) && (
+              <>
+                <div className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+                  Outils
+                </div>
+                <NavItem label="Modèles" icon={Library} to="/templates" active={currentPath.startsWith("/templates")} />
+                <NavItem label="Procédures" icon={Workflow} to="/workflows" active={currentPath.startsWith("/workflows")} />
+                <NavItem label="OCR & scan" icon={ScanLine} to="/scan" active={currentPath === "/scan"} />
+                <NavItem label="Analyses" icon={ScanSearch} to="/analyses" active={currentPath.startsWith("/analyses")} />
+                <NavItem label="Liaisons" icon={Link2} to="/links" active={currentPath === "/links"} />
+              </>
+            )}
           </nav>
         </>
       )}
