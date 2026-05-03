@@ -239,11 +239,14 @@ function WorkflowsPage() {
                       {starting === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                       Démarrer
                     </button>
-                  </article>
+                      </article>
+                      ))}
+                    </div>
+                  </section>
                 ))
-              )}
-            </div>
+            )}
           </div>
+
         ) : (
           <div className="space-y-3">
             {(tab === "actives" ? activeInsts : completedInsts).length === 0 ? (
