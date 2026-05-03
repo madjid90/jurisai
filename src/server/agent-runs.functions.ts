@@ -7,6 +7,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
+import { classifyIntent, type AgentCtx } from "./_shared/agent-tools.server";
+import { logTimelineEvent } from "./_shared/timeline.server";
 
 const STATUSES = [
   "pending",
