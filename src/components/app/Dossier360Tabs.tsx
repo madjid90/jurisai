@@ -9,6 +9,7 @@ import {
   Clock,
   FileText,
   GitBranch,
+  Link2,
   Loader2,
   Plus,
   Shield,
@@ -28,8 +29,22 @@ import {
   updateRiskStatus,
 } from "@/server/dossier360.functions";
 import { runLegalAgent } from "@/server/agent.functions";
+import {
+  getDocumentsForDossier,
+  confirmDocumentLink,
+  rejectDocumentLink,
+} from "@/server/document-links.functions";
 
-type TabKey = "timeline" | "risks" | "validations" | "reminders" | "documents" | "workflows" | "sources" | "agent";
+type TabKey =
+  | "timeline"
+  | "risks"
+  | "validations"
+  | "reminders"
+  | "documents"
+  | "links"
+  | "workflows"
+  | "sources"
+  | "agent";
 
 type TimelineEvent = {
   id: string;
