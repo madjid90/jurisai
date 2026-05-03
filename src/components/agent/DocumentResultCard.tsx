@@ -9,7 +9,14 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import type { PipelineResult } from "@/server/_shared/document-pipeline.server";
+type PipelineResult = {
+  documentId: string;
+  entitiesCount: number;
+  autoLinked: string[];
+  suggested: string[];
+  indexedDossiers: string[];
+  skippedReason?: string;
+};
 
 export type DocumentAgentResult = {
   document_id: string;
