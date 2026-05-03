@@ -148,31 +148,47 @@ function DashboardPage() {
             />
 
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <SuggestionChip
-                icon={<PenLine className="h-3.5 w-3.5" />}
-                label="Rédiger un contrat"
-                onClick={() => quickPrompt("Rédige un contrat ")}
-              />
-              <SuggestionChip
-                icon={<FileSearch className="h-3.5 w-3.5" />}
-                label="Analyser un document"
-                onClick={() => void navigate({ to: "/scan" })}
-              />
-              <SuggestionChip
-                icon={<MessageSquare className="h-3.5 w-3.5" />}
-                label="Demander à l'IA"
-                onClick={() => quickPrompt("")}
-              />
-              <SuggestionChip
-                icon={<FolderPlus className="h-3.5 w-3.5" />}
-                label="Ouvrir un dossier"
-                onClick={() => quickPrompt("Ouvre un nouveau dossier pour ")}
-              />
-              <SuggestionChip
-                icon={<Sparkles className="h-3.5 w-3.5" />}
-                label="Veille du jour"
-                onClick={() => void navigate({ to: "/veille" })}
-              />
+              {profileSuggestions.length > 0 ? (
+                profileSuggestions.map((s) => (
+                  <SuggestionChip
+                    key={s.key}
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                    label={s.label}
+                    onClick={() => {
+                      if (s.to) void navigate({ to: s.to });
+                      else quickPrompt(s.prompt ?? "");
+                    }}
+                  />
+                ))
+              ) : (
+                <>
+                  <SuggestionChip
+                    icon={<PenLine className="h-3.5 w-3.5" />}
+                    label="Rédiger un contrat"
+                    onClick={() => quickPrompt("Rédige un contrat ")}
+                  />
+                  <SuggestionChip
+                    icon={<FileSearch className="h-3.5 w-3.5" />}
+                    label="Analyser un document"
+                    onClick={() => void navigate({ to: "/scan" })}
+                  />
+                  <SuggestionChip
+                    icon={<MessageSquare className="h-3.5 w-3.5" />}
+                    label="Demander à l'IA"
+                    onClick={() => quickPrompt("")}
+                  />
+                  <SuggestionChip
+                    icon={<FolderPlus className="h-3.5 w-3.5" />}
+                    label="Ouvrir un dossier"
+                    onClick={() => quickPrompt("Ouvre un nouveau dossier pour ")}
+                  />
+                  <SuggestionChip
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                    label="Veille du jour"
+                    onClick={() => void navigate({ to: "/veille" })}
+                  />
+                </>
+              )}
             </div>
           </div>
 
