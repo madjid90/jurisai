@@ -129,9 +129,9 @@ function Sidebar() {
 
   const TERRAIN_PATHS = new Set([
     "/dashboard",
-    "/workflows",
+    "/agent",
+    "/dossiers",
     "/documents",
-    "/scan",
   ]);
 
   const baseNav = isTerrainOnly
