@@ -558,7 +558,6 @@ function RunDetail({
             </div>
           ) : null}
 
-          {/* Documents générés (placeholder — branché quand executeAgentRun produira des docs) */}
           {Array.isArray(run.final_document_ids) && (run.final_document_ids as unknown[]).length > 0 ? (
             <div className="rounded-lg bg-background border border-border/60 p-4">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
@@ -566,19 +565,7 @@ function RunDetail({
               </p>
               <div className="space-y-2">
                 {(run.final_document_ids as string[]).map((docId) => (
-                  <div key={docId} className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2">
-                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                    <span className="text-sm flex-1 truncate">Document #{docId.slice(0, 8)}</span>
-                    <Button variant="ghost" size="sm" className="h-7 px-2">
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handlePrint}>
-                      <Printer className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-2">
-                      <Mail className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  <GeneratedDocRow key={docId} docId={docId} />
                 ))}
               </div>
             </div>
