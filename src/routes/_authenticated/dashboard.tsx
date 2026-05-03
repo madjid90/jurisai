@@ -71,6 +71,8 @@ function DashboardPage() {
   const { profile, user } = useAuth();
   const fetchSummary = useServerFn(getDashboardSummary);
   const navigate = useNavigate();
+  const { access } = useAccess();
+  const profileSuggestions = getProfileSuggestions(access, 5);
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
