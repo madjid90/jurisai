@@ -524,6 +524,22 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
         })
         .eq("id", data.instanceId);
 
+      // Rappel automatique pour l'étape suivante
+      if (!isComplete) {
+        const nextStep = steps[nextIndex];
+        if (nextStep) {
+          await maybeCreateStepReminder({
+            tenantId,
+            userId,
+            dossierId: (inst as any).dossier_id ?? null,
+            instanceId: data.instanceId,
+            instanceTitle: (inst as any).title ?? "Procédure",
+            step: nextStep,
+            stepIndex: nextIndex,
+          });
+        }
+      }
+
       return { ok: true, documentId: doc.id as string, advanced: true, completed: isComplete, sources_used: sources.length };
     }
 
