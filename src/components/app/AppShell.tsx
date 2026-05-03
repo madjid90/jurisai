@@ -43,7 +43,6 @@ type NavItemDef = {
 
 const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
-  { to: "/agent", label: "Assistant juridique", icon: Sparkles, perms: ["ia.ask"] },
   { to: "/workflows", label: "Procédures", icon: Workflow, perms: ["workflows.run", "workflows.validate"] },
   { to: "/templates", label: "Modèles", icon: Library, perms: ["documents.generate"] },
   { to: "/scan", label: "OCR & scan", icon: ScanLine, perms: ["documents.upload"] },
@@ -134,7 +133,6 @@ function Sidebar() {
 
   const TERRAIN_PATHS = new Set([
     "/dashboard",
-    "/agent",
     "/workflows",
     "/documents",
     "/scan",

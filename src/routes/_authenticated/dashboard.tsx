@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  History,
   Loader2,
   Workflow,
   FileText,
@@ -28,11 +27,14 @@ import {
   getDashboardSummary,
   type DashboardSummary,
 } from "@/server/dashboard.functions";
+import { runLegalAgent, type AgentRunOutput } from "@/server/agent.functions";
 import { AuroraOrb } from "@/components/aurora/AuroraOrb";
 import { HeroPromptInput } from "@/components/aurora/HeroPromptInput";
 import { SuggestionChip } from "@/components/aurora/SuggestionChip";
+import { AgentResultCard } from "@/components/agent/AgentResultCard";
 import { useAccess } from "@/lib/auth/useAccess";
 import { getProfileSuggestions } from "@/lib/auth/profileSuggestions";
+import { buildIntakeMessage } from "@/lib/agent/home-intake";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Tableau de bord · JurisAI" }] }),
@@ -70,13 +72,19 @@ const RISK_LABEL: Record<string, string> = {
 function DashboardPage() {
   const { profile, user } = useAuth();
   const fetchSummary = useServerFn(getDashboardSummary);
+  const runAgent = useServerFn(runLegalAgent);
   const navigate = useNavigate();
   const { access } = useAccess();
   const profileSuggestions = getProfileSuggestions(access, 5);
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+
+  // État agent inline
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentResult, setAgentResult] = useState<AgentRunOutput | null>(null);
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [lastMessage, setLastMessage] = useState<string>("");
 
   const firstName = (profile?.full_name ?? user?.email ?? "").split(" ")[0] ?? "";
 
@@ -97,23 +105,43 @@ function DashboardPage() {
     ? Math.min(100, Math.round((tenant.questions_used / Math.max(1, tenant.quota_questions)) * 100))
     : 0;
 
-  async function handlePromptSubmit(text: string, files: File[]) {
-    if (!text && !files.length) return;
-    setSubmitting(true);
+  async function runIntake(message: string) {
+    setAgentLoading(true);
+    setAgentError(null);
+    setLastMessage(message);
     try {
-      // Si fichiers : router vers /scan pour ingestion + analyse
-      if (files.length > 0) {
-        void navigate({ to: "/scan" });
-        return;
-      }
-      void navigate({ to: "/agent", search: { q: text } as never });
+      const r = await runAgent({ data: { message } });
+      setAgentResult(r);
+      // Scroll vers la carte
+      setTimeout(() => {
+        document.getElementById("agent-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    } catch (e) {
+      setAgentError(e instanceof Error ? e.message : "Erreur agent");
     } finally {
-      setSubmitting(false);
+      setAgentLoading(false);
     }
   }
 
+  async function handlePromptSubmit(text: string, files: File[]) {
+    if (!text && !files.length) return;
+    // Cas fichier(s) — Lot C : pour l'instant on route vers /scan
+    if (files.length > 0) {
+      void navigate({ to: "/scan" });
+      return;
+    }
+    const message = buildIntakeMessage({ message: text, source: "dashboard" });
+    await runIntake(message);
+  }
+
   function quickPrompt(q: string) {
-    void navigate({ to: "/agent", search: { q } as never });
+    if (!q) return;
+    void runIntake(q);
+  }
+
+  function relaunchWith(extra: string) {
+    const next = lastMessage ? `${lastMessage}\n\n${extra}` : extra;
+    void runIntake(next);
   }
 
   return (
@@ -127,24 +155,24 @@ function DashboardPage() {
           />
 
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-            <AuroraOrb size={140} active={submitting} />
+            <AuroraOrb size={140} active={agentLoading} />
 
             <div className="space-y-2">
               <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                 Bonjour {firstName}
               </h1>
               <p className="text-pretty text-[14px] text-muted-foreground sm:text-base">
-                Posez votre question, joignez un document, ou choisissez une action.
+                Posez une question, joignez un document ou demandez une action.
                 <br className="hidden sm:inline" />
-                JurisAI comprend, source, propose, prépare, exécute et trace.
+                JurisAI comprend, prépare et trace.
               </p>
             </div>
 
             <HeroPromptInput
               className="w-full max-w-2xl"
-              loading={submitting}
+              loading={agentLoading}
               onSubmit={handlePromptSubmit}
-              placeholder="Ex : Préparer une rupture conventionnelle pour un cadre embauché en 2019…"
+              placeholder="Ex : préparer une rupture conventionnelle, analyser un contrat, retrouver le dossier Lefèvre, rédiger une mise en demeure…"
             />
 
             <div className="flex flex-wrap items-center justify-center gap-2">
@@ -163,37 +191,80 @@ function DashboardPage() {
               ) : (
                 <>
                   <SuggestionChip
-                    icon={<PenLine className="h-3.5 w-3.5" />}
-                    label="Rédiger un contrat"
-                    onClick={() => quickPrompt("Rédige un contrat ")}
-                  />
-                  <SuggestionChip
                     icon={<FileSearch className="h-3.5 w-3.5" />}
                     label="Analyser un document"
                     onClick={() => void navigate({ to: "/scan" })}
                   />
                   <SuggestionChip
-                    icon={<MessageSquare className="h-3.5 w-3.5" />}
-                    label="Demander à l'IA"
-                    onClick={() => quickPrompt("")}
+                    icon={<PenLine className="h-3.5 w-3.5" />}
+                    label="Générer un courrier"
+                    onClick={() => quickPrompt("Rédige un courrier ")}
+                  />
+                  <SuggestionChip
+                    icon={<Workflow className="h-3.5 w-3.5" />}
+                    label="Lancer une procédure"
+                    onClick={() => void navigate({ to: "/workflows" })}
                   />
                   <SuggestionChip
                     icon={<FolderPlus className="h-3.5 w-3.5" />}
                     label="Ouvrir un dossier"
                     onClick={() => quickPrompt("Ouvre un nouveau dossier pour ")}
                   />
-                  <SuggestionChip
-                    icon={<Sparkles className="h-3.5 w-3.5" />}
-                    label="Veille du jour"
-                    onClick={() => void navigate({ to: "/veille" })}
-                  />
                 </>
               )}
             </div>
-          </div>
 
-          {/* Compteurs */}
-          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {/* Mini bloc à traiter — compact, sous les chips */}
+            {!loading && data && (
+              <MiniTodoStrip
+                reminders={data.counters.active_reminders}
+                validations={data.counters.pending_validations}
+                openDossiers={data.counters.open_dossiers}
+              />
+            )}
+          </div>
+        </section>
+
+        {/* Erreur agent */}
+        {agentError && (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-[13px] text-destructive">
+            {agentError}
+          </div>
+        )}
+
+        {/* Résultat agent inline */}
+        {(agentResult || agentLoading) && (
+          <div id="agent-result">
+            {agentLoading && !agentResult && (
+              <div className="flex items-center gap-3 rounded-3xl border border-border bg-card/80 p-5 text-[13px] text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                L'agent travaille en arrière-plan…
+              </div>
+            )}
+            {agentResult && (
+              <AgentResultCard
+                result={agentResult}
+                onRelaunch={relaunchWith}
+                onClose={() => setAgentResult(null)}
+              />
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-[13px] text-destructive">
+            Impossible de charger le tableau de bord : {error}
+          </div>
+        )}
+
+        {/* === Sections secondaires (repoussées en bas) === */}
+
+        {/* Compteurs détaillés */}
+        <section className="space-y-3">
+          <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Vue d'ensemble
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <CounterCard
               icon={Link2}
               label="Liaisons à valider"
@@ -233,12 +304,6 @@ function DashboardPage() {
             />
           </div>
         </section>
-
-        {error && (
-          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-3 text-[13px] text-destructive">
-            Impossible de charger le tableau de bord : {error}
-          </div>
-        )}
 
         {/* Grille widgets */}
         <div className="grid gap-4 lg:grid-cols-3">
@@ -306,7 +371,7 @@ function DashboardPage() {
             {loading ? (
               <Skeleton lines={3} />
             ) : !data || data.recent_dossiers.length === 0 ? (
-              <Empty text="Aucun dossier. Créez-en via l'agent." />
+              <Empty text="Aucun dossier." />
             ) : (
               <ul className="space-y-2">
                 {data.recent_dossiers.slice(0, 6).map((d) => (
@@ -340,51 +405,7 @@ function DashboardPage() {
             )}
           </Widget>
 
-          {/* Validations en attente */}
-          <Widget
-            icon={ShieldCheck}
-            title="Validations en attente"
-            badge={data?.pending_validations.length ?? 0}
-            tone={
-              (data?.pending_validations.length ?? 0) > 0 ? "warn" : "neutral"
-            }
-          >
-            {loading ? (
-              <Skeleton lines={2} />
-            ) : !data || data.pending_validations.length === 0 ? (
-              <Empty text="Aucune décision en attente." />
-            ) : (
-              <ul className="space-y-2">
-                {data.pending_validations.slice(0, 5).map((v) => (
-                  <li
-                    key={v.id}
-                    className="rounded-lg border border-border bg-background/50 p-2.5"
-                  >
-                    <p className="truncate text-[12.5px] font-medium text-foreground">
-                      {v.comment ?? `Validation ${v.subject_type}`}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {fmtDate(v.created_at)}
-                      {v.dossier_id && (
-                        <>
-                          {" · "}
-                          <Link
-                            to="/dossiers/$id"
-                            params={{ id: v.dossier_id }}
-                            className="text-accent hover:underline"
-                          >
-                            ouvrir
-                          </Link>
-                        </>
-                      )}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Widget>
-
-          {/* Alertes veille */}
+          {/* Veille */}
           <Widget
             icon={Bell}
             title="Veille juridique"
@@ -440,82 +461,55 @@ function DashboardPage() {
               </ul>
             )}
           </Widget>
+        </div>
 
-          {/* Activité agent */}
-          <Widget
-            icon={History}
-            title="Activité agent"
-            badge={data?.recent_agent_runs.length ?? 0}
-            actionLabel="Agent"
-            actionTo="/agent"
-          >
-            {loading ? (
-              <Skeleton lines={3} />
-            ) : !data || data.recent_agent_runs.length === 0 ? (
-              <Empty text="Lancez votre première requête." />
-            ) : (
-              <ul className="space-y-2">
-                {data.recent_agent_runs.map((r) => (
-                  <li
-                    key={r.id}
-                    className="rounded-lg border border-border bg-background/50 p-2.5"
-                  >
-                    <p className="truncate text-[12.5px] font-medium text-foreground">
-                      {r.message}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {r.intent ?? "—"} · {r.domain ?? "—"} · {fmtDate(r.created_at)}
-                      {r.refused && (
-                        <span className="ml-1 rounded bg-amber-500/10 px-1 text-amber-600">
-                          refus
-                        </span>
-                      )}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Widget>
-
-          {/* Quota */}
-          <Widget icon={Zap} title="Quota mensuel" actionLabel="Plan" actionTo="/upgrade">
-            {!tenant ? (
-              <Skeleton lines={2} />
-            ) : (
-              <>
-                <p className="text-[22px] font-bold text-foreground">
-                  {tenant.questions_used}
-                  <span className="text-[13px] font-medium text-muted-foreground">
-                    {" "}
-                    / {tenant.quota_questions}
-                  </span>
-                </p>
-                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+        {/* Quota — discret, en bas */}
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-accent" />
+              <h3 className="text-[13px] font-semibold text-foreground">
+                Quota mensuel
+              </h3>
+            </div>
+            <Link
+              to="/upgrade"
+              className="text-[11.5px] font-semibold text-accent hover:underline"
+            >
+              Plan →
+            </Link>
+          </div>
+          {tenant && (
+            <>
+              <p className="mt-2 text-[18px] font-bold text-foreground">
+                {tenant.questions_used}
+                <span className="text-[12.5px] font-medium text-muted-foreground">
+                  {" "}
+                  / {tenant.quota_questions}
+                </span>
+                <span className="ml-2 text-[11.5px] text-muted-foreground">
                   questions · plan{" "}
                   <span className="font-semibold capitalize text-foreground">
                     {tenant.plan ?? "—"}
                   </span>
-                </p>
-                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      quotaPct > 90
-                        ? "bg-destructive"
-                        : "bg-gradient-to-r from-primary to-accent"
-                    }`}
-                    style={{ width: `${quotaPct}%` }}
-                  />
-                </div>
-              </>
-            )}
-          </Widget>
-        </div>
+                </span>
+              </p>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    quotaPct > 90
+                      ? "bg-destructive"
+                      : "bg-gradient-to-r from-primary to-accent"
+                  }`}
+                  style={{ width: `${quotaPct}%` }}
+                />
+              </div>
+            </>
+          )}
+        </section>
 
-        {/* Raccourcis rapides */}
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Raccourcis
-          </h2>
+        {/* Raccourcis */}
+        <section>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <ShortcutLink to="/dossiers" icon={FolderOpen} label="Dossiers" />
             <ShortcutLink to="/workflows" icon={Workflow} label="Procédures" />
@@ -529,6 +523,58 @@ function DashboardPage() {
 }
 
 /* ---------- Sub-components ---------- */
+
+function MiniTodoStrip({
+  reminders,
+  validations,
+  openDossiers,
+}: {
+  reminders: number;
+  validations: number;
+  openDossiers: number;
+}) {
+  if (reminders === 0 && validations === 0 && openDossiers === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2 text-[12px]">
+      {reminders > 0 && (
+        <Link
+          to="/dossiers"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-3 py-1 text-muted-foreground hover:bg-secondary/60"
+        >
+          <Clock className="h-3 w-3" />
+          <span>
+            <span className="font-semibold text-foreground">{reminders}</span> rappel
+            {reminders > 1 ? "s" : ""}
+          </span>
+        </Link>
+      )}
+      {validations > 0 && (
+        <Link
+          to="/dossiers"
+          className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/5 px-3 py-1 text-orange-600 hover:bg-orange-500/10"
+        >
+          <ShieldCheck className="h-3 w-3" />
+          <span>
+            <span className="font-semibold">{validations}</span> validation
+            {validations > 1 ? "s" : ""}
+          </span>
+        </Link>
+      )}
+      {openDossiers > 0 && (
+        <Link
+          to="/dossiers"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-3 py-1 text-muted-foreground hover:bg-secondary/60"
+        >
+          <FolderOpen className="h-3 w-3" />
+          <span>
+            <span className="font-semibold text-foreground">{openDossiers}</span>{" "}
+            dossier{openDossiers > 1 ? "s" : ""} actif{openDossiers > 1 ? "s" : ""}
+          </span>
+        </Link>
+      )}
+    </div>
+  );
+}
 
 function CounterCard({
   icon: Icon,
@@ -562,11 +608,7 @@ function CounterCard({
       </p>
     </div>
   );
-  return to ? (
-    <Link to={to}>{content}</Link>
-  ) : (
-    content
-  );
+  return to ? <Link to={to}>{content}</Link> : content;
 }
 
 function Widget({
@@ -636,10 +678,7 @@ function Skeleton({ lines = 3 }: { lines?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: lines }).map((_, i) => (
-        <div
-          key={i}
-          className="h-10 animate-pulse rounded-lg bg-secondary/40"
-        />
+        <div key={i} className="h-10 animate-pulse rounded-lg bg-secondary/40" />
       ))}
     </div>
   );
@@ -665,3 +704,6 @@ function ShortcutLink({
     </Link>
   );
 }
+
+// MessageSquare/History conservés implicitement via lucide-react si besoin.
+void MessageSquare;
