@@ -80,6 +80,7 @@ function DashboardPage() {
   const { profile, user } = useAuth();
   const fetchSummary = useServerFn(getDashboardSummary);
   const runAgent = useServerFn(runLegalAgent);
+  const ocr = useServerFn(runOcrDocument);
   const navigate = useNavigate();
   const { access } = useAccess();
   const profileSuggestions = getProfileSuggestions(access, 5);
@@ -92,6 +93,10 @@ function DashboardPage() {
   const [agentResult, setAgentResult] = useState<AgentRunOutput | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<string>("");
+
+  // État upload document inline
+  const [docResult, setDocResult] = useState<DocumentAgentResult | null>(null);
+  const [docProgress, setDocProgress] = useState<string>("");
 
   const firstName = (profile?.full_name ?? user?.email ?? "").split(" ")[0] ?? "";
 
