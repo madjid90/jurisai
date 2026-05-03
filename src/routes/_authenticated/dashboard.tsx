@@ -122,19 +122,19 @@ function DashboardPage() {
           </div>
           {loading ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : !summary?.upcomingDeadlines?.length ? (
+          ) : !summary?.to_treat_today.length ? (
             <p className="text-sm text-muted-foreground">
-              Aucune échéance dans les 30 prochains jours.
+              Rien d'urgent. Tout est à jour.
             </p>
           ) : (
             <ul className="divide-y divide-border">
-              {summary.upcomingDeadlines.slice(0, 5).map((d) => (
+              {summary.to_treat_today.slice(0, 5).map((d) => (
                 <li key={d.id} className="flex items-center gap-3 py-3">
                   <Clock className="h-4 w-4 shrink-0 text-amber-600" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{d.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {fmtDate(d.due_date)}
+                      {fmtDate(d.due_at)}
                     </p>
                   </div>
                 </li>
