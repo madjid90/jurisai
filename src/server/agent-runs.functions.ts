@@ -10,6 +10,7 @@ import { getTenantId } from "./_shared/tenant.server";
 import { classifyIntent, type AgentCtx } from "./_shared/agent-tools.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
+import { runIntentActions } from "./_shared/agent-intent-actions.server";
 
 const STATUSES = [
   "pending",
@@ -491,6 +492,23 @@ ${sourcesBlock || "(aucune)"}`;
       draft.procedure = parsed.procedure ?? [];
       draft.sources = sources;
 
+      // 5bis. Actions spécifiques selon l'intent (invisibles pour l'utilisateur,
+      // alimentent draft + final_document_ids + contract_deadlines + timeline du dossier)
+      const intent = (run as { intent: string | null }).intent ?? "autre";
+      const finalDocIds: string[] = [];
+      const extras = await runIntentActions({
+        intent,
+        run: r,
+        draft,
+        userId,
+        tenantId,
+        runId: data.id,
+      });
+      if (extras.documentIds.length) finalDocIds.push(...extras.documentIds);
+      if (extras.timeline) draft.timeline = extras.timeline;
+      if (extras.deadlines) draft.deadlines = extras.deadlines;
+      if (extras.suggestedTemplates) draft.suggestedTemplates = extras.suggestedTemplates;
+
       await supabaseAdmin
         .from("agent_runs")
         .update({
@@ -499,6 +517,7 @@ ${sourcesBlock || "(aucune)"}`;
           answer: parsed.answer ?? "",
           sources,
           draft,
+          final_document_ids: finalDocIds,
         } as never)
         .eq("id", data.id);
 

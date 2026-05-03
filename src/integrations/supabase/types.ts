@@ -464,6 +464,83 @@ export type Database = {
           },
         ]
       }
+      contract_deadlines: {
+        Row: {
+          agent_run_id: string | null
+          category: string | null
+          created_at: string
+          document_analysis_id: string | null
+          done_at: string | null
+          dossier_id: string | null
+          due_date: string
+          id: string
+          label: string
+          notes: string | null
+          reminded_at: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_run_id?: string | null
+          category?: string | null
+          created_at?: string
+          document_analysis_id?: string | null
+          done_at?: string | null
+          dossier_id?: string | null
+          due_date: string
+          id?: string
+          label: string
+          notes?: string | null
+          reminded_at?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_run_id?: string | null
+          category?: string | null
+          created_at?: string
+          document_analysis_id?: string | null
+          done_at?: string | null
+          dossier_id?: string | null
+          due_date?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          reminded_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_deadlines_agent_run_id_fkey"
+            columns: ["agent_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_deadlines_document_analysis_id_fkey"
+            columns: ["document_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "document_analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_deadlines_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_deadlines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conventions_collectives: {
         Row: {
           brochure: string | null
