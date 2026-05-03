@@ -135,11 +135,74 @@ function DashboardPage() {
     }
   }
 
+  async function processFile(file: File, optionalPrompt?: string) {
+    if (!user) return;
+    setAgentLoading(true);
+    setAgentError(null);
+    setDocResult(null);
+    try {
+      setDocProgress("Préparation…");
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("tenant_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const tenantId = profile?.tenant_id;
+      if (!tenantId) throw new Error("Aucun tenant rattaché");
+
+      setDocProgress("Upload…");
+      const safeName = file.name.replace(/[^\w.\-]/g, "_");
+      const path = `${tenantId}/${user.id}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from("dossier-files")
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (upErr) throw new Error(upErr.message);
+
+      setDocProgress("Analyse OCR & rattachement…");
+      const r = await ocr({
+        data: {
+          storage_path: path,
+          filename: file.name,
+          file_type: file.type || "application/octet-stream",
+        },
+      });
+      const docRes: DocumentAgentResult = {
+        document_id: r.id,
+        filename: file.name,
+        text_length: r.length,
+        text_preview: (r.text ?? "").slice(0, 1200),
+        pipeline: r.pipeline ?? null,
+      };
+      setDocResult(docRes);
+      toast.success(`Document analysé — ${r.length} caractères`);
+      setTimeout(() => {
+        document.getElementById("doc-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+
+      // Si l'utilisateur a aussi tapé un prompt → enchaîne sur l'agent
+      if (optionalPrompt && optionalPrompt.trim()) {
+        const message = buildIntakeMessage({
+          message: optionalPrompt,
+          source: "document",
+          document_id: r.id,
+          extracted_context: (r.text ?? "").slice(0, 2000),
+        });
+        await runIntake(message);
+      }
+    } catch (e) {
+      setAgentError(e instanceof Error ? e.message : "Erreur upload");
+      toast.error(e instanceof Error ? e.message : "Erreur upload");
+    } finally {
+      setAgentLoading(false);
+      setDocProgress("");
+    }
+  }
+
   async function handlePromptSubmit(text: string, files: File[]) {
     if (!text && !files.length) return;
-    // Cas fichier(s) — Lot C : pour l'instant on route vers /scan
     if (files.length > 0) {
-      void navigate({ to: "/scan" });
+      // Pour l'instant : un seul fichier traité (le premier).
+      await processFile(files[0], text);
       return;
     }
     const message = buildIntakeMessage({ message: text, source: "dashboard" });
