@@ -16,6 +16,10 @@ import {
   Loader2,
   Workflow,
   FileText,
+  PenLine,
+  FileSearch,
+  MessageSquare,
+  FolderPlus,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -23,6 +27,9 @@ import {
   getDashboardSummary,
   type DashboardSummary,
 } from "@/server/dashboard.functions";
+import { AuroraOrb } from "@/components/aurora/AuroraOrb";
+import { HeroPromptInput } from "@/components/aurora/HeroPromptInput";
+import { SuggestionChip } from "@/components/aurora/SuggestionChip";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Tableau de bord · JurisAI" }] }),
