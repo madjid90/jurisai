@@ -249,14 +249,13 @@ function AnalysisDetailPage() {
                 { label: "Étapes à suivre", prompt: `Quelles sont les prochaines étapes recommandées concernant le document (id: ${row.id}) ?` },
                 { label: "Préparer une réponse", prompt: `Aide-moi à préparer une réponse écrite au document (id: ${row.id}).` },
               ].map((s) => (
-                <Link
+                <a
                   key={s.label}
-                  to="/dashboard"
-                  search={{ q: s.prompt }}
+                  href={`/dashboard?q=${encodeURIComponent(s.prompt)}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:bg-secondary"
                 >
                   {s.label}
-                </Link>
+                </a>
               ))}
             </div>
 
