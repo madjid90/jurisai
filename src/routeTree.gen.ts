@@ -27,6 +27,7 @@ import { Route as AuthenticatedTemplatesRouteImport } from './routes/_authentica
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
+import { Route as AuthenticatedLinksRouteImport } from './routes/_authenticated/links'
 import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticated/dossiers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
@@ -139,6 +140,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedScanRoute = AuthenticatedScanRouteImport.update({
   id: '/scan',
   path: '/scan',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedLinksRoute = AuthenticatedLinksRouteImport.update({
+  id: '/links',
+  path: '/links',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDossiersRoute = AuthenticatedDossiersRouteImport.update({
@@ -287,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
+  '/links': typeof AuthenticatedLinksRoute
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
@@ -330,6 +337,7 @@ export interface FileRoutesByTo {
   '/chat': typeof AuthenticatedChatRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
+  '/links': typeof AuthenticatedLinksRoute
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
@@ -375,6 +383,7 @@ export interface FileRoutesById {
   '/_authenticated/chat': typeof AuthenticatedChatRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
+  '/_authenticated/links': typeof AuthenticatedLinksRoute
   '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
@@ -420,6 +429,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/dashboard'
     | '/dossiers'
+    | '/links'
     | '/scan'
     | '/settings'
     | '/team'
@@ -463,6 +473,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/dashboard'
     | '/dossiers'
+    | '/links'
     | '/scan'
     | '/settings'
     | '/team'
@@ -507,6 +518,7 @@ export interface FileRouteTypes {
     | '/_authenticated/chat'
     | '/_authenticated/dashboard'
     | '/_authenticated/dossiers'
+    | '/_authenticated/links'
     | '/_authenticated/scan'
     | '/_authenticated/settings'
     | '/_authenticated/team'
@@ -681,6 +693,13 @@ declare module '@tanstack/react-router' {
       path: '/scan'
       fullPath: '/scan'
       preLoaderRoute: typeof AuthenticatedScanRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/links': {
+      id: '/_authenticated/links'
+      path: '/links'
+      fullPath: '/links'
+      preLoaderRoute: typeof AuthenticatedLinksRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dossiers': {
@@ -886,6 +905,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChatRoute: typeof AuthenticatedChatRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
+  AuthenticatedLinksRoute: typeof AuthenticatedLinksRoute
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
@@ -912,6 +932,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChatRoute: AuthenticatedChatRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
+  AuthenticatedLinksRoute: AuthenticatedLinksRoute,
   AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
