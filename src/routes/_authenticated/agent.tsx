@@ -19,6 +19,9 @@ import {
   listMyRuns,
   getAgentRun,
 } from "@/server/agent-runs.functions";
+import { runOcrDocument } from "@/server/ocr.functions";
+import { getGeneratedDocument } from "@/server/generation.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
