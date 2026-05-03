@@ -113,8 +113,62 @@ export const startWorkflow = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+
+    if (data.dossierId) {
+      try {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: data.dossierId,
+          actorId: userId,
+          eventType: "workflow.started",
+          title: `Procédure démarrée : ${data.title}`,
+          metadata: { workflow_instance_id: inserted.id, definition_id: data.definitionId },
+        });
+      } catch (e) { console.warn("[workflow] timeline log failed:", e); }
+    }
+
     return { id: inserted.id as string };
   });
+
+// Crée un rappel (reminders) pour l'étape `step` à partir d'aujourd'hui.
+// `delay_days` ou `reminder_days` (priorité au + petit) déclenchent le rappel.
+async function maybeCreateStepReminder(opts: {
+  tenantId: string;
+  userId: string;
+  dossierId: string | null;
+  instanceId: string;
+  instanceTitle: string;
+  step: WorkflowStep & { reminder_days?: number };
+  stepIndex: number;
+}) {
+  const days = (() => {
+    const candidates = [opts.step.delay_days, (opts.step as any).reminder_days].filter(
+      (v): v is number => typeof v === "number" && v > 0,
+    );
+    return candidates.length ? Math.min(...candidates) : null;
+  })();
+  if (days == null) return;
+  const remindAt = new Date(Date.now() + days * 86400_000).toISOString();
+  try {
+    await (supabaseAdmin as any).from("reminders").insert({
+      tenant_id: opts.tenantId,
+      user_id: opts.userId,
+      created_by: opts.userId,
+      dossier_id: opts.dossierId,
+      title: `Procédure « ${opts.instanceTitle} » — ${opts.step.title}`,
+      body: opts.step.description ?? null,
+      remind_at: remindAt,
+      metadata: {
+        source: "workflow",
+        workflow_instance_id: opts.instanceId,
+        step_index: opts.stepIndex,
+        step_key: opts.step.key,
+      },
+    });
+  } catch (e) {
+    console.warn("[workflow] reminder insert failed:", e);
+  }
+}
 
 // ─── Mark a step as completed and advance ──────────────────────────────────
 
