@@ -1,8 +1,8 @@
 // Shared utility: call Lovable AI Gateway for text embeddings.
-// Uses OpenAI-compatible endpoint, model openai/text-embedding-3-small (1536 dims).
+// Uses Lovable AI Gateway with a supported 1536-dim embedding model.
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
-const EMBED_MODEL = "openai/text-embedding-3-small";
+const EMBED_MODEL = "openai/text-embedding-3-large";
 
 export async function embedTexts(
   apiKey: string,

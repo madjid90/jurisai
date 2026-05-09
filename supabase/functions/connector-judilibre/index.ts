@@ -34,7 +34,18 @@ function base(): string {
 
 interface SearchResult {
   total: number;
-  results: Array<{
+  results?: Array<{
+    id: string;
+    chamber?: string;
+    formation?: string;
+    decision_date?: string;
+    number?: string;
+    solution?: string;
+    summary?: string;
+    text?: string;
+    themes?: string[];
+  }>;
+  result?: Array<{
     id: string;
     chamber?: string;
     formation?: string;
@@ -87,7 +98,9 @@ Deno.serve(async (req) => {
     const dateStart: string = body.date_start ?? defaultDateStart();
     const dateEnd: string = body.date_end ?? new Date().toISOString().slice(0, 10);
     const maxDecisions = Math.min(Number(body.max_decisions) || 1000, 10000);
-    const query: string = body.query ?? "*";
+    const query: string = typeof body.query === "string" && body.query.trim().length > 0
+      ? body.query.trim()
+      : "contrat";
     const dryRun: boolean = body.dry_run === true;
 
     const db = getAdminClient();
@@ -123,12 +136,13 @@ Deno.serve(async (req) => {
         const res = await fetch(url, { headers: { KeyId: key, Accept: "application/json" } });
         if (!res.ok) {
           const txt = await res.text();
-          throw new Error(`Judilibre /search ${res.status}: ${txt.slice(0, 200)}`);
+          throw new Error(`Judilibre /search ${res.status}: ${txt.slice(0, 200) || "empty body"}`);
         }
         const data = await res.json() as SearchResult;
-        if (!data.results || data.results.length === 0) break;
-        collected.push(...data.results);
-        if (data.results.length < pageSize) break;
+        const pageResults = data.results ?? data.result ?? [];
+        if (pageResults.length === 0) break;
+        collected.push(...pageResults);
+        if (pageResults.length < pageSize) break;
         page++;
       }
     } catch (err) {
@@ -136,7 +150,7 @@ Deno.serve(async (req) => {
       await finishJob(db, jobId, "failed");
       return jsonResponse({
         error: (err as Error).message,
-        hint: "Vérifiez le secret JUDILIBRE_KEY_ID dans Supabase.",
+        hint: "Vérifiez le secret JUDILIBRE_KEY_ID dans Supabase et que votre application PISTE est bien souscrite à Judilibre.",
       }, 500, corsHeaders);
     }
 

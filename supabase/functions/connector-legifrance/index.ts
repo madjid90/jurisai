@@ -75,9 +75,10 @@ Deno.serve(async (req) => {
     // 1. Fetch the code structure
     let codeData: CodeResponse;
     try {
-      codeData = await legifranceFetch<CodeResponse>("/consult/code", {
+      codeData = await legifranceFetch<CodeResponse>("/consult/code/tableMatieres", {
         textId: codeId,
-        date: new Date().toISOString().slice(0, 10),
+        date: Date.now(),
+        sctId: "",
       });
     } catch (err) {
       await logError(db, jobId, "legifrance", codeId, "auth_or_api_error",
