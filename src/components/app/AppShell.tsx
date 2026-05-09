@@ -149,7 +149,7 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     access.roles.length > 0 &&
     access.roles.every((r) => r === "operationnel_terrain");
 
-  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/dossiers", "/documents"]);
+  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/dossiers", "/documents", "/notifications"]);
 
   const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
