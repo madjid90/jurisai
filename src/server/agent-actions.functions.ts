@@ -58,7 +58,7 @@ const ActionSchema = z.discriminatedUnion("type", [
     type: z.literal("assign_task"),
     title: z.string().min(1).max(200),
     assignee_id: z.string().uuid(),
-    dossier_id: z.string().uuid().optional(),
+    dossier_id: z.string().uuid(),
     due_date: z.string().optional(),
   }),
   z.object({
