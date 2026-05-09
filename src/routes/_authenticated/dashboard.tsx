@@ -218,7 +218,7 @@ function DashboardPage() {
           </div>
         </section>
 
-        {/* Dossiers à suivre — liste */}
+        {/* Dossiers à suivre — JURIDIQUE */}
         <section className="glass-panel rounded-3xl p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Dossiers à suivre</h2>
@@ -226,6 +226,7 @@ function DashboardPage() {
               Tout voir <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
+          <SubHeader>Juridique</SubHeader>
           {loading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
@@ -242,6 +243,36 @@ function DashboardPage() {
           ) : (
             <DossierList dossiers={summary.recent_dossiers.slice(0, 8)} />
           )}
+        </section>
+
+        {/* Échéances contrats — Juridique puis Fournisseurs (empilés) */}
+        <section className="glass-panel rounded-3xl p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Échéances contrats</h2>
+            <Link to="/dossiers" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+              Tout voir <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          <SubHeader>Juridique</SubHeader>
+          {loading ? (
+            <div className="h-12 animate-pulse rounded-xl bg-secondary/50" />
+          ) : !summary?.contract_deadlines.juridique.length ? (
+            <EmptyDeadlines text="Aucune échéance contractuelle juridique." />
+          ) : (
+            <DeadlineList items={summary.contract_deadlines.juridique} />
+          )}
+
+          <div className="mt-6">
+            <SubHeader>Fournisseurs</SubHeader>
+            {loading ? (
+              <div className="h-12 animate-pulse rounded-xl bg-secondary/50" />
+            ) : !summary?.contract_deadlines.fournisseur.length ? (
+              <EmptyDeadlines text="Aucune échéance fournisseur à venir." />
+            ) : (
+              <DeadlineList items={summary.contract_deadlines.fournisseur} />
+            )}
+          </div>
         </section>
 
         {/* Stats compactes */}
@@ -436,5 +467,107 @@ function StatCard({
       </div>
       <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
     </Link>
+  );
+}
+
+function SubHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-2 mt-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="h-px flex-1 bg-border" />
+      <span>{children}</span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function EmptyDeadlines({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border p-6 text-center">
+      <Clock className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
+      <p className="text-xs text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+type DeadlineItem = DashboardSummary["contract_deadlines"]["juridique"][number];
+
+function daysUntil(iso: string): number {
+  const d = new Date(iso).getTime();
+  return Math.ceil((d - Date.now()) / 86400000);
+}
+
+function deadlineToneFor(days: number): { label: string; tone: string } {
+  if (days < 0) return { label: `En retard`, tone: "bg-red-500/15 text-red-700 dark:text-red-400" };
+  if (days <= 30) return { label: `${days} j`, tone: "bg-red-500/10 text-red-700 dark:text-red-400" };
+  if (days <= 90) return { label: `${days} j`, tone: "bg-amber-500/10 text-amber-700 dark:text-amber-400" };
+  return { label: `${days} j`, tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" };
+}
+
+function categoryLabel(c: string | null): string {
+  switch (c) {
+    case "renouvellement": return "Renouvellement";
+    case "fin_contrat": return "Fin de contrat";
+    case "paiement": return "Paiement";
+    case "fournisseur": return "Fournisseur";
+    case "autre": return "Autre";
+    default: return c ?? "—";
+  }
+}
+
+function DeadlineList({ items }: { items: DeadlineItem[] }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <div className="hidden grid-cols-[1.6fr_0.8fr_0.6fr_0.6fr_0.8fr] gap-3 border-b border-border bg-secondary/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
+        <span>Contrat / objet</span>
+        <span>Type</span>
+        <span>Date</span>
+        <span>Délai</span>
+        <span className="text-right">Dossier</span>
+      </div>
+      <ul className="divide-y divide-border">
+        {items.map((d) => {
+          const days = daysUntil(d.due_date);
+          const tone = deadlineToneFor(days);
+          const content = (
+            <>
+              <div className="flex min-w-0 items-center gap-2">
+                <FileSignature className="h-4 w-4 shrink-0 text-primary/70" />
+                <span className="truncate text-sm font-medium">{d.label}</span>
+              </div>
+              <div className="min-w-0 text-xs text-muted-foreground">
+                <span className="sm:hidden font-semibold text-foreground/60">Type : </span>
+                {categoryLabel(d.category)}
+              </div>
+              <div className="text-xs text-muted-foreground">{fmtDate(d.due_date)}</div>
+              <div>
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-medium ${tone.tone}`}>
+                  {tone.label}
+                </span>
+              </div>
+              <div className="truncate text-[11px] text-muted-foreground sm:text-right">
+                {d.dossier_title ?? "—"}
+              </div>
+            </>
+          );
+          return (
+            <li key={d.id}>
+              {d.dossier_id ? (
+                <Link
+                  to="/dossiers/$id"
+                  params={{ id: d.dossier_id }}
+                  className="grid grid-cols-1 gap-2 px-4 py-3 transition hover:bg-secondary/40 sm:grid-cols-[1.6fr_0.8fr_0.6fr_0.6fr_0.8fr] sm:items-center sm:gap-3"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[1.6fr_0.8fr_0.6fr_0.6fr_0.8fr] sm:items-center sm:gap-3">
+                  {content}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

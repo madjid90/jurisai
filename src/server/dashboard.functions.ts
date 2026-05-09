@@ -6,6 +6,16 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
 
+export type ContractDeadlineItem = {
+  id: string;
+  label: string;
+  due_date: string;
+  category: string | null;
+  dossier_id: string | null;
+  dossier_title: string | null;
+  dossier_category: string | null;
+};
+
 export type DashboardSummary = {
   tenant: {
     id: string;
@@ -55,6 +65,10 @@ export type DashboardSummary = {
     refused: boolean;
     dossier_id: string | null;
   }>;
+  contract_deadlines: {
+    juridique: ContractDeadlineItem[];
+    fournisseur: ContractDeadlineItem[];
+  };
   counters: {
     open_dossiers: number;
     pending_validations: number;
@@ -92,6 +106,7 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       alertsCount,
       pendingLinksCount,
       tenantIdcc,
+      contractDeadlinesRes,
     ] = await Promise.all([
       sb
         .from("tenants")
@@ -156,6 +171,14 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
         .eq("tenant_id", tenantId)
         .eq("status", "pending"),
       sb.from("tenants").select("idcc").eq("id", tenantId).maybeSingle(),
+      sb
+        .from("contract_deadlines")
+        .select("id, label, due_date, category, dossier_id, dossiers:dossier_id(title, category)")
+        .eq("tenant_id", tenantId)
+        .is("done_at", null)
+        .gte("due_date", new Date().toISOString().slice(0, 10))
+        .order("due_date", { ascending: true })
+        .limit(50),
     ]);
 
     const idcc = (tenantIdcc.data as { idcc: string | null } | null)?.idcc ?? null;
@@ -203,6 +226,38 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       })),
     ].slice(0, 12);
 
+    // Classification des échéances contrats : juridique vs fournisseur
+    const JURIDIQUE_CATS = new Set([
+      "rh", "contentieux", "societes", "rgpd", "fiscal", "reglementaire", "administratif",
+    ]);
+    const rawDeadlines = (contractDeadlinesRes.data ?? []) as Array<{
+      id: string;
+      label: string;
+      due_date: string;
+      category: string | null;
+      dossier_id: string | null;
+      dossiers: { title: string | null; category: string | null } | null;
+    }>;
+    const deadlineItems: ContractDeadlineItem[] = rawDeadlines.map((r) => ({
+      id: r.id,
+      label: r.label,
+      due_date: r.due_date,
+      category: r.category,
+      dossier_id: r.dossier_id,
+      dossier_title: r.dossiers?.title ?? null,
+      dossier_category: r.dossiers?.category ?? null,
+    }));
+    const juridique: ContractDeadlineItem[] = [];
+    const fournisseur: ContractDeadlineItem[] = [];
+    for (const d of deadlineItems) {
+      const isJuridique =
+        d.dossier_category != null && JURIDIQUE_CATS.has(d.dossier_category);
+      const isFournisseur = d.category === "paiement" || d.category === "fournisseur";
+      if (isFournisseur && !isJuridique) fournisseur.push(d);
+      else if (isJuridique) juridique.push(d);
+      else fournisseur.push(d);
+    }
+
     return {
       tenant: tenantRes.data ?? null,
       to_treat_today: toTreatToday,
@@ -210,6 +265,10 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       pending_validations: validations,
       legal_alerts: filteredAlerts.map(({ idcc: _i, ...rest }) => rest),
       recent_agent_runs: (runsRes.data ?? []) as DashboardSummary["recent_agent_runs"],
+      contract_deadlines: {
+        juridique: juridique.slice(0, 8),
+        fournisseur: fournisseur.slice(0, 8),
+      },
       counters: {
         open_dossiers: openDossiersCount.count ?? 0,
         pending_validations: pendingValidationsCount.count ?? 0,
