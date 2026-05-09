@@ -164,7 +164,7 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
             dossier_id: data.dossier_id ?? null,
             status: "running",
             started_by: userId,
-            current_step: 0,
+            current_step_index: 0,
             context: {},
           })
           .select("id")
