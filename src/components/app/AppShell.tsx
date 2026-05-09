@@ -34,6 +34,7 @@ import { NotificationBell } from "@/components/app/NotificationBell";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
 import { useAccess, hasPermission } from "@/lib/auth/useAccess";
 import type { UserAccess } from "@/server/permissions.functions";
+import { FormSlideOverProvider } from "@/components/agent/FormSlideOver";
 
 type NavItemDef = {
   to: string;
@@ -46,9 +47,10 @@ type NavItemDef = {
 const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/agent", label: "Assistant", icon: Sparkles },
-  { to: "/dossiers", label: "Mes dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
-  { to: "/documents", label: "Mes documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
-  { to: "/veille", label: "Veille juridique", icon: Bell, perms: ["veille.view"] },
+  { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
+  { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
+  { to: "/notifications", label: "Notifications", icon: Bell },
+  { to: "/veille", label: "Veille juridique", icon: BookMarked, perms: ["veille.view"] },
 ];
 
 const SECONDARY_ITEMS: NavItemDef[] = [
@@ -86,6 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
+    <FormSlideOverProvider>
     <div className="mesh-bg flex min-h-screen md:p-3">
       {/* Desktop sidebar */}
       <div className="hidden md:block">
@@ -135,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="px-3 pb-3 md:px-0 md:pb-0">{children}</div>
       </main>
     </div>
+    </FormSlideOverProvider>
   );
 }
 
@@ -148,7 +152,7 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     access.roles.length > 0 &&
     access.roles.every((r) => r === "operationnel_terrain");
 
-  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/dossiers", "/documents"]);
+  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/dossiers", "/documents", "/notifications"]);
 
   const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
