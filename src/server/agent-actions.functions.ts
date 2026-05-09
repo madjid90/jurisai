@@ -289,12 +289,13 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
           .from("dossier_tasks")
           .insert({
             tenant_id: tenantId,
-            dossier_id: data.dossier_id ?? null,
+            dossier_id: data.dossier_id,
             created_by: userId,
-            assignee_id: data.assignee_id,
+            assigned_to: data.assignee_id,
             title: data.title,
             due_date: data.due_date ?? null,
             status: "open",
+            priority: "normal",
           })
           .select("id")
           .single();
@@ -307,20 +308,18 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
           kind: "action_requise",
           title: "Nouvelle tâche assignée",
           body: data.title,
-          link: data.dossier_id ? `/dossiers/${data.dossier_id}` : null,
+          link: `/dossiers/${data.dossier_id}`,
           metadata: { task_id: t.id },
         });
 
-        if (data.dossier_id) {
-          await logTimelineEvent({
-            tenantId,
-            dossierId: data.dossier_id,
-            actorId: userId,
-            eventType: "task.assigned",
-            title: `Tâche assignée : ${data.title}`,
-            metadata: { task_id: t.id, assignee_id: data.assignee_id, source: "result_panel" },
-          });
-        }
+        await logTimelineEvent({
+          tenantId,
+          dossierId: data.dossier_id,
+          actorId: userId,
+          eventType: "task.assigned",
+          title: `Tâche assignée : ${data.title}`,
+          metadata: { task_id: t.id, assignee_id: data.assignee_id, source: "result_panel" },
+        });
         return { ok: true, task_id: t.id };
       }
 
