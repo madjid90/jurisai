@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
         error: (err as Error).message,
         hint: "Vérifiez que LEGIFRANCE_OAUTH_ID et LEGIFRANCE_OAUTH_SECRET sont configurés " +
           "dans les secrets Supabase et que l'API Légifrance est souscrite sur PISTE.",
-      }, 500);
+      }, 500, corsHeaders);
     }
 
     // 2. Walk tree to collect article ids
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
         code_title: codeData.title,
         articles_found: articleIds.length,
         articles_to_ingest: target.length,
-      });
+      }, 200, corsHeaders);
     }
 
     // 3. Fetch + ingest each article (rate-limit gentle: ~10 req/s)
@@ -169,10 +169,10 @@ Deno.serve(async (req) => {
       items_processed: processed,
       items_failed: failed,
     });
-    return jsonResponse({ job_id: jobId, processed, failed, total: target.length }, corsHeaders);
+    return jsonResponse({ job_id: jobId, processed, failed, total: target.length }, 200, corsHeaders);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
-    return jsonResponse({ error: (err as Error, corsHeaders).message }, 500);
+    return jsonResponse({ error: (err as Error).message }, 500, corsHeaders);
   }
 });
 
