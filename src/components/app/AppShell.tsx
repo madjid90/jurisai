@@ -138,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="px-3 pb-3 md:px-0 md:pb-0">{children}</div>
       </main>
     </div>
+    </FormSlideOverProvider>
   );
 }
 
