@@ -224,14 +224,14 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
       // --------------------------------------------------------- create_reminder
       case "create_reminder": {
         const { data: r, error } = await db
-          .from("dossier_reminders")
+          .from("reminders")
           .insert({
             tenant_id: tenantId,
+            user_id: userId,
             dossier_id: data.dossier_id ?? null,
             created_by: userId,
             title: data.title,
-            due_date: data.due_date,
-            status: "pending",
+            remind_at: data.due_date,
           })
           .select("id")
           .single();
@@ -243,7 +243,7 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
             actorId: userId,
             eventType: "reminder.created",
             title: `Rappel créé : ${data.title}`,
-            metadata: { reminder_id: r.id, due_date: data.due_date, source: "result_panel" },
+            metadata: { reminder_id: r.id, remind_at: data.due_date, source: "result_panel" },
           });
         }
         return { ok: true, reminder_id: r.id };
