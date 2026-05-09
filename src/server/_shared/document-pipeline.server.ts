@@ -17,6 +17,7 @@ import { extractEntities } from "./entity-extraction.server";
 import { findRelatedContext } from "./context-link.server";
 import { embedText, toPgVector } from "./embeddings.server";
 import { logTimelineEvent } from "./timeline.server";
+import { detectDeadlines } from "./deadline-detection.server";
 
 const AUTO_LINK_THRESHOLD = 0.8;
 const SUGGEST_THRESHOLD = 0.5;
@@ -30,6 +31,7 @@ export type PipelineResult = {
   autoLinked: string[];
   suggested: string[];
   indexedDossiers: string[];
+  remindersCreated: number;
   skippedReason?: string;
 };
 
@@ -48,6 +50,7 @@ export async function processUploadedDocument(opts: {
     autoLinked: [],
     suggested: [],
     indexedDossiers: [],
+    remindersCreated: 0,
   };
 
   // ---- 1) Charger le document
@@ -220,6 +223,47 @@ export async function processUploadedDocument(opts: {
       description: "Confirmation utilisateur requise",
       metadata: { document_id: documentId, entities_count: entities.length },
     });
+  }
+
+  // ---- 7) Détection d'échéances → reminders pour chaque dossier confirmé
+  if (confirmedDossiers.length) {
+    const deadlines = detectDeadlines(text);
+    for (const dl of deadlines) {
+      for (const dossierId of confirmedDossiers) {
+        const remindAt = new Date(dl.date + "T09:00:00Z");
+        // Anticiper de 7 jours si possible
+        const anticipated = new Date(remindAt);
+        anticipated.setDate(anticipated.getDate() - 7);
+        const finalAt = anticipated > new Date() ? anticipated : remindAt;
+        const { error } = await db.from("reminders").insert({
+          tenant_id: tenantId,
+          user_id: actorId,
+          created_by: actorId,
+          dossier_id: dossierId,
+          title: `Échéance détectée : ${doc.filename}`,
+          body: dl.context,
+          remind_at: finalAt.toISOString(),
+          metadata: {
+            source: "document_pipeline",
+            document_id: documentId,
+            keyword: dl.keyword,
+            original_date: dl.date,
+          },
+        });
+        if (!error) {
+          result.remindersCreated += 1;
+          await logTimelineEvent({
+            tenantId,
+            dossierId,
+            actorId,
+            eventType: "deadline.detected",
+            title: `Échéance détectée le ${dl.date}`,
+            description: dl.context.slice(0, 200),
+            metadata: { document_id: documentId, keyword: dl.keyword },
+          });
+        }
+      }
+    }
   }
 
   return result;
