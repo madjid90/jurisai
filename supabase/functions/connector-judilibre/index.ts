@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
         const res = await fetch(url, { headers: { KeyId: key, Accept: "application/json" } });
         if (!res.ok) {
           const txt = await res.text();
-          throw new Error(`Judilibre /search ${res.status}: ${txt.slice(0, 200)}`);
+          throw new Error(`Judilibre /search ${res.status}: ${txt.slice(0, 200) || "empty body"}`);
         }
         const data = await res.json() as SearchResult;
         const pageResults = data.results ?? data.result ?? [];
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
       await finishJob(db, jobId, "failed");
       return jsonResponse({
         error: (err as Error).message,
-        hint: "Vérifiez le secret JUDILIBRE_KEY_ID dans Supabase.",
+        hint: "Vérifiez le secret JUDILIBRE_KEY_ID dans Supabase et que votre application PISTE est bien souscrite à Judilibre.",
       }, 500, corsHeaders);
     }
 
