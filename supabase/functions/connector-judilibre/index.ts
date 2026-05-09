@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       return jsonResponse({
         error: (err as Error).message,
         hint: "Vérifiez le secret JUDILIBRE_KEY_ID dans Supabase.",
-      }, 500);
+      }, 500, corsHeaders);
     }
 
     const target = collected.slice(0, maxDecisions);
@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
 
     if (dryRun) {
       await finishJob(db, jobId, "completed", { items_processed: 0 });
-      return jsonResponse({ job_id: jobId, dry_run: true, found: target.length });
+      return jsonResponse({ job_id: jobId, dry_run: true, found: target.length }, 200, corsHeaders);
     }
 
     // Ingest each decision (fetch full text if not in search hit)
@@ -191,10 +191,10 @@ Deno.serve(async (req) => {
       items_processed: processed,
       items_failed: failed,
     });
-    return jsonResponse({ job_id: jobId, processed, failed, total: target.length });
+    return jsonResponse({ job_id: jobId, processed, failed, total: target.length }, 200, corsHeaders);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
-    return jsonResponse({ error: (err as Error).message }, 500);
+    return jsonResponse({ error: (err as Error).message }, 500, corsHeaders);
   }
 });
 
@@ -204,7 +204,7 @@ function defaultDateStart(): string {
   return d.toISOString().slice(0, 10);
 }
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status: number, corsHeaders: Record<string,string>) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
