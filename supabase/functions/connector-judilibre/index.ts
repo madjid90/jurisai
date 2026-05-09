@@ -131,8 +131,8 @@ Deno.serve(async (req) => {
           }).toString() +
           chambers.map((c) => `&chamber=${c}`).join("");
 
-        const key = Deno.env.get("JUDILIBRE_KEY_ID")!;
-        const res = await fetch(url, { headers: { KeyId: key, Accept: "application/json" } });
+        const key = (Deno.env.get("PISTE_API_KEY") ?? Deno.env.get("JUDILIBRE_KEY_ID"))!;
+        const res = await fetch(url, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
         if (!res.ok) {
           const txt = await res.text();
           throw new Error(`Judilibre /search ${res.status}: ${txt.slice(0, 200) || "empty body"}`);
