@@ -70,14 +70,17 @@ export async function legifranceFetch<T>(path: string, body: unknown): Promise<T
   const token = await getPisteToken();
   const errors: string[] = [];
 
+  const apiKey = Deno.env.get("PISTE_API_KEY");
   for (const base of legifranceBases()) {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (apiKey) headers.apikey = apiKey;
     const res = await fetch(`${base}${path}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
     });
     if (res.ok) {
