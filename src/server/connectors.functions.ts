@@ -177,7 +177,7 @@ export const checkConnectorSecrets = createServerFn({ method: "POST" })
       required: [
         { name: "LEGIFRANCE_OAUTH_ID", connector: "legifrance", description: "client_id PISTE" },
         { name: "LEGIFRANCE_OAUTH_SECRET", connector: "legifrance", description: "client_secret PISTE" },
-        { name: "JUDILIBRE_KEY_ID", connector: "judilibre", description: "KeyId PISTE" },
+        { name: "PISTE_API_KEY", connector: "judilibre", description: "clé API PISTE (UUID)" },
       ],
     };
   });
