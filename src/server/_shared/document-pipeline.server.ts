@@ -50,6 +50,7 @@ export async function processUploadedDocument(opts: {
     autoLinked: [],
     suggested: [],
     indexedDossiers: [],
+    remindersCreated: 0,
   };
 
   // ---- 1) Charger le document
