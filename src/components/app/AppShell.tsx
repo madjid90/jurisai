@@ -46,9 +46,10 @@ type NavItemDef = {
 const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/agent", label: "Assistant", icon: Sparkles },
-  { to: "/dossiers", label: "Mes dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
-  { to: "/documents", label: "Mes documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
-  { to: "/veille", label: "Veille juridique", icon: Bell, perms: ["veille.view"] },
+  { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
+  { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
+  { to: "/notifications", label: "Notifications", icon: Bell },
+  { to: "/veille", label: "Veille juridique", icon: BookMarked, perms: ["veille.view"] },
 ];
 
 const SECONDARY_ITEMS: NavItemDef[] = [
