@@ -194,14 +194,15 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
         if (tplErr || !tpl) throw new Error("Modèle introuvable");
 
         const { data: session, error } = await db
-          .from("generation_sessions")
+          .from("document_generation_sessions")
           .insert({
             tenant_id: tenantId,
             user_id: userId,
             template_id: tpl.id,
             dossier_id: data.dossier_id ?? null,
             status: "draft",
-            context: data.context ?? {},
+            scenario: "agent_suggestion",
+            collected_data: data.context ?? {},
           })
           .select("id")
           .single();
