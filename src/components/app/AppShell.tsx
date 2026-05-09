@@ -88,6 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
+    <FormSlideOverProvider>
     <div className="mesh-bg flex min-h-screen md:p-3">
       {/* Desktop sidebar */}
       <div className="hidden md:block">
