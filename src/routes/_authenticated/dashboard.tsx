@@ -218,7 +218,7 @@ function DashboardPage() {
           </div>
         </section>
 
-        {/* Dossiers à suivre — liste */}
+        {/* Dossiers à suivre — JURIDIQUE */}
         <section className="glass-panel rounded-3xl p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Dossiers à suivre</h2>
@@ -226,6 +226,7 @@ function DashboardPage() {
               Tout voir <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
+          <SubHeader>Juridique</SubHeader>
           {loading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
@@ -242,6 +243,36 @@ function DashboardPage() {
           ) : (
             <DossierList dossiers={summary.recent_dossiers.slice(0, 8)} />
           )}
+        </section>
+
+        {/* Échéances contrats — Juridique puis Fournisseurs (empilés) */}
+        <section className="glass-panel rounded-3xl p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Échéances contrats</h2>
+            <Link to="/dossiers" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+              Tout voir <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          <SubHeader>Juridique</SubHeader>
+          {loading ? (
+            <div className="h-12 animate-pulse rounded-xl bg-secondary/50" />
+          ) : !summary?.contract_deadlines.juridique.length ? (
+            <EmptyDeadlines text="Aucune échéance contractuelle juridique." />
+          ) : (
+            <DeadlineList items={summary.contract_deadlines.juridique} />
+          )}
+
+          <div className="mt-6">
+            <SubHeader>Fournisseurs</SubHeader>
+            {loading ? (
+              <div className="h-12 animate-pulse rounded-xl bg-secondary/50" />
+            ) : !summary?.contract_deadlines.fournisseur.length ? (
+              <EmptyDeadlines text="Aucune échéance fournisseur à venir." />
+            ) : (
+              <DeadlineList items={summary.contract_deadlines.fournisseur} />
+            )}
+          </div>
         </section>
 
         {/* Stats compactes */}
