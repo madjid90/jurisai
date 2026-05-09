@@ -2,9 +2,9 @@
 // Token cache is per cold-start; PISTE tokens last ~1h.
 
 const PISTE_OAUTH_URL = "https://oauth.piste.gouv.fr/api/oauth/token";
-const PISTE_OAUTH_SANDBOX = "https://sandbox-oauth.piste.gouv.fr/api/oauth/token";
+const PISTE_OAUTH_SANDBOX = "https://sandbox-oauth.aife.economie.gouv.fr/api/oauth/token";
 
-let cached: { token: string; expiresAt: number } | null = null;
+let cached: { token: string; expiresAt: number; env: "prod" | "sandbox" } | null = null;
 
 export async function getPisteToken(scope = "openid"): Promise<string> {
   if (cached && Date.now() < cached.expiresAt - 60_000) return cached.token;
@@ -18,53 +18,74 @@ export async function getPisteToken(scope = "openid"): Promise<string> {
     );
   }
 
-  const sandbox = Deno.env.get("PISTE_SANDBOX") === "1";
-  const url = sandbox ? PISTE_OAUTH_SANDBOX : PISTE_OAUTH_URL;
+  const forcedSandbox = Deno.env.get("PISTE_SANDBOX") === "1";
+  const candidates: Array<{ env: "prod" | "sandbox"; url: string }> = forcedSandbox
+    ? [{ env: "sandbox", url: PISTE_OAUTH_SANDBOX }]
+    : [
+      { env: "prod", url: PISTE_OAUTH_URL },
+      { env: "sandbox", url: PISTE_OAUTH_SANDBOX },
+    ];
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: id,
-      client_secret: secret,
-      scope,
-    }),
-  });
+  const errors: string[] = [];
+  for (const candidate of candidates) {
+    const res = await fetch(candidate.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: id,
+        client_secret: secret,
+        scope,
+      }),
+    });
 
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`PISTE OAuth error ${res.status}: ${txt.slice(0, 200)}`);
+    if (!res.ok) {
+      const txt = await res.text();
+      errors.push(`${candidate.env}:${res.status}:${txt.slice(0, 160)}`);
+      continue;
+    }
+
+    const json = await res.json() as { access_token: string; expires_in: number };
+    cached = {
+      token: json.access_token,
+      expiresAt: Date.now() + json.expires_in * 1000,
+      env: candidate.env,
+    };
+    return cached.token;
   }
-  const json = await res.json() as { access_token: string; expires_in: number };
-  cached = {
-    token: json.access_token,
-    expiresAt: Date.now() + json.expires_in * 1000,
-  };
-  return cached.token;
+
+  throw new Error(`PISTE OAuth failed (${errors.join(" | ")})`);
 }
 
 export const LEGIFRANCE_BASE = "https://api.piste.gouv.fr/dila/legifrance/lf-engine-app";
 export const LEGIFRANCE_SANDBOX = "https://sandbox-api.piste.gouv.fr/dila/legifrance/lf-engine-app";
 
-export function legifranceBase(): string {
-  return Deno.env.get("PISTE_SANDBOX") === "1" ? LEGIFRANCE_SANDBOX : LEGIFRANCE_BASE;
+export function legifranceBases(): string[] {
+  if (Deno.env.get("PISTE_SANDBOX") === "1") return [LEGIFRANCE_SANDBOX];
+  if (cached?.env === "sandbox") return [LEGIFRANCE_SANDBOX, LEGIFRANCE_BASE];
+  return [LEGIFRANCE_BASE, LEGIFRANCE_SANDBOX];
 }
 
 export async function legifranceFetch<T>(path: string, body: unknown): Promise<T> {
   const token = await getPisteToken();
-  const res = await fetch(`${legifranceBase()}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
+  const errors: string[] = [];
+
+  for (const base of legifranceBases()) {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      return await res.json() as T;
+    }
     const txt = await res.text();
-    throw new Error(`Légifrance ${path} ${res.status}: ${txt.slice(0, 300)}`);
+    errors.push(`${base} -> ${res.status}: ${txt.slice(0, 200)}`);
   }
-  return await res.json() as T;
+
+  throw new Error(`Légifrance ${path} failed (${errors.join(" | ")})`);
 }
