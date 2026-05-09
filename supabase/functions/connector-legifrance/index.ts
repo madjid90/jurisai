@@ -169,14 +169,14 @@ Deno.serve(async (req) => {
       items_processed: processed,
       items_failed: failed,
     });
-    return jsonResponse({ job_id: jobId, processed, failed, total: target.length });
+    return jsonResponse({ job_id: jobId, processed, failed, total: target.length }, corsHeaders);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
-    return jsonResponse({ error: (err as Error).message }, 500);
+    return jsonResponse({ error: (err as Error, corsHeaders).message }, 500);
   }
 });
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: unknown, status: number, corsHeaders: Record<string,string>) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
