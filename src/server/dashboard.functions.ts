@@ -171,6 +171,14 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
         .eq("tenant_id", tenantId)
         .eq("status", "pending"),
       sb.from("tenants").select("idcc").eq("id", tenantId).maybeSingle(),
+      sb
+        .from("contract_deadlines")
+        .select("id, label, due_date, category, dossier_id, dossiers:dossier_id(title, category)")
+        .eq("tenant_id", tenantId)
+        .is("done_at", null)
+        .gte("due_date", new Date().toISOString().slice(0, 10))
+        .order("due_date", { ascending: true })
+        .limit(50),
     ]);
 
     const idcc = (tenantIdcc.data as { idcc: string | null } | null)?.idcc ?? null;
