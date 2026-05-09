@@ -69,16 +69,15 @@ interface DecisionResult {
 }
 
 async function judilibreGet<T>(path: string, params: Record<string, string>): Promise<T> {
-  const key = Deno.env.get("JUDILIBRE_KEY_ID");
+  const key = Deno.env.get("PISTE_API_KEY") ?? Deno.env.get("JUDILIBRE_KEY_ID");
   if (!key) {
     throw new Error(
-      "JUDILIBRE_KEY_ID manquant. Inscrivez-vous sur https://piste.gouv.fr, " +
-      "souscrivez l'API Judilibre et ajoutez le secret.",
+      "PISTE_API_KEY manquant. Ajoutez la clé API PISTE (UUID visible dans la console PISTE) dans les secrets Supabase.",
     );
   }
   const url = `${base()}${path}?${new URLSearchParams(params).toString()}`;
   const res = await fetch(url, {
-    headers: { KeyId: key, Accept: "application/json" },
+    headers: { KeyId: key, apikey: key, Accept: "application/json" },
   });
   if (!res.ok) {
     const txt = await res.text();
@@ -132,8 +131,8 @@ Deno.serve(async (req) => {
           }).toString() +
           chambers.map((c) => `&chamber=${c}`).join("");
 
-        const key = Deno.env.get("JUDILIBRE_KEY_ID")!;
-        const res = await fetch(url, { headers: { KeyId: key, Accept: "application/json" } });
+        const key = (Deno.env.get("PISTE_API_KEY") ?? Deno.env.get("JUDILIBRE_KEY_ID"))!;
+        const res = await fetch(url, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
         if (!res.ok) {
           const txt = await res.text();
           throw new Error(`Judilibre /search ${res.status}: ${txt.slice(0, 200) || "empty body"}`);
