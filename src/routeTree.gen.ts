@@ -50,6 +50,7 @@ import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1.me'
 import { Route as ApiPublicV1DossiersRouteImport } from './routes/api/public/v1.dossiers'
 import { Route as ApiPublicV1DeadlinesRouteImport } from './routes/api/public/v1.deadlines'
 import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1.clients'
+import { Route as ApiPublicHooksDispatchRemindersRouteImport } from './routes/api/public/hooks/dispatch-reminders'
 import { Route as ApiPublicHooksDigestRouteImport } from './routes/api/public/hooks/digest'
 import { Route as ApiPublicHooksContractDeadlinesRouteImport } from './routes/api/public/hooks/contract-deadlines'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar.$token'
@@ -268,6 +269,12 @@ const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
   path: '/api/public/v1/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDispatchRemindersRoute =
+  ApiPublicHooksDispatchRemindersRouteImport.update({
+    id: '/api/public/hooks/dispatch-reminders',
+    path: '/api/public/hooks/dispatch-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksDigestRoute = ApiPublicHooksDigestRouteImport.update({
   id: '/api/public/hooks/digest',
   path: '/api/public/hooks/digest',
@@ -325,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
+  '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
   '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
@@ -370,6 +378,7 @@ export interface FileRoutesByTo {
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
+  '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
   '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
@@ -417,6 +426,7 @@ export interface FileRoutesById {
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
+  '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
   '/api/public/v1/dossiers': typeof ApiPublicV1DossiersRoute
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
     | '/api/public/calendar/$token'
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
+    | '/api/public/hooks/dispatch-reminders'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
     | '/api/public/v1/dossiers'
@@ -509,6 +520,7 @@ export interface FileRouteTypes {
     | '/api/public/calendar/$token'
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
+    | '/api/public/hooks/dispatch-reminders'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
     | '/api/public/v1/dossiers'
@@ -555,6 +567,7 @@ export interface FileRouteTypes {
     | '/api/public/calendar/$token'
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
+    | '/api/public/hooks/dispatch-reminders'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
     | '/api/public/v1/dossiers'
@@ -576,6 +589,7 @@ export interface RootRouteChildren {
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
   ApiPublicHooksContractDeadlinesRoute: typeof ApiPublicHooksContractDeadlinesRoute
   ApiPublicHooksDigestRoute: typeof ApiPublicHooksDigestRoute
+  ApiPublicHooksDispatchRemindersRoute: typeof ApiPublicHooksDispatchRemindersRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
   ApiPublicV1DeadlinesRoute: typeof ApiPublicV1DeadlinesRoute
   ApiPublicV1DossiersRoute: typeof ApiPublicV1DossiersRoute
@@ -871,6 +885,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/dispatch-reminders': {
+      id: '/api/public/hooks/dispatch-reminders'
+      path: '/api/public/hooks/dispatch-reminders'
+      fullPath: '/api/public/hooks/dispatch-reminders'
+      preLoaderRoute: typeof ApiPublicHooksDispatchRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/digest': {
       id: '/api/public/hooks/digest'
       path: '/api/public/hooks/digest'
@@ -994,6 +1015,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
   ApiPublicHooksContractDeadlinesRoute: ApiPublicHooksContractDeadlinesRoute,
   ApiPublicHooksDigestRoute: ApiPublicHooksDigestRoute,
+  ApiPublicHooksDispatchRemindersRoute: ApiPublicHooksDispatchRemindersRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
   ApiPublicV1DeadlinesRoute: ApiPublicV1DeadlinesRoute,
   ApiPublicV1DossiersRoute: ApiPublicV1DossiersRoute,
