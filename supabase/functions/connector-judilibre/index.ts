@@ -68,6 +68,19 @@ interface DecisionResult {
   themes?: string[];
 }
 
+const CHAMBER_ALIASES: Record<string, string> = {
+  com: "comm",
+};
+
+function normalizeChambers(input: unknown): string[] {
+  const raw = Array.isArray(input) ? input : ["soc", "comm"];
+  return raw
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .map((value) => CHAMBER_ALIASES[value] ?? value);
+}
+
 async function judilibreGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const key = Deno.env.get("PISTE_API_KEY") ?? Deno.env.get("JUDILIBRE_KEY_ID");
   if (!key) {
@@ -93,7 +106,7 @@ Deno.serve(async (req) => {
   try {
     await requireSuperAdmin(req);
     const body = await req.json().catch(() => ({}));
-    const chambers: string[] = Array.isArray(body.chamber) ? body.chamber : ["soc", "com"];
+    const chambers = normalizeChambers(body.chamber);
     const dateStart: string = body.date_start ?? defaultDateStart();
     const dateEnd: string = body.date_end ?? new Date().toISOString().slice(0, 10);
     const maxDecisions = Math.min(Number(body.max_decisions) || 1000, 10000);
