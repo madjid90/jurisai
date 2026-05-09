@@ -226,6 +226,38 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       })),
     ].slice(0, 12);
 
+    // Classification des échéances contrats : juridique vs fournisseur
+    const JURIDIQUE_CATS = new Set([
+      "rh", "contentieux", "societes", "rgpd", "fiscal", "reglementaire", "administratif",
+    ]);
+    const rawDeadlines = (contractDeadlinesRes.data ?? []) as Array<{
+      id: string;
+      label: string;
+      due_date: string;
+      category: string | null;
+      dossier_id: string | null;
+      dossiers: { title: string | null; category: string | null } | null;
+    }>;
+    const deadlineItems: ContractDeadlineItem[] = rawDeadlines.map((r) => ({
+      id: r.id,
+      label: r.label,
+      due_date: r.due_date,
+      category: r.category,
+      dossier_id: r.dossier_id,
+      dossier_title: r.dossiers?.title ?? null,
+      dossier_category: r.dossiers?.category ?? null,
+    }));
+    const juridique: ContractDeadlineItem[] = [];
+    const fournisseur: ContractDeadlineItem[] = [];
+    for (const d of deadlineItems) {
+      const isJuridique =
+        d.dossier_category != null && JURIDIQUE_CATS.has(d.dossier_category);
+      const isFournisseur = d.category === "paiement" || d.category === "fournisseur";
+      if (isFournisseur && !isJuridique) fournisseur.push(d);
+      else if (isJuridique) juridique.push(d);
+      else fournisseur.push(d);
+    }
+
     return {
       tenant: tenantRes.data ?? null,
       to_treat_today: toTreatToday,
@@ -233,6 +265,10 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       pending_validations: validations,
       legal_alerts: filteredAlerts.map(({ idcc: _i, ...rest }) => rest),
       recent_agent_runs: (runsRes.data ?? []) as DashboardSummary["recent_agent_runs"],
+      contract_deadlines: {
+        juridique: juridique.slice(0, 8),
+        fournisseur: fournisseur.slice(0, 8),
+      },
       counters: {
         open_dossiers: openDossiersCount.count ?? 0,
         pending_validations: pendingValidationsCount.count ?? 0,
