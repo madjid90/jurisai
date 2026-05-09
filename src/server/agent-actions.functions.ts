@@ -129,7 +129,8 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
           status: "confirmed",
           link_method: "manual",
           confidence: 1,
-          created_by: userId,
+          confirmed_by: userId,
+          confirmed_at: new Date().toISOString(),
         });
         if (error && !String(error.message).includes("duplicate")) {
           throw new Error(error.message);
