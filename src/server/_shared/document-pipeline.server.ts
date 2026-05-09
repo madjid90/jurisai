@@ -17,6 +17,7 @@ import { extractEntities } from "./entity-extraction.server";
 import { findRelatedContext } from "./context-link.server";
 import { embedText, toPgVector } from "./embeddings.server";
 import { logTimelineEvent } from "./timeline.server";
+import { detectDeadlines } from "./deadline-detection.server";
 
 const AUTO_LINK_THRESHOLD = 0.8;
 const SUGGEST_THRESHOLD = 0.5;
