@@ -56,7 +56,7 @@ const CONNECTORS = [
     name: "Légifrance — Codes",
     description: "Code du travail par défaut. Nécessite credentials PISTE.",
     auth: true,
-    defaultPayload: { code_id: "LEGITEXT000006072050", max_articles: 100, dry_run: true },
+    defaultPayload: { code_id: "LEGITEXT000006072050", max_articles: 100, dry_run: false },
     badge: "OAuth PISTE",
   },
   {
@@ -64,7 +64,7 @@ const CONNECTORS = [
     name: "Judilibre — Jurisprudence",
     description: "Cour de cassation chambres soc + com, 5 dernières années.",
     auth: true,
-    defaultPayload: { chamber: ["soc", "com"], max_decisions: 50, dry_run: true },
+    defaultPayload: { chamber: ["soc", "comm"], max_decisions: 50, dry_run: false },
     badge: "KeyId PISTE",
   },
 ];
