@@ -6,6 +6,16 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
 
+export type ContractDeadlineItem = {
+  id: string;
+  label: string;
+  due_date: string;
+  category: string | null;
+  dossier_id: string | null;
+  dossier_title: string | null;
+  dossier_category: string | null;
+};
+
 export type DashboardSummary = {
   tenant: {
     id: string;
@@ -96,6 +106,7 @@ export const getDashboardSummary = createServerFn({ method: "GET" })
       alertsCount,
       pendingLinksCount,
       tenantIdcc,
+      contractDeadlinesRes,
     ] = await Promise.all([
       sb
         .from("tenants")
