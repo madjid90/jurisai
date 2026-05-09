@@ -55,6 +55,10 @@ export type DashboardSummary = {
     refused: boolean;
     dossier_id: string | null;
   }>;
+  contract_deadlines: {
+    juridique: ContractDeadlineItem[];
+    fournisseur: ContractDeadlineItem[];
+  };
   counters: {
     open_dossiers: number;
     pending_validations: number;
