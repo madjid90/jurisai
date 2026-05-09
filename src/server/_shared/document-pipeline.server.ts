@@ -31,6 +31,7 @@ export type PipelineResult = {
   autoLinked: string[];
   suggested: string[];
   indexedDossiers: string[];
+  remindersCreated: number;
   skippedReason?: string;
 };
 
