@@ -183,10 +183,33 @@ export const generateWorkflow = createServerFn({ method: "POST" })
         };
       }
 
-      // 2. RAG juridique pour ancrer la génération
-      const rag = await searchLegalSources(data.prompt, { idcc: null, limit: 6 });
-      const ragBlock = rag.ok
-        ? rag.sources.map((s) => `[source:${s.n}] ${s.title}${s.reference ? ` (${s.reference})` : ""} — ${s.excerpt}`).join("\n")
+      // 2. Multi-Query RAG juridique pour ancrer la génération
+      const idccEarly = await fetchTenantIdcc(tenantId);
+      const mqRag = await multiQueryRag(data.prompt, { idcc: idccEarly, apiKey, topN: 18 });
+      let ragSources = mqRag.sources;
+      if (ragSources.length === 0) {
+        const fallback = await searchLegalSources(data.prompt, { idcc: idccEarly, limit: 6 });
+        if (fallback.ok) {
+          ragSources = fallback.sources.map((s) => ({
+            source_id: String(s.n),
+            chunk_id: String(s.n),
+            title: s.title,
+            reference: s.reference ?? null,
+            url: s.url ?? null,
+            source_type: "autre",
+            excerpt: s.excerpt,
+            authority: 50,
+          }));
+        }
+      }
+      const ragBlock = ragSources.length
+        ? ragSources
+            .slice(0, 12)
+            .map(
+              (s, i) =>
+                `[source:${i + 1}] ${s.title}${s.reference ? ` (${s.reference})` : ""} — ${s.excerpt.slice(0, 400)}`,
+            )
+            .join("\n")
         : "(Aucune source RAG pertinente trouvée — génère prudemment et marque requires_sourcing=true partout.)";
 
       const userPrompt = `Demande :\n${data.prompt}\n\nContexte légal RAG (à utiliser comme appui) :\n${ragBlock}`;
