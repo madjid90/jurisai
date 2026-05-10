@@ -17,6 +17,7 @@ import { logTimelineEvent } from "./timeline.server";
 import { logWorkflowAudit } from "./workflow-audit.server";
 import { computeLegalDeadline, extractStepDelay, type DelayResult } from "./legal-delays.server";
 import { detectSensitiveActions } from "./sensitive-actions.server";
+import { WORKFLOW_VALIDATOR_ROLES } from "./workflow-roles.server";
 
 // JSON-serializable types (TanStack server-fn impose des champs définis)
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
