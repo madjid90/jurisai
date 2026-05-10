@@ -45,7 +45,10 @@ export const listLegalSources = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(data.limit ?? 100);
 
-    if (data.search) query = query.ilike("title", `%${data.search}%`);
+    if (data.search) {
+      const safe = data.search.replace(/\\/g, "\\\\").replace(/[%_]/g, "\\$&");
+      query = query.ilike("title", `%${safe}%`);
+    }
     if (data.type) query = query.eq("source_type", data.type);
     if (data.idcc) query = query.eq("idcc", data.idcc);
 

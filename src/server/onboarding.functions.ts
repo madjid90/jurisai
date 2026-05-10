@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { isValidSiret } from "@/server/_shared/validation.server";
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -10,7 +11,10 @@ const completeOnboardingSchema = z.object({
   jobTitle: z.string().max(120).optional().nullable(),
   phone: z.string().max(40).optional().nullable(),
   companyName: z.string().min(1).max(200),
-  siret: z.string().max(20).optional().nullable(),
+  siret: z.string().max(20).optional().nullable().refine(
+    (v) => v == null || v === "" || isValidSiret(v),
+    { message: "SIRET invalide (14 chiffres + clé de Luhn)" },
+  ),
   sector: z.string().max(120).optional().nullable(),
   idcc: z.string().max(20).optional().nullable(),
   profileKind: z
