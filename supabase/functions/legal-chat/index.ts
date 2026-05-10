@@ -476,6 +476,24 @@ Deno.serve(async (req) => {
               });
             }
 
+            // LOT 5 RAG — Vérification post-réponse : les références juridiques
+            // citées dans la réponse existent-elles bien dans `legal_reference_index` ?
+            const refCheck = await verifyReferences(
+              SUPABASE_URL,
+              SUPABASE_SERVICE_ROLE_KEY,
+              assistantContent,
+            );
+            if (refCheck.should_warn) {
+              logEvent("rag.reference_warning", {
+                user_id: userId,
+                tenant_id: convo.tenant_id,
+                conversation_id: conversationId,
+                score: refCheck.verification_score,
+                unknown: refCheck.references_unknown.slice(0, 10),
+                found_count: refCheck.references_found.length,
+              });
+            }
+
             logEvent("rag.complete", {
               user_id: userId,
               tenant_id: convo.tenant_id,
@@ -485,6 +503,8 @@ Deno.serve(async (req) => {
               chunks_used: chunks.length,
               citations: [...new Set([...assistantContent.matchAll(/\[source:(\d+)\]/g)].map(m => m[1]))].length,
               citation_coverage: validation.citation_coverage_score,
+              reference_score: refCheck.verification_score,
+              references_unknown: refCheck.references_unknown.length,
               rag_mode: ragMode,
             });
           }
