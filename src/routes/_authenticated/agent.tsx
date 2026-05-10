@@ -47,6 +47,7 @@ import {
   FileText,
   Paperclip,
   Shield,
+  RotateCcw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/agent")({
@@ -413,6 +414,7 @@ function RunDetail({
   const archive = useServerFn(archiveAgentRun);
   const execute = useServerFn(executeAgentRun);
   const process = useServerFn(processAgentRun);
+  const create = useServerFn(createAgentRun);
 
   const [busy, setBusy] = useState(false);
   const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
@@ -685,8 +687,39 @@ function RunDetail({
       ) : null}
 
       {status === "failed" && !refused ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {(run.error_message as string) ?? "Une erreur s'est produite. Réessayez plus tard."}
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <p className="flex-1">
+              {(run.error_message as string) ?? "Une erreur s'est produite. Réessayez plus tard."}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await create({
+                  data: {
+                    message: run.message as string,
+                    dossier_id: (run.dossier_id as string | null) ?? undefined,
+                  },
+                });
+                onChanged();
+                toast.success("Nouvelle demande créée");
+              } catch (e) {
+                toast.error((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="gap-2"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Réessayer
+          </Button>
         </div>
       ) : null}
     </div>
