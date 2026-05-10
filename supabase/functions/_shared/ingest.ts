@@ -20,6 +20,7 @@ export type ConnectorName =
   | "cdtn-contributions-full"
   | "cdtn-fiches"
   | "acco"
+  | "acco-full"
   | "dole"
   | "dole-full"
   | "service-public"

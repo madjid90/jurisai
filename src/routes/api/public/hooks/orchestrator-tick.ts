@@ -22,6 +22,7 @@ const CONNECTOR_FN: Record<string, string> = {
   "cdtn-contributions-full": "connector-cdtn-contributions-full",
   "cnil-full": "connector-cnil-full",
   "dole-full": "connector-dole-full",
+  "acco-full": "connector-acco-full",
 };
 
 export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
