@@ -3716,6 +3716,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_source_types_health: {
+        Row: {
+          active_rows: number | null
+          avg_authority: number | null
+          max_authority: number | null
+          min_authority: number | null
+          rows_count: number | null
+          source_type: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_rate_limit: {
