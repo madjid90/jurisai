@@ -504,14 +504,9 @@ function RunDetail({
         <WorkflowRuntimeBlock instanceId={workflowInstanceId} onAdvanced={reload} />
       ) : null}
 
-      {/* L'agent travaille */}
+      {/* L'agent travaille — stepper visuel */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
-        <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span>
-            L'agent analyse votre demande et prépare une réponse sourcée…
-          </span>
-        </div>
+        <AgentProgressStepper status={status} />
       ) : null}
 
       {/* Questions naturelles */}
@@ -781,6 +776,78 @@ function GeneratedDocRow({ docId }: { docId: string }) {
         <Printer className="h-3.5 w-3.5" />
       </Button>
       {/* Bouton Mail masqué tant que l'envoi par email n'est pas implémenté. */}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Stepper de progression — montre les 4 phases de réflexion de l'agent
+// (Comprendre → Sourcer → Rédiger → Finaliser) sans jargon technique.
+// ---------------------------------------------------------------------------
+function AgentProgressStepper({ status }: { status: string }) {
+  // Mapping états techniques → indice d'étape courant (0..3)
+  const activeIndex =
+    status === "pending" ? 0 : status === "running" ? 1 : status === "ready" ? 3 : 0;
+
+  const steps = [
+    { label: "Comprendre la demande", hint: "analyse de l'intention" },
+    { label: "Chercher les sources", hint: "base juridique + documents" },
+    { label: "Rédiger la réponse", hint: "synthèse argumentée" },
+    { label: "Finaliser", hint: "vérification & mise en forme" },
+  ];
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          L'agent travaille
+        </p>
+      </div>
+      <ol className="space-y-2.5">
+        {steps.map((s, i) => {
+          const done = i < activeIndex;
+          const active = i === activeIndex;
+          return (
+            <li key={i} className="flex items-start gap-3">
+              <span
+                className={cn(
+                  "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold mt-0.5 transition-colors",
+                  done
+                    ? "bg-emerald-500 text-white"
+                    : active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
+                )}
+              >
+                {done ? <CheckCircle2 className="h-3 w-3" /> : i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p
+                  className={cn(
+                    "text-sm leading-tight",
+                    active
+                      ? "font-medium text-foreground"
+                      : done
+                        ? "text-muted-foreground line-through decoration-emerald-500/50"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {s.label}
+                  {active ? (
+                    <span className="ml-1.5 inline-flex gap-0.5 align-middle">
+                      <span className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                      <span className="h-1 w-1 rounded-full bg-primary animate-pulse [animation-delay:150ms]" />
+                      <span className="h-1 w-1 rounded-full bg-primary animate-pulse [animation-delay:300ms]" />
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-xs text-muted-foreground/80">{s.hint}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
