@@ -417,19 +417,26 @@ export const analyzeDocument = createServerFn({ method: "POST" })
     }
   });
 
+const listAnalysesSchema = z
+  .object({ limit: z.number().min(1).max(100).optional(), offset: z.number().min(0).optional() })
+  .optional();
+
 export const listAnalyses = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: unknown) => listAnalysesSchema.parse(input ?? {}) ?? {})
+  .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const tenantId = await getTenantId(ctx.userId);
-    const { data, error } = await db
+    const limit = data?.limit ?? 30;
+    const offset = data?.offset ?? 0;
+    const { data: rows, error, count } = await db
       .from("document_analyses")
-      .select("id, filename, file_type, file_size, status, error_message, created_at, dossier_id")
+      .select("id, filename, file_type, file_size, status, error_message, created_at, dossier_id", { count: "exact" })
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .range(offset, offset + limit - 1);
     if (error) throw new Error(error.message);
-    return { analyses: data ?? [] };
+    return { analyses: rows ?? [], total: count ?? 0, hasMore: (rows?.length ?? 0) === limit };
   });
 
 export const getAnalysis = createServerFn({ method: "POST" })
