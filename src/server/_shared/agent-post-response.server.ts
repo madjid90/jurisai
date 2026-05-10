@@ -117,10 +117,10 @@ export async function runPostResponsePipeline(
     try {
       await logTimelineEvent({
         tenantId: input.tenantId,
-        userId: input.userId,
+        actorId: input.userId,
         dossierId: input.dossierId,
         eventType: "agent.post_check",
-        summary: rule
+        title: rule
           ? `Vérification post-réponse — ${rule.title} (${status})`
           : `Vérification post-réponse (${status})`,
         metadata: {
