@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_memory: {
+        Row: {
+          created_at: string
+          dossier_id: string | null
+          expires_at: string | null
+          id: string
+          key: string
+          relevance: number
+          scope: string
+          tenant_id: string
+          updated_at: string
+          user_id: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          dossier_id?: string | null
+          expires_at?: string | null
+          id?: string
+          key: string
+          relevance?: number
+          scope?: string
+          tenant_id: string
+          updated_at?: string
+          user_id?: string | null
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          dossier_id?: string | null
+          expires_at?: string | null
+          id?: string
+          key?: string
+          relevance?: number
+          scope?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      agent_post_checks: {
+        Row: {
+          agent_run_id: string | null
+          created_at: string
+          id: string
+          missing_information: Json
+          notes: string | null
+          requires_validation: boolean
+          rule_kind: string | null
+          status: string
+          tenant_id: string
+          validation_roles: Json
+        }
+        Insert: {
+          agent_run_id?: string | null
+          created_at?: string
+          id?: string
+          missing_information?: Json
+          notes?: string | null
+          requires_validation?: boolean
+          rule_kind?: string | null
+          status?: string
+          tenant_id: string
+          validation_roles?: Json
+        }
+        Update: {
+          agent_run_id?: string | null
+          created_at?: string
+          id?: string
+          missing_information?: Json
+          notes?: string | null
+          requires_validation?: boolean
+          rule_kind?: string | null
+          status?: string
+          tenant_id?: string
+          validation_roles?: Json
+        }
+        Relationships: []
+      }
       agent_runs: {
         Row: {
           answer: string | null
@@ -328,6 +409,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      business_rules: {
+        Row: {
+          created_at: string
+          domain: string
+          id: string
+          is_active: boolean
+          is_sensitive: boolean
+          keywords: Json
+          kind: string
+          required_fields: Json
+          risks: Json
+          steps: Json
+          subtitle: string | null
+          title: string
+          updated_at: string
+          validation_roles: Json
+          validation_sla_days: number | null
+        }
+        Insert: {
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean
+          is_sensitive?: boolean
+          keywords?: Json
+          kind: string
+          required_fields?: Json
+          risks?: Json
+          steps?: Json
+          subtitle?: string | null
+          title: string
+          updated_at?: string
+          validation_roles?: Json
+          validation_sla_days?: number | null
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean
+          is_sensitive?: boolean
+          keywords?: Json
+          kind?: string
+          required_fields?: Json
+          risks?: Json
+          steps?: Json
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+          validation_roles?: Json
+          validation_sla_days?: number | null
+        }
+        Relationships: []
       }
       case_timeline_events: {
         Row: {
