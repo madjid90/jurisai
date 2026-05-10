@@ -289,7 +289,11 @@ export async function executeStep(
     userId: ctx.userId,
     workflowDefinitionId: inst.definition_id,
     workflowInstanceId: inst.id,
-    action: blocked ? "step_blocked_validation" : completed ? "workflow_completed" : "step_executed",
+    action: blocked
+      ? "workflow.sensitive_action_blocked"
+      : completed
+        ? "workflow.executed"
+        : "workflow.step_completed",
     metadata: {
       step_index: input.stepIndex,
       step_key: stepDef.key,
