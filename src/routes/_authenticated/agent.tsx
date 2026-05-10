@@ -287,9 +287,7 @@ function AssistantPage() {
       {/* Fil des échanges */}
       <div className="space-y-3">
         {runs.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-12 text-center">
-            Aucune demande pour l'instant. Commencez par décrire votre besoin ci-dessus.
-          </p>
+          <EmptyState onPick={(prompt) => setMessage(prompt)} />
         ) : (
           runs.map((r) => (
             <RunCard
