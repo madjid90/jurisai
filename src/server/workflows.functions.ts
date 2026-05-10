@@ -9,6 +9,7 @@ import {
   type LegalSource,
 } from "@/server/_shared/legal-rag.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { fillTemplate as sharedFillTemplate } from "@/server/_shared/template";
 
 export type WorkflowStep = {
   key: string;
