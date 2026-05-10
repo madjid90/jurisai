@@ -370,11 +370,14 @@ function InviteRow({
       ? `${window.location.origin}/accept-invitation?token=${invitation.token}`
       : "";
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); }, []);
   const copyLink = async () => {
     await navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     toast.success("Lien copié");
-    setTimeout(() => setCopied(false), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   const expires = new Date(invitation.expires_at);
