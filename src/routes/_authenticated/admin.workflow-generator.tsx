@@ -15,6 +15,7 @@ import {
   listGenerationRuns,
   setWorkflowLifecycleStatus,
 } from "@/server/workflow-generator.functions";
+import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 
 export const Route = createFileRoute("/_authenticated/admin/workflow-generator")({
   component: WorkflowGeneratorPage,
