@@ -209,100 +209,114 @@ function AssistantPage() {
   };
 
   return (
-    <div className="container max-w-3xl py-8 space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
-          <Sparkles className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">Votre assistant juridique</h1>
-          <p className="text-sm text-muted-foreground">
-            Posez votre question, joignez un document — je m'occupe du reste.
-          </p>
-        </div>
-      </div>
-
-      <Card className="border-border/60">
-        <CardContent className="p-4 space-y-3">
-          <Textarea
-            placeholder="Ex : Je veux licencier un salarié pour faute grave / Vérifier mon contrat fournisseur / Préparer une mise en demeure…"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={onKeyDown}
-            rows={3}
-            disabled={submitting}
-            className="resize-none border-0 focus-visible:ring-0 px-0 text-base"
-          />
-          {pendingFiles.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
-              {pendingFiles.map((f, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs"
-                >
-                  <FileText className="h-3 w-3" />
-                  {f.name}
-                  <button
-                    type="button"
-                    onClick={() => setPendingFiles((p) => p.filter((_, j) => j !== i))}
-                    className="text-muted-foreground hover:text-destructive ml-1"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <div className="flex items-center justify-between">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.png,.jpg,.jpeg,.docx,.txt"
-              className="hidden"
-              onChange={onPickFiles}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
-              disabled={submitting}
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-              Joindre un document
-            </button>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || (!message.trim() && pendingFiles.length === 0)}
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Envoyer
-            </Button>
+    <AppShell>
+      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-10 space-y-6">
+        {/* En-tête */}
+        <header className="flex items-start gap-4">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-accent text-primary-foreground shadow-lg shadow-primary/20">
+            <Sparkles className="h-6 w-6" />
           </div>
-        </CardContent>
-      </Card>
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Votre assistant juridique
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Posez votre question, joignez un document — je m'occupe du reste.
+            </p>
+          </div>
+        </header>
 
-      {/* Fil des échanges */}
-      <div className="space-y-3">
-        {runs.length === 0 ? (
-          <EmptyState onPick={(prompt) => setMessage(prompt)} />
-        ) : (
-          runs.map((r) => (
-            <RunCard
-              key={r.id}
-              summary={r}
-              expanded={activeId === r.id}
-              onToggle={() => setActiveId(activeId === r.id ? null : r.id)}
-              onChanged={refresh}
+        {/* Composer */}
+        <Card className="border-border/60 shadow-sm overflow-hidden">
+          <CardContent className="p-0">
+            <Textarea
+              placeholder="Ex : Je veux licencier un salarié pour faute grave / Vérifier mon contrat fournisseur / Préparer une mise en demeure…"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={onKeyDown}
+              rows={3}
+              disabled={submitting}
+              className="resize-none border-0 focus-visible:ring-0 px-4 pt-4 pb-2 text-base bg-transparent shadow-none"
             />
-          ))
-        )}
+            {pendingFiles.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 px-4 pb-2">
+                {pendingFiles.map((f, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs"
+                  >
+                    <FileText className="h-3 w-3" />
+                    {f.name}
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles((p) => p.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive ml-1"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-muted/30 px-3 py-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.docx,.txt"
+                className="hidden"
+                onChange={onPickFiles}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-background transition"
+                disabled={submitting}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+                Joindre un document
+              </button>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || (!message.trim() && pendingFiles.length === 0)}
+                size="sm"
+                className="gap-1.5"
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Envoyer
+                <kbd className="hidden sm:inline ml-1 text-[10px] opacity-60">⌘↵</kbd>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fil des échanges */}
+        <div className="space-y-2">
+          {runs.length === 0 ? (
+            <EmptyState onPick={(prompt) => setMessage(prompt)} />
+          ) : (
+            <>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                Vos demandes récentes
+              </p>
+              {runs.map((r) => (
+                <RunCard
+                  key={r.id}
+                  summary={r}
+                  expanded={activeId === r.id}
+                  onToggle={() => setActiveId(activeId === r.id ? null : r.id)}
+                  onChanged={refresh}
+                />
+              ))}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
