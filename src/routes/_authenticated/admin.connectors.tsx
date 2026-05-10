@@ -40,7 +40,7 @@ const CONNECTORS = [
     name: "KALI-FULL — Conventions Collectives (par article)",
     description: "Walks unist tree → 1 row par article, section_path, content_hash incrémental, batch resumable.",
     auth: false,
-    defaultPayload: { mode: "top" as const },
+    defaultPayload: { mode: "all" as const },
     badge: "Sans auth · Batch",
   },
   {
