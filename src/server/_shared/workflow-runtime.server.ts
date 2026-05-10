@@ -214,6 +214,9 @@ export async function executeStep(
   }
 
   // 2) Calcul du délai si défini sur l'étape
+  // R67 (BUG-W7) — la deadline est exprimée en heure locale FR (Europe/Paris)
+  // : 23:59:59 le jour J en France, et non en UTC. On applique l'offset Paris
+  // (+01:00 hiver / +02:00 été) au moment du calcul.
   let delay: DelayResult | null = null;
   let dueAt: string | null = null;
   const d = extractStepDelay(stepDef as Record<string, unknown>);
@@ -223,7 +226,7 @@ export async function executeStep(
       amount: d.amount,
       unit: d.unit,
     });
-    dueAt = `${delay.dueDate}T23:59:59.000Z`;
+    dueAt = parisEndOfDayToUtcIso(delay.dueDate);
   }
 
   // 3) Persistance step_run
