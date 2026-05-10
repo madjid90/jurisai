@@ -7,8 +7,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
 
 // Map connector → edge function name
 const CONNECTOR_FN: Record<string, string> = {
@@ -29,10 +28,8 @@ export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") ?? request.headers.get("authorization")?.replace("Bearer ", "");
-        if (!apikey || apikey !== ANON_KEY) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+        const auth = verifyCronAuth(request);
+        if (!auth.ok) return auth.response;
 
         // 1. Cleanup zombies older than 1h
         try {

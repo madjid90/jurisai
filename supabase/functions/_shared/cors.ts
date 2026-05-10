@@ -22,20 +22,22 @@ function getAllowedOrigins(): string[] {
 export function corsHeadersFor(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
   const allowed = getAllowedOrigins();
-  const allowOrigin = allowed.includes(origin) ? origin : allowed[0];
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
+  // Strict : aucune origine autorisée si pas de match (pas de fallback permissif).
+  const headers: Record<string, string> = {
     "Vary": "Origin",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Max-Age": "86400",
   };
+  if (allowed.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
 }
 
-/** Backwards-compat default (wildcard fallback when no Request is available). */
+/** Backwards-compat (sans wildcard). Préférer `corsHeadersFor(req)`. */
 export const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",

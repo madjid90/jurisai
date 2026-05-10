@@ -27,7 +27,9 @@ export async function enforceRateLimit(
     });
 
     if (error || !data || (Array.isArray(data) && data.length === 0)) {
-      return { allowed: true, currentCount: 0, resetAt: null };
+      // Fail-CLOSED : si on ne peut pas vérifier, on bloque.
+      console.error("[rate-limit] check_rate_limit indisponible — fail-closed:", error?.message);
+      throw new Error("Service de limitation indisponible. Réessayez dans quelques instants.");
     }
 
     const row = Array.isArray(data) ? data[0] : data;
@@ -44,10 +46,8 @@ export async function enforceRateLimit(
 
     return result;
   } catch (e) {
-    // Si l'erreur vient de notre `throw` ci-dessus → propagation
-    if (e instanceof Error && e.message.startsWith("Trop de requêtes")) throw e;
-    // Sinon (RPC down, etc.) → on laisse passer (fail-open)
-    console.warn("[rate-limit] check failed, fail-open:", e);
-    return { allowed: true, currentCount: 0, resetAt: null };
+    // Toute erreur (dépassement OU RPC down) → propagation : fail-closed
+    if (e instanceof Error) throw e;
+    throw new Error("Service de limitation indisponible.");
   }
 }

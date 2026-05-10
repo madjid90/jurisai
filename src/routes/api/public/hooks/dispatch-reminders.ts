@@ -6,20 +6,14 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
+import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
 
 export const Route = createFileRoute("/api/public/hooks/dispatch-reminders")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = request.headers.get("apikey");
-        const expected =
-          process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!apiKey || !expected || apiKey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const auth = verifyCronAuth(request);
+        if (!auth.ok) return auth.response;
 
         const url = process.env.SUPABASE_URL;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

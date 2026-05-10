@@ -14,6 +14,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
 
 const BodySchema = z.object({
   frequency: z.enum(["daily", "weekly"]).default("daily"),
@@ -41,12 +42,8 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Auth simple : apikey doit correspondre à l'anon key
-        const apikey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        if (!apikey || !expected || apikey !== expected) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+        const auth = verifyCronAuth(request);
+        if (!auth.ok) return auth.response;
 
         let body: { frequency?: string } = {};
         try {

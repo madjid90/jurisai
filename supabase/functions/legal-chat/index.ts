@@ -12,7 +12,7 @@ import { validateAnswerCitations } from "../_shared/citation-validator.ts";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 const EMBED_MODEL = "openai/text-embedding-3-small";
-const CHAT_MODEL = "google/gemini-3-flash-preview";
+const CHAT_MODEL = "google/gemini-2.5-pro";
 
 interface ChunkResult {
   chunk_id: string;
@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
             messages: [
               { role: "system", content: systemPrompt },
               ...(history ?? []),
-              { role: "user", content: message },
+              { role: "user", content: safeQuery },
             ],
             stream: true,
           }),
