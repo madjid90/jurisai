@@ -2,7 +2,7 @@
 // Multi-domaines (RH, Commercial, Sociétés, RGPD, Fiscal, Contentieux).
 // Supporte 3 scénarios : sans dépôt / avec dépôt obligatoire / dépôt optionnel.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -190,7 +190,10 @@ export function GenerationWizard({ template, dossierId, uploadedAnalysisId, onCl
       } else {
         toast.success("Document généré");
       }
-      setTimeout(() => {
+      // R63 (BUG-G9) — timeout traçable, nettoyé si le composant est démonté.
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
         onClose();
         navigate({ to: "/documents" });
       }, 1300);
