@@ -231,10 +231,14 @@ export async function processUploadedDocument(opts: {
     for (const dl of deadlines) {
       for (const dossierId of confirmedDossiers) {
         const remindAt = new Date(dl.date + "T09:00:00Z");
-        // Anticiper de 7 jours si possible
+        // BUG-R9 : si l'échéance est lointaine (>7j), on anticipe de 7j ;
+        // sinon on garde la date d'échéance elle-même (pas de date passée).
         const anticipated = new Date(remindAt);
         anticipated.setDate(anticipated.getDate() - 7);
-        const finalAt = anticipated > new Date() ? anticipated : remindAt;
+        const now = new Date();
+        const finalAt = remindAt.getTime() - now.getTime() > 7 * 24 * 3600 * 1000
+          ? anticipated
+          : remindAt;
         const { error } = await db.from("reminders").insert({
           tenant_id: tenantId,
           user_id: actorId,
