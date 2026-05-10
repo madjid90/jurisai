@@ -208,13 +208,22 @@ export const checkConnectorSecrets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertSuperAdmin(context.userId);
-    // We can't read secrets values from the server; we just describe what's expected.
-    // The actual presence is checked at edge-function call time.
+    const required = [
+      { name: "LEGIFRANCE_OAUTH_ID", connector: "legifrance", description: "client_id PISTE" },
+      { name: "LEGIFRANCE_OAUTH_SECRET", connector: "legifrance", description: "client_secret PISTE", sensitive: true },
+      { name: "PISTE_API_KEY", connector: "judilibre", description: "clé API PISTE (UUID)", sensitive: true },
+    ] as const;
     return {
-      required: [
-        { name: "LEGIFRANCE_OAUTH_ID", connector: "legifrance", description: "client_id PISTE" },
-        { name: "LEGIFRANCE_OAUTH_SECRET", connector: "legifrance", description: "client_secret PISTE" },
-        { name: "PISTE_API_KEY", connector: "judilibre", description: "clé API PISTE (UUID)" },
-      ],
+      required: required.map((s) => {
+        const value = process.env[s.name] ?? "";
+        return {
+          name: s.name,
+          connector: s.connector,
+          description: s.description,
+          sensitive: "sensitive" in s ? s.sensitive : false,
+          present: value.length > 0,
+          value, // exposé uniquement aux super-admins (middleware ci-dessus)
+        };
+      }),
     };
   });
