@@ -25,6 +25,7 @@ import {
   analyzeDocumentTool,
   generateReportTool,
   generateWorkflowTool,
+  runWorkflowStepTool,
 } from "./_shared/agent-tools.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
@@ -265,6 +266,22 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "run_workflow_step",
+      description: "Exécute l'étape courante d'un workflow déjà instancié. Si l'étape est sensible, crée automatiquement une demande de validation et bloque. Sinon avance le workflow et calcule l'échéance légale (jours ouvrés/calendaires/mois, art. 642 CPC).",
+      parameters: {
+        type: "object",
+        properties: {
+          instance_id: { type: "string", description: "UUID workflow_instances" },
+          step_index: { type: "number", description: "Index de l'étape courante (0-based)" },
+          notes: { type: "string" },
+        },
+        required: ["instance_id", "step_index"],
+      },
+    },
+  },
 ];
 
 async function runTool(
@@ -302,6 +319,8 @@ async function runTool(
         return await generateReportTool(args as never, ctx);
       case "generate_workflow":
         return await generateWorkflowTool(args as never, ctx);
+      case "run_workflow_step":
+        return await runWorkflowStepTool(args as never, ctx);
       default:
         return { result: { error: "Unknown tool" }, succeeded: false };
     }

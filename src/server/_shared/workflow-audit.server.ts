@@ -18,7 +18,8 @@ export type WorkflowAuditAction =
   | "workflow.sensitive_action_blocked"
   | "workflow.sensitive_action_authorized"
   | "workflow.consensus_disagreement"
-  | "workflow.rerag_failed";
+  | "workflow.rerag_failed"
+  | "workflow.step_skipped";
 
 export async function logWorkflowAudit(opts: {
   tenantId: string;
