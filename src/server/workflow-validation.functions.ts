@@ -97,15 +97,16 @@ export const validateWorkflowStep = createServerFn({ method: "POST" })
     }
 
     // 3) Validation requise → vérifier rôle
+    // BUG-W4 : on s'appuie sur la liste centralisée de rôles validateurs.
     if (step.validation_required) {
       const { data: roles } = await supabaseAdmin
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .eq("tenant_id", tenantId)
-        .in("role", ["admin", "manager"]);
+        .in("role", WORKFLOW_VALIDATOR_ROLES as unknown as string[]);
       if (!roles || roles.length === 0) {
-        blockers.push("Cette étape nécessite la validation d'un admin ou manager");
+        blockers.push("Cette étape nécessite la validation d'un admin, manager ou super_admin");
       }
     }
 
