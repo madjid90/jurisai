@@ -12,10 +12,12 @@ export type ConnectorName =
   | "bofip"
   | "cdtn-modeles"
   | "cdtn-contributions"
+  | "cdtn-fiches"
   | "acco"
   | "dole"
   | "service-public"
   | "cnil"
+  | "jade"
   | "manual";
 
 export interface SourceInput {
