@@ -52,6 +52,7 @@ import { Route as ApiPublicV1DossiersRouteImport } from './routes/api/public/v1.
 import { Route as ApiPublicV1DeadlinesRouteImport } from './routes/api/public/v1.deadlines'
 import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1.clients'
 import { Route as ApiPublicHooksOrchestratorTickRouteImport } from './routes/api/public/hooks/orchestrator-tick'
+import { Route as ApiPublicHooksEmailWorkerRouteImport } from './routes/api/public/hooks/email-worker'
 import { Route as ApiPublicHooksDispatchRemindersRouteImport } from './routes/api/public/hooks/dispatch-reminders'
 import { Route as ApiPublicHooksDigestRouteImport } from './routes/api/public/hooks/digest'
 import { Route as ApiPublicHooksContractDeadlinesRouteImport } from './routes/api/public/hooks/contract-deadlines'
@@ -283,6 +284,12 @@ const ApiPublicHooksOrchestratorTickRoute =
     path: '/api/public/hooks/orchestrator-tick',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksEmailWorkerRoute =
+  ApiPublicHooksEmailWorkerRouteImport.update({
+    id: '/api/public/hooks/email-worker',
+    path: '/api/public/hooks/email-worker',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksDispatchRemindersRoute =
   ApiPublicHooksDispatchRemindersRouteImport.update({
     id: '/api/public/hooks/dispatch-reminders',
@@ -348,6 +355,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
+  '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
   '/api/public/hooks/orchestrator-tick': typeof ApiPublicHooksOrchestratorTickRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -396,6 +404,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
+  '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
   '/api/public/hooks/orchestrator-tick': typeof ApiPublicHooksOrchestratorTickRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -446,6 +455,7 @@ export interface FileRoutesById {
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
+  '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
   '/api/public/hooks/orchestrator-tick': typeof ApiPublicHooksOrchestratorTickRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -496,6 +506,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
+    | '/api/public/hooks/email-worker'
     | '/api/public/hooks/orchestrator-tick'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -544,6 +555,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
+    | '/api/public/hooks/email-worker'
     | '/api/public/hooks/orchestrator-tick'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -593,6 +605,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
+    | '/api/public/hooks/email-worker'
     | '/api/public/hooks/orchestrator-tick'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -616,6 +629,7 @@ export interface RootRouteChildren {
   ApiPublicHooksContractDeadlinesRoute: typeof ApiPublicHooksContractDeadlinesRoute
   ApiPublicHooksDigestRoute: typeof ApiPublicHooksDigestRoute
   ApiPublicHooksDispatchRemindersRoute: typeof ApiPublicHooksDispatchRemindersRoute
+  ApiPublicHooksEmailWorkerRoute: typeof ApiPublicHooksEmailWorkerRoute
   ApiPublicHooksOrchestratorTickRoute: typeof ApiPublicHooksOrchestratorTickRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
   ApiPublicV1DeadlinesRoute: typeof ApiPublicV1DeadlinesRoute
@@ -926,6 +940,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksOrchestratorTickRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/email-worker': {
+      id: '/api/public/hooks/email-worker'
+      path: '/api/public/hooks/email-worker'
+      fullPath: '/api/public/hooks/email-worker'
+      preLoaderRoute: typeof ApiPublicHooksEmailWorkerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/dispatch-reminders': {
       id: '/api/public/hooks/dispatch-reminders'
       path: '/api/public/hooks/dispatch-reminders'
@@ -1060,6 +1081,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksContractDeadlinesRoute: ApiPublicHooksContractDeadlinesRoute,
   ApiPublicHooksDigestRoute: ApiPublicHooksDigestRoute,
   ApiPublicHooksDispatchRemindersRoute: ApiPublicHooksDispatchRemindersRoute,
+  ApiPublicHooksEmailWorkerRoute: ApiPublicHooksEmailWorkerRoute,
   ApiPublicHooksOrchestratorTickRoute: ApiPublicHooksOrchestratorTickRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
   ApiPublicV1DeadlinesRoute: ApiPublicV1DeadlinesRoute,
