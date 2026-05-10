@@ -88,8 +88,9 @@ function WorkflowsPage() {
     }
   };
 
-  const activeInsts = insts.filter((i) => i.status === "active");
-  const completedInsts = insts.filter((i) => i.status !== "active");
+  const ACTIVE_STATUSES = new Set(["in_progress", "active"]);
+  const activeInsts = insts.filter((i) => ACTIVE_STATUSES.has(i.status));
+  const completedInsts = insts.filter((i) => !ACTIVE_STATUSES.has(i.status));
 
   const DOMAIN_LABELS: Record<string, string> = {
     social: "Social / RH",
