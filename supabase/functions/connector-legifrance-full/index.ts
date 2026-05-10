@@ -121,17 +121,29 @@ Deno.serve(async (req) => {
       const codes: string[] = body.mode === "all"
         ? await fetchAllCodes()
         : (Array.isArray(body.codes) && body.codes.length ? body.codes : DEFAULT_CODES);
+      // Parallélisation par lots de 4 pour éviter timeout PISTE + rate-limit
       const items: BatchItem[] = [];
-      for (const codeId of codes) {
-        const tree = await legifranceFetch<{ sections?: SectionNode[]; articles?: SectionNode["articles"]; title?: string }>(
-          "/consult/code/tableMatieres",
-          { textId: codeId, date: Date.now(), sctId: "" },
+      const failedCodes: string[] = [];
+      const CONCURRENCY = 4;
+      for (let i = 0; i < codes.length; i += CONCURRENCY) {
+        const batch = codes.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map(async (codeId) => {
+            const tree = await legifranceFetch<{ sections?: SectionNode[]; articles?: SectionNode["articles"]; title?: string }>(
+              "/consult/code/tableMatieres",
+              { textId: codeId, date: Date.now(), sctId: "" },
+            );
+            const codeTitle = tree.title ?? KNOWN_CODES[codeId] ?? codeId;
+            return flattenCode(codeId, codeTitle, tree);
+          }),
         );
-        const codeTitle = tree.title ?? KNOWN_CODES[codeId] ?? codeId;
-        items.push(...flattenCode(codeId, codeTitle, tree));
+        results.forEach((r, idx) => {
+          if (r.status === "fulfilled") items.push(...r.value);
+          else { failedCodes.push(batch[idx]); console.warn(`[legifrance-full] code ${batch[idx]} skipped: ${r.reason}`); }
+        });
       }
-      if (dryRun) return json({ dry_run: true, codes, articles_total: items.length, sample: items.slice(0, 5) });
-      batchId = await startBatch(db, "legifrance-full", "code-articles", items, { codes });
+      if (dryRun) return json({ dry_run: true, codes, articles_total: items.length, failed_codes: failedCodes, sample: items.slice(0, 5) });
+      batchId = await startBatch(db, "legifrance-full", "code-articles", items, { codes, failed_codes: failedCodes });
     }
 
     const start = Date.now();
