@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useConfirm } from "@/components/shared/ConfirmProvider";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Users,
