@@ -78,7 +78,14 @@ function WorkflowsPage() {
     }
   };
 
-  const handleCancel = async (id: string) => {
+  const handleCancel = async (id: string, title: string) => {
+    // R68 (BUG-W10) — confirmation explicite avant annulation.
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        `Annuler la procédure « ${title} » ?\n\nCette action est définitive : l'instance sera marquée comme annulée et ne pourra plus être reprise.`,
+      );
+      if (!ok) return;
+    }
     try {
       await cancel({ data: { instanceId: id } });
       toast.success("Procédure annulée");
