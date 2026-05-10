@@ -300,6 +300,8 @@ async function runTool(
         return await analyzeDocumentTool(args as never, ctx);
       case "generate_report":
         return await generateReportTool(args as never, ctx);
+      case "generate_workflow":
+        return await generateWorkflowTool(args as never, ctx);
       default:
         return { result: { error: "Unknown tool" }, succeeded: false };
     }
