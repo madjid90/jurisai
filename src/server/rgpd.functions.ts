@@ -13,6 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 
 const db = supabaseAdmin as unknown as { from: (table: string) => any };
 const auth = supabaseAdmin.auth as unknown as {
@@ -133,6 +134,10 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
     const { userId } = ctx;
     const errors: string[] = [];
+
+    // S16 (audit) : action irréversible — 2 tentatives/min suffisent largement
+    // et bloquent toute attaque brute.
+    await enforceRateLimit(userId, "delete_my_account", 2);
 
     // 1. Conversations + messages (cascade manuel)
     try {
