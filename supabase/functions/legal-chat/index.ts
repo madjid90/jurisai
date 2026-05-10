@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
             model: CHAT_MODEL,
             messages: [
               { role: "system", content: systemPrompt },
-              ...(history ?? []),
+              ...condensedHistory,
               { role: "user", content: safeQuery },
             ],
             stream: true,
