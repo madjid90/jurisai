@@ -203,9 +203,7 @@ Deno.serve(async (req) => {
           processed.push(item);
         } catch (err) {
           failed.push(item);
-          await logError(db, "" as unknown as string /* no jobId here */, "kali",
-            item.kali_id, "kali_full_error", (err as Error).message,
-            { idcc: item.idcc }).catch(() => {});
+          console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc}) failed:`, (err as Error).message);
         }
       }
 
