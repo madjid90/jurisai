@@ -319,6 +319,8 @@ async function runTool(
         return await generateReportTool(args as never, ctx);
       case "generate_workflow":
         return await generateWorkflowTool(args as never, ctx);
+      case "run_workflow_step":
+        return await runWorkflowStepTool(args as never, ctx);
       default:
         return { result: { error: "Unknown tool" }, succeeded: false };
     }
