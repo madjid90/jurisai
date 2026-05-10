@@ -504,6 +504,18 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
     if (data.autoComplete) {
       const steps = ((def?.steps ?? []) as WorkflowStep[]);
 
+      // BUG-W3 : éviter d'insérer un second step_run "done" pour le même step_index.
+      const { data: existingDone } = await (supabaseAdmin as any)
+        .from("workflow_step_runs")
+        .select("id")
+        .eq("instance_id", data.instanceId)
+        .eq("step_index", data.stepIndex)
+        .eq("status", "done")
+        .maybeSingle();
+      if (existingDone) {
+        return { ok: true, documentId: doc.id as string, advanced: false, completed: false, sources_used: sources.length, alreadyAdvanced: true };
+      }
+
       await (supabaseAdmin as any).from("workflow_step_runs").insert({
         instance_id: data.instanceId,
         step_index: data.stepIndex,
@@ -523,7 +535,7 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
         .from("workflow_instances")
         .update({
           current_step_index: isComplete ? steps.length : nextIndex,
-          status: isComplete ? "completed" : "active",
+          status: isComplete ? "completed" : "in_progress",
           completed_at: isComplete ? new Date().toISOString() : null,
         })
         .eq("id", data.instanceId);
