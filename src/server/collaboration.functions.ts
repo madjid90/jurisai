@@ -221,7 +221,27 @@ export const updateTask = createServerFn({ method: "POST" })
 export const deleteTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { userId } = context as { userId: string };
+    const { data: profile } = await supabaseAdmin
+      .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+    const tenantId = (profile as ProfileRow | null)?.tenant_id;
+    if (!tenantId) throw new Error("No tenant");
+    const { data: existing } = await supabaseAdmin
+      .from("dossier_tasks")
+      .select("created_by, assigned_to, tenant_id")
+      .eq("id", data.taskId)
+      .maybeSingle();
+    const t = existing as { created_by: string; assigned_to: string | null; tenant_id: string } | null;
+    if (!t) throw new Error("Tâche introuvable");
+    if (t.tenant_id !== tenantId) throw new Error("Accès refusé");
+    if (t.created_by !== userId && t.assigned_to !== userId) {
+      const { data: roleRow } = await supabaseAdmin
+        .from("user_roles").select("role")
+        .eq("user_id", userId).eq("tenant_id", tenantId)
+        .in("role", ["admin", "super_admin", "manager"]).maybeSingle();
+      if (!roleRow) throw new Error("Seul le créateur, l'assigné ou un admin peut supprimer cette tâche");
+    }
     const { error } = await supabaseAdmin.from("dossier_tasks").delete().eq("id", data.taskId);
     if (error) throw new Error(error.message);
     return { ok: true };
