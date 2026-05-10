@@ -18,7 +18,7 @@ export const getWorkflowInstance = createServerFn({ method: "GET" })
   .inputValidator((i: unknown) =>
     z.object({ instance_id: z.string().uuid() }).parse(i),
   )
-  .handler(async ({ data, context }): Promise<WorkflowInstanceFull> => {
+  .handler(async ({ data, context }) => {
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
     return loadInstance(data.instance_id, tenantId);
@@ -37,7 +37,7 @@ export const runWorkflowStep = createServerFn({ method: "POST" })
       })
       .parse(i),
   )
-  .handler(async ({ data, context }): Promise<ExecuteStepResult> => {
+  .handler(async ({ data, context }) => {
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
     return executeStep(
