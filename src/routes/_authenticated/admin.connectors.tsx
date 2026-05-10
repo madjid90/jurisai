@@ -36,12 +36,20 @@ export const Route = createFileRoute("/_authenticated/admin/connectors")({
 
 const CONNECTORS = [
   {
-    id: "kali" as const,
-    name: "KALI — Conventions Collectives",
-    description: "Top 50 IDCC depuis SocialGouv/kali-data (GitHub, public)",
+    id: "kali-full" as const,
+    name: "KALI-FULL — Conventions Collectives (par article)",
+    description: "Walks unist tree → 1 row par article, section_path, content_hash incrémental, batch resumable. Remplace l'ancien KALI.",
     auth: false,
     defaultPayload: { mode: "top" as const },
-    badge: "Sans auth",
+    badge: "Sans auth · Batch",
+  },
+  {
+    id: "kali" as const,
+    name: "KALI (legacy) — Conventions Collectives (par CC)",
+    description: "Ancien connecteur — 1 row par convention. Remplacé par KALI-FULL, conservé pour debug.",
+    auth: false,
+    defaultPayload: { mode: "top" as const },
+    badge: "Legacy",
   },
   {
     id: "cdtn-modeles" as const,
