@@ -205,34 +205,45 @@ export async function ingestSource(
 
   // 3. STAGING path (when we have a job_id) — atomic swap via promote_ingestion_job
   if (jobId) {
-    // Link source to job (so promote knows which source to swap)
-    await db.from("ingestion_jobs").update({ source_id: sourceId }).eq("id", jobId);
+    try {
+      // Link source to job (so promote knows which source to swap)
+      await db.from("ingestion_jobs").update({ source_id: sourceId }).eq("id", jobId);
 
-    // Clear any prior staging rows for this job (defensive — re-runs)
-    await db.from("legal_chunks_staging").delete().eq("job_id", jobId);
+      // Clear any prior staging rows for this job (defensive — re-runs)
+      await db.from("legal_chunks_staging").delete().eq("job_id", jobId);
 
-    // Embed + insert staging in batches
-    const BATCH = 64;
-    for (let i = 0; i < chunks.length; i += BATCH) {
-      const slice = chunks.slice(i, i + BATCH);
-      const embeds = await embedTexts(apiKey, slice.map((c) => c.content));
-      const rows = slice.map((c, idx) => ({
-        job_id: jobId,
-        source_id: sourceId,
-        chunk_index: i + idx,
-        heading: c.heading,
-        content: c.content,
-        embedding: embeds[idx] ?? null,
-      }));
-      const { error: stagErr } = await db.from("legal_chunks_staging").insert(rows);
-      if (stagErr) throw stagErr;
+      // Embed + insert staging in batches
+      const BATCH = 64;
+      for (let i = 0; i < chunks.length; i += BATCH) {
+        const slice = chunks.slice(i, i + BATCH);
+        const embeds = await embedTexts(apiKey, slice.map((c) => c.content));
+        const rows = slice.map((c, idx) => ({
+          job_id: jobId,
+          source_id: sourceId,
+          chunk_index: i + idx,
+          heading: c.heading,
+          content: c.content,
+          embedding: embeds[idx] ?? null,
+        }));
+        const { error: stagErr } = await db.from("legal_chunks_staging").insert(rows);
+        if (stagErr) throw stagErr;
+      }
+
+      // Atomic promote (deletes live chunks for source_id + inserts staging + clears staging)
+      const { error: promErr } = await db.rpc("promote_ingestion_job", { p_job_id: jobId });
+      if (promErr) throw promErr;
+
+      return { source_id: sourceId, chunks: chunks.length, promoted: true };
+    } catch (err) {
+      // R15 — cleanup staging si embed/insert/promote échoue, pour ne pas
+      // laisser de lignes orphelines qui bloqueraient la prochaine tentative.
+      try {
+        await db.from("legal_chunks_staging").delete().eq("job_id", jobId);
+      } catch (cleanupErr) {
+        console.error("[ingest] staging cleanup failed", cleanupErr);
+      }
+      throw err;
     }
-
-    // Atomic promote (deletes live chunks for source_id + inserts staging + clears staging)
-    const { error: promErr } = await db.rpc("promote_ingestion_job", { p_job_id: jobId });
-    if (promErr) throw promErr;
-
-    return { source_id: sourceId, chunks: chunks.length, promoted: true };
   }
 
   // 4. LEGACY path (no job_id) — delete-then-insert (kept for ad-hoc seeding)
