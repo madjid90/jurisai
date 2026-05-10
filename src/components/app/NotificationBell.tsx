@@ -102,58 +102,50 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground/70 hover:bg-secondary hover:text-foreground"
-        aria-label="Notifications"
+        className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground/70 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        aria-label={unread > 0 ? `Notifications, ${unread} non lue${unread > 1 ? "s" : ""}` : "Notifications"}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="h-4 w-4" aria-hidden="true" />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">
+          <span
+            className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground"
+            aria-hidden="true"
+          >
             {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[340px] rounded-2xl border border-border bg-popover shadow-[var(--shadow-elevated)]">
+        <div
+          role="dialog"
+          aria-label="Centre de notifications"
+          className="absolute right-0 top-full z-50 mt-2 w-[340px] rounded-2xl border border-border bg-popover shadow-[var(--shadow-elevated)]"
+        >
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <p className="text-[13px] font-semibold text-foreground">Notifications</p>
             {unread > 0 && (
               <button
                 onClick={markAll}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
               >
-                <CheckCheck className="h-3 w-3" /> Tout marquer lu
+                <CheckCheck className="h-3 w-3" aria-hidden="true" /> Tout marquer lu
               </button>
             )}
           </div>
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto" role="region" aria-live="polite">
             {loading ? (
-              <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-accent" /></div>
+              <div className="flex justify-center py-6" role="status" aria-label="Chargement des notifications">
+                <Loader2 className="h-4 w-4 animate-spin text-accent" aria-hidden="true" />
+              </div>
             ) : items.length === 0 ? (
               <p className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">Aucune notification</p>
             ) : (
               <ul>
                 {items.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      onClick={() => handleClick(n)}
-                      className={cn(
-                        "w-full px-4 py-3 text-left transition hover:bg-secondary",
-                        !n.read_at && "bg-accent-soft/30",
-                      )}
-                    >
-                      <div className="flex items-start gap-2">
-                        {!n.read_at && <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" />}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[12.5px] font-semibold text-foreground">{n.title}</p>
-                          {n.body && <p className="mt-0.5 line-clamp-2 text-[11.5px] text-muted-foreground">{n.body}</p>}
-                          <p className="mt-1 text-[10px] text-muted-foreground">
-                            {new Date(n.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  </li>
+                  <NotifItem key={n.id} n={n} onSelect={handleClick} />
                 ))}
               </ul>
             )}
@@ -163,3 +155,35 @@ export function NotificationBell() {
     </div>
   );
 }
+
+const NotifItem = memo(function NotifItem({
+  n,
+  onSelect,
+}: {
+  n: Notif;
+  onSelect: (n: Notif) => void;
+}) {
+  return (
+    <li>
+      <button
+        onClick={() => onSelect(n)}
+        className={cn(
+          "w-full px-4 py-3 text-left transition hover:bg-secondary focus-visible:outline-none focus-visible:bg-secondary",
+          !n.read_at && "bg-accent-soft/30",
+        )}
+        aria-label={`${n.title}${n.read_at ? "" : " (non lue)"}`}
+      >
+        <div className="flex items-start gap-2">
+          {!n.read_at && <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" aria-hidden="true" />}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-semibold text-foreground">{n.title}</p>
+            {n.body && <p className="mt-0.5 line-clamp-2 text-[11.5px] text-muted-foreground">{n.body}</p>}
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {new Date(n.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      </button>
+    </li>
+  );
+});
