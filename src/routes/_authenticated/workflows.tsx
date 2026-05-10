@@ -339,6 +339,33 @@ function WorkflowsPage() {
           </div>
         )}
         </div>
+
+      <AlertDialog open={cancelTarget !== null} onOpenChange={(open) => { if (!open && !cancelling) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler cette procédure ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelTarget ? (
+                <>
+                  La procédure <strong>« {cancelTarget.title} »</strong> sera marquée
+                  comme annulée. Cette action est définitive et l'instance ne pourra
+                  plus être reprise.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Conserver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void confirmCancel(); }}
+              disabled={cancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelling ? "Annulation…" : "Annuler la procédure"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
