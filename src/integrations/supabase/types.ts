@@ -3255,6 +3255,7 @@ export type Database = {
           events: string[]
           id: string
           secret: string
+          secret_last4: string | null
           target_url: string
           tenant_id: string
           updated_at: string
@@ -3266,6 +3267,7 @@ export type Database = {
           events?: string[]
           id?: string
           secret: string
+          secret_last4?: string | null
           target_url: string
           tenant_id: string
           updated_at?: string
@@ -3277,6 +3279,7 @@ export type Database = {
           events?: string[]
           id?: string
           secret?: string
+          secret_last4?: string | null
           target_url?: string
           tenant_id?: string
           updated_at?: string
