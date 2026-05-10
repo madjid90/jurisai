@@ -70,6 +70,114 @@ interface BatchItem {
   url?: string;
 }
 
+async function runIngestion(
+  db: ReturnType<typeof getAdminClient>,
+  apiKey: string,
+  body: { resume_batch_id?: string; mode?: "top" | "all" | "idcc"; idcc?: string[] },
+): Promise<void> {
+  let batchId: string;
+
+  if (body.resume_batch_id) {
+    batchId = String(body.resume_batch_id);
+  } else {
+    const mode: "top" | "all" | "idcc" = body.mode ?? "top";
+    const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
+
+    const idxRes = await fetch(KALI_INDEX_URL);
+    if (!idxRes.ok) throw new Error(`KALI index HTTP ${idxRes.status}`);
+    const index: KaliIndexEntry[] = await idxRes.json();
+
+    let target: KaliIndexEntry[];
+    if (mode === "all") {
+      target = index.filter((e) => e.active !== false);
+    } else if (mode === "idcc" && requested.length) {
+      const set = new Set(requested);
+      target = index.filter((e) => set.has(e.num));
+    } else {
+      const set = new Set(TOP_IDCC);
+      target = index.filter((e) => set.has(e.num) && e.active !== false);
+    }
+
+    const items: BatchItem[] = target.map((e) => ({
+      kali_id: e.id, idcc: e.num, title: e.title, url: e.url,
+    }));
+
+    batchId = await startBatch(db, "kali-full", "conventions", items, { mode });
+    console.log(`[kali-full] batch ${batchId} planned: ${items.length} conventions`);
+
+    for (const e of target) {
+      await db.from("conventions_collectives").upsert({
+        idcc: e.num,
+        title: e.title,
+        short_title: e.shortTitle ?? null,
+        is_active: e.active !== false,
+        effectif: e.effectif ?? null,
+        source_url: e.url ?? `https://www.legifrance.gouv.fr/conv_coll/id/${e.id}`,
+        raw_metadata: e as unknown as Record<string, unknown>,
+        last_synced_at: new Date().toISOString(),
+      }, { onConflict: "idcc" });
+    }
+  }
+
+  const start = Date.now();
+  let totalIngested = 0, totalSkipped = 0, totalFailed = 0;
+  const BATCH_PER_TICK = 5;
+
+  while (Date.now() - start < TIME_BUDGET_MS) {
+    const items = await getNextItems<BatchItem>(db, batchId, BATCH_PER_TICK);
+    if (items.length === 0) break;
+
+    const processed: BatchItem[] = [];
+    const failed: BatchItem[] = [];
+    let perTickIngested = 0;
+    let perTickSkipped = 0;
+
+    for (const item of items) {
+      if (Date.now() - start > TIME_BUDGET_MS) break;
+      try {
+        const detRes = await fetch(`${KALI_RAW_BASE}/${item.kali_id}.json`);
+        if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
+        const detail = await detRes.json() as UnistNode;
+        const articles = extractAllArticles(detail, { keepAbrogated: false });
+
+        for (const art of articles) {
+          const content = buildArticleContent(art, item.title);
+          const hash = await sha256(content);
+          const externalId = `kali:${item.idcc}:${art.externalId}`;
+          const decision = await shouldIngest(db, "kali", externalId, hash);
+          if (!decision.shouldIngest) { perTickSkipped++; continue; }
+
+          await ingestSource(db, apiKey, "kali", {
+            external_id: externalId,
+            source_type: "convention_article",
+            title: `${item.title} (IDCC ${item.idcc}) — ${art.num ? `Article ${art.num}` : (art.title ?? "Disposition")}`,
+            content,
+            reference_code: art.num ? `IDCC ${item.idcc} Art. ${art.num}` : `IDCC ${item.idcc}`,
+            official_url: item.url ?? null,
+            legal_date: art.dateDebut,
+            idcc: item.idcc,
+            raw_metadata: { kali_id: item.kali_id, section_path: art.sectionPath, etat: art.etat, content_hash: hash, cid: art.cid },
+          });
+          perTickIngested++;
+        }
+        processed.push(item);
+      } catch (err) {
+        failed.push(item);
+        console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc}) failed:`, (err as Error).message);
+      }
+    }
+
+    if (processed.length) await markProcessed(db, batchId, processed, perTickIngested, perTickSkipped);
+    if (failed.length) await markFailed(db, batchId, failed, "see ingestion_errors");
+    totalIngested += perTickIngested;
+    totalSkipped += perTickSkipped;
+    totalFailed += failed.length;
+  }
+
+  const finalState = await finalizeBatch(db, batchId);
+  console.log(`[kali-full] tick done batch=${batchId} status=${finalState.status} ingested=${totalIngested} skipped=${totalSkipped} failed=${totalFailed} processed=${finalState.processed}/${finalState.total}`);
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = corsHeadersFor(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -86,152 +194,38 @@ Deno.serve(async (req) => {
     const db = getAdminClient();
     const apiKey = getLovableApiKey();
 
-    // ── 1. Resume or start a batch ───────────────────────────────────────────
-    let batchId: string;
-
-    if (body.resume_batch_id) {
-      batchId = String(body.resume_batch_id);
-    } else {
+    if (dryRun) {
       const mode: "top" | "all" | "idcc" = body.mode ?? "top";
       const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
-
       const idxRes = await fetch(KALI_INDEX_URL);
       if (!idxRes.ok) return json({ error: `KALI index ${idxRes.status}` }, 502);
       const index: KaliIndexEntry[] = await idxRes.json();
-
       let target: KaliIndexEntry[];
-      if (mode === "all") {
-        target = index.filter((e) => e.active !== false);
-      } else if (mode === "idcc" && requested.length) {
+      if (mode === "all") target = index.filter((e) => e.active !== false);
+      else if (mode === "idcc" && requested.length) {
         const set = new Set(requested);
         target = index.filter((e) => set.has(e.num));
       } else {
         const set = new Set(TOP_IDCC);
         target = index.filter((e) => set.has(e.num) && e.active !== false);
       }
-
-      const items: BatchItem[] = target.map((e) => ({
-        kali_id: e.id,
-        idcc: e.num,
-        title: e.title,
-        url: e.url,
-      }));
-
-      if (dryRun) {
-        return json({
-          dry_run: true,
-          mode,
-          conventions_total: items.length,
-          sample: items.slice(0, 5),
-        });
-      }
-
-      batchId = await startBatch(db, "kali-full", "conventions", items, { mode });
-
-      // Upsert convention metadata (idempotent, cheap)
-      for (const e of target) {
-        await db.from("conventions_collectives").upsert({
-          idcc: e.num,
-          title: e.title,
-          short_title: e.shortTitle ?? null,
-          is_active: e.active !== false,
-          effectif: e.effectif ?? null,
-          source_url: e.url ?? `https://www.legifrance.gouv.fr/conv_coll/id/${e.id}`,
-          raw_metadata: e as unknown as Record<string, unknown>,
-          last_synced_at: new Date().toISOString(),
-        }, { onConflict: "idcc" });
-      }
+      return json({
+        dry_run: true, mode, conventions_total: target.length,
+        sample: target.slice(0, 5).map((e) => ({ idcc: e.num, title: e.title })),
+      });
     }
 
-    // ── 2. Process batch items within time budget ────────────────────────────
-    const start = Date.now();
-    let totalIngested = 0;
-    let totalSkipped = 0;
-    let totalFailed = 0;
-    const BATCH_PER_TICK = 5; // process up to 5 conventions per fetch
-
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, BATCH_PER_TICK);
-      if (items.length === 0) break;
-
-      const processed: BatchItem[] = [];
-      const failed: BatchItem[] = [];
-      let perTickIngested = 0;
-      let perTickSkipped = 0;
-
-      for (const item of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          const detRes = await fetch(`${KALI_RAW_BASE}/${item.kali_id}.json`);
-          if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
-          const detail = await detRes.json() as UnistNode;
-
-          const articles = extractAllArticles(detail, { keepAbrogated: false });
-
-          for (const art of articles) {
-            const content = buildArticleContent(art, item.title);
-            const hash = await sha256(content);
-            const externalId = `kali:${item.idcc}:${art.externalId}`;
-            const decision = await shouldIngest(db, "kali", externalId, hash);
-            if (!decision.shouldIngest) {
-              perTickSkipped++;
-              continue;
-            }
-
-            await ingestSource(db, apiKey, "kali", {
-              external_id: externalId,
-              source_type: "convention_article",
-              title: `${item.title} (IDCC ${item.idcc}) — ${art.num ? `Article ${art.num}` : (art.title ?? "Disposition")}`,
-              content,
-              reference_code: art.num ? `IDCC ${item.idcc} Art. ${art.num}` : `IDCC ${item.idcc}`,
-              official_url: item.url ?? null,
-              legal_date: art.dateDebut,
-              idcc: item.idcc,
-              raw_metadata: {
-                kali_id: item.kali_id,
-                section_path: art.sectionPath,
-                etat: art.etat,
-                content_hash: hash,
-                cid: art.cid,
-              },
-            });
-            perTickIngested++;
-          }
-
-          processed.push(item);
-        } catch (err) {
-          failed.push(item);
-          console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc}) failed:`, (err as Error).message);
-        }
-      }
-
-      if (processed.length) {
-        await markProcessed(db, batchId, processed, perTickIngested, perTickSkipped);
-      }
-      if (failed.length) {
-        await markFailed(db, batchId, failed, "see ingestion_errors");
-      }
-
-      totalIngested += perTickIngested;
-      totalSkipped += perTickSkipped;
-      totalFailed += failed.length;
-    }
-
-    // ── 3. Finalize (auto-detects paused vs completed) ───────────────────────
-    const finalState = await finalizeBatch(db, batchId);
-
+    // @ts-ignore EdgeRuntime injecté par Supabase
+    EdgeRuntime.waitUntil(
+      runIngestion(db, apiKey, body).catch((err) => {
+        console.error("[kali-full] background error:", (err as Error).message);
+      }),
+    );
     return json({
-      batch_id: batchId,
-      status: finalState.status,
-      processed: finalState.processed,
-      total: finalState.total,
-      articles_ingested: totalIngested,
-      articles_skipped_unchanged: totalSkipped,
-      tick_failed: totalFailed,
-      resume_hint: finalState.status === "paused"
-        ? `Re-call with { "resume_batch_id": "${batchId}" } or rely on /api/public/hooks/orchestrator-tick`
-        : null,
-    });
+      status: "started",
+      message: "Ingestion KALI lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+      resume_batch_id: body.resume_batch_id ?? null,
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);
