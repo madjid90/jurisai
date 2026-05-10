@@ -443,6 +443,7 @@ function RunDetail({
   const handlePrint = () => window.print();
 
   const dossierId = (run.dossier_id as string | null) ?? null;
+  const workflowInstanceId = (run.workflow_instance_id as string | null) ?? null;
 
   return (
     <div className="border-t border-border/60 px-4 py-4 space-y-4 bg-muted/20">
@@ -461,6 +462,11 @@ function RunDetail({
           📁 Suivi dans le dossier — ouvrir
         </Link>
       )}
+
+      {/* Procédure pas-à-pas (si workflow lié) */}
+      {workflowInstanceId ? (
+        <WorkflowRuntimeBlock instanceId={workflowInstanceId} onAdvanced={reload} />
+      ) : null}
 
       {/* L'agent travaille */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
