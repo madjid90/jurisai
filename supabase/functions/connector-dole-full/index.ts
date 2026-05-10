@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
           }
 
           const fin = await finalizeBatch(db, batchId);
-          console.log(`[return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });`.replace('return json(','').replace(');',''));
+          console.log(`[connector-dole-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
 
       } catch (err) {
 
