@@ -19,8 +19,9 @@ import { detectSensitiveActions, type WorkflowStepLike, type SensitiveDetectionR
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const FLASH = "google/gemini-3-flash-preview";
+const FLASH = "google/gemini-2.5-flash";
 const PRO = "google/gemini-2.5-pro";
+const FLASH_LITE = "google/gemini-2.5-flash-lite"; // 3ᵉ avis (V3 §18)
 
 export type WorkflowDraft = {
   title: string;
@@ -55,7 +56,9 @@ export type WorkflowQualityReport = {
   consensus: {
     flash: { score: number; agrees: boolean; missing: string[]; comments: string };
     pro:   { score: number; agrees: boolean; missing: string[]; comments: string };
-    disagreement: number; // |flash.score - pro.score|
+    flash_lite: { score: number; agrees: boolean; missing: string[]; comments: string };
+    disagreement: number; // max écart entre les 3 modèles
+    agreement_ratio: number; // % de modèles qui s'accordent (agrees=true)
   };
   documents: {
     steps_with_template: number;
@@ -152,16 +155,23 @@ async function consensusOne(model: string, apiKey: string, draft: WorkflowDraft)
 }
 
 async function consensusCheck(draft: WorkflowDraft, apiKey: string) {
-  const [flash, pro] = await Promise.all([
+  const [flash, pro, flashLite] = await Promise.all([
     consensusOne(FLASH, apiKey, draft),
     consensusOne(PRO, apiKey, draft),
+    consensusOne(FLASH_LITE, apiKey, draft),
   ]);
-  const disagreement = Math.abs(flash.score - pro.score);
-  // pénalité jusqu'à -15 si désaccord > 30
-  const avg = (flash.score + pro.score) / 2;
-  const penalty = disagreement > 30 ? Math.min(15, disagreement - 30) : 0;
+  const scores = [flash.score, pro.score, flashLite.score];
+  const max = Math.max(...scores);
+  const min = Math.min(...scores);
+  const disagreement = max - min;
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  // Pénalité jusqu'à -20 si désaccord > 30 entre modèles
+  const penalty = disagreement > 30 ? Math.min(20, disagreement - 30) : 0;
+  const agreementRatio = [flash.agrees, pro.agrees, flashLite.agrees].filter(Boolean).length / 3;
   return {
-    flash, pro, disagreement,
+    flash, pro, flash_lite: flashLite,
+    disagreement,
+    agreement_ratio: agreementRatio,
     score: Math.max(0, Math.round(avg - penalty)),
   };
 }
@@ -308,7 +318,9 @@ export async function validateWorkflowDraft(
     consensus: {
       flash: consensus.flash,
       pro: consensus.pro,
+      flash_lite: consensus.flash_lite,
       disagreement: consensus.disagreement,
+      agreement_ratio: consensus.agreement_ratio,
     },
     documents,
     auto_status: decision.status,
