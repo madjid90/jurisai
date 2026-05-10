@@ -159,7 +159,7 @@ function LegalUpdatesPanel() {
           items={list.items}
           estimateSize={260}
           gap={12}
-          getKey={(u) => u.id}
+          getKey={(u: any) => u.id}
           onLoadMore={list.loadMore}
           hasMore={list.hasMore}
           loadingMore={list.loadingMore}
@@ -174,7 +174,7 @@ function LegalUpdatesPanel() {
               </CardContent>
             </Card>
           }
-          renderItem={(u) => (
+          renderItem={(u: any) => (
             <LegalUpdateCard
               update={u}
               onIgnore={() =>
