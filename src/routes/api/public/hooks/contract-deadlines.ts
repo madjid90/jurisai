@@ -14,7 +14,9 @@ const db = supabaseAdmin as any;
 export const Route = createFileRoute("/api/public/hooks/contract-deadlines")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const auth = verifyCronAuth(request);
+        if (!auth.ok) return auth.response;
         const now = new Date();
         const horizon = new Date(now.getTime() + 31 * 86400_000);
 
