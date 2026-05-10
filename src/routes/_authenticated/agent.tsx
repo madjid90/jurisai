@@ -43,7 +43,7 @@ import {
   AlertCircle,
   Download,
   Printer,
-  Mail,
+  // Mail,
   FileText,
   Paperclip,
   Shield,
@@ -780,9 +780,7 @@ function GeneratedDocRow({ docId }: { docId: string }) {
       <Button variant="ghost" size="sm" className="h-7 px-2" onClick={print} disabled={!doc}>
         <Printer className="h-3.5 w-3.5" />
       </Button>
-      <Button variant="ghost" size="sm" className="h-7 px-2" disabled>
-        <Mail className="h-3.5 w-3.5" />
-      </Button>
+      {/* Bouton Mail masqué tant que l'envoi par email n'est pas implémenté. */}
     </div>
   );
 }
