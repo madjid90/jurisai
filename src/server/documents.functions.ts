@@ -169,13 +169,12 @@ export const deleteDocument = createServerFn({ method: "POST" })
 //  2. AI enhancement (when prompt is provided) — uses Lovable AI Gateway to
 //     personalize / refine the rendered text.
 
+// G5 — délègue au helper partagé `fillTemplate` mais conserve le marqueur
+// HTML pour les variables manquantes (utile dans l'éditeur de génération).
 function fillTemplate(body: string, variables: Record<string, string>): string {
-  return body.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (_, key: string) => {
-    const v = variables[key];
-    if (v === undefined || v === "") {
-      return `<span data-missing="${key}" style="background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px">[${key}]</span>`;
-    }
-    return v;
+  return sharedFillTemplate(body, variables, {
+    onMissing: (key) =>
+      `<span data-missing="${key}" style="background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px">[${key}]</span>`,
   });
 }
 
