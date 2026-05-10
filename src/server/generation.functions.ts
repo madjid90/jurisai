@@ -353,17 +353,18 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
     if (reminderDays && reminderDays > 0 && session.dossier_id) {
       const due = new Date();
       due.setDate(due.getDate() + reminderDays);
+      // R61 (BUG-G8) — colonnes alignées sur le schéma réel `reminders`
+      // (tenant_id, user_id, created_by, dossier_id, title, body, remind_at).
       const { data: r } = await db
         .from("reminders")
         .insert({
           tenant_id: tenantId,
           dossier_id: session.dossier_id,
+          user_id: userId,
           created_by: userId,
-          assigned_to: userId,
           title: `Suivi — ${title}`,
-          description: `Rappel automatique ${reminderDays} jours après génération.`,
-          due_at: due.toISOString(),
-          status: "pending",
+          body: `Rappel automatique ${reminderDays} jours après génération.`,
+          remind_at: due.toISOString(),
         })
         .select("id")
         .single();
