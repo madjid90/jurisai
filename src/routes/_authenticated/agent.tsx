@@ -45,6 +45,7 @@ import {
   Mail,
   FileText,
   Paperclip,
+  Shield,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/agent")({
@@ -427,6 +428,7 @@ function RunDetail({
   const answerText = (run.answer as string) ?? "";
   const refused = run.refused as boolean | null;
   const refusalReason = run.refusal_reason as string | null;
+  const confidence = (run as Record<string, unknown>).confidence as number | null | undefined;
 
   const submitAnswers = async () => {
     setBusy(true);
