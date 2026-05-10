@@ -255,6 +255,24 @@ export const runLegalAgent = createServerFn({ method: "POST" })
       },
     });
 
+    // Pipeline post-réponse : règle métier + complétude + validation + mémoire + timeline.
+    const postCheck = await runPostResponsePipeline({
+      tenantId,
+      userId,
+      agentRunId: runId,
+      dossierId: data.dossier_id ?? null,
+      message: data.message,
+      answer,
+      intent: classification.intent,
+      domain: classification.domain,
+      topic: classification.topic,
+      trace,
+      refused,
+    }).catch((e) => {
+      console.error("post-response pipeline failed:", (e as Error).message);
+      return null;
+    });
+
     return {
       run_id: runId,
       intent: classification.intent,
@@ -264,9 +282,13 @@ export const runLegalAgent = createServerFn({ method: "POST" })
       requires_rag: classification.requires_rag,
       requires_document_upload: classification.requires_document_upload,
       requires_form: classification.requires_form,
-      requires_validation: classification.requires_validation,
+      requires_validation:
+        classification.requires_validation || (postCheck?.requires_validation ?? false),
       suggested_actions: classification.suggested_actions,
-      missing_information: classification.missing_information,
+      missing_information:
+        postCheck?.missing_information && postCheck.missing_information.length > 0
+          ? postCheck.missing_information
+          : classification.missing_information,
       answer,
       refused,
       refusal_reason: refusalReason,
