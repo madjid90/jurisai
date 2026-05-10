@@ -702,19 +702,21 @@ export async function analyzeDocumentTool(
     const { data: dCheck } = await sb
       .from("dossiers").select("id").eq("id", args.dossier_id).eq("tenant_id", ctx.tenantId).maybeSingle();
     if (dCheck) {
-      for (const r of parsed.risks.slice(0, 10)) {
-        await sb.from("identified_risks").insert({
-          tenant_id: ctx.tenantId,
-          dossier_id: args.dossier_id,
-          title: String(r.title ?? "Risque").slice(0, 200),
-          severity: ["low","medium","high","critical"].includes(r.severity) ? r.severity : "medium",
-          description: String(r.rationale ?? "").slice(0, 1000),
-          legal_basis: [],
-          status: "open",
-          detected_by: ctx.userId,
-          category: "document_analysis",
-        });
-        riskCount++;
+      // R32: insertion parallèle (Promise.all) au lieu de séquentiel
+      const riskRows = parsed.risks.slice(0, 10).map((r: any) => ({
+        tenant_id: ctx.tenantId,
+        dossier_id: args.dossier_id,
+        title: String(r.title ?? "Risque").slice(0, 200),
+        severity: ["low","medium","high","critical"].includes(r.severity) ? r.severity : "medium",
+        description: String(r.rationale ?? "").slice(0, 1000),
+        legal_basis: [],
+        status: "open",
+        detected_by: ctx.userId,
+        category: "document_analysis",
+      }));
+      if (riskRows.length) {
+        const { error: insErr } = await sb.from("identified_risks").insert(riskRows);
+        if (!insErr) riskCount = riskRows.length;
       }
       await logTimelineEvent({
         tenantId: ctx.tenantId,
