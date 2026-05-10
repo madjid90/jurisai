@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useConfirm } from "@/components/shared/ConfirmProvider";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
@@ -10,12 +10,13 @@ import {
   Loader2,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import { VirtualList } from "@/components/shared/VirtualList";
 import {
   analyzeDocument,
   deleteAnalysis,
@@ -45,27 +46,27 @@ function AnalysesPage() {
   const deleteFn = useServerFn(deleteAnalysis);
   const analyzeFn = useServerFn(analyzeDocument);
 
-  const [items, setItems] = useState<AnalysisRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const refresh = async () => {
-    try {
-      const res = await listFn();
-      setItems((res.analyses ?? []) as AnalysisRow[]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetcher = useCallback(
+    async ({ limit, offset }: { limit: number; offset: number }) => {
+      const res = await listFn({ data: { limit, offset } });
+      return {
+        items: (res.analyses ?? []) as AnalysisRow[],
+        hasMore: res.hasMore ?? false,
+        total: res.total,
+      };
+    },
+    [listFn],
+  );
 
-  useEffect(() => {
-    if (user) void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const list = useInfiniteList<AnalysisRow>(fetcher, {
+    pageSize: 30,
+    enabled: !!user,
+    deps: [user?.id],
+  });
 
   const handleFile = async (file: File) => {
     const ext = file.name.toLowerCase().split(".").pop();
@@ -104,7 +105,7 @@ function AnalysesPage() {
       void navigate({ to: "/analyses/$id", params: { id: res.id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur d'analyse", { id: toastId });
-      void refresh();
+      void list.reload();
     } finally {
       setUploading(false);
     }
@@ -115,7 +116,7 @@ function AnalysesPage() {
     try {
       await deleteFn({ data: { id } });
       toast.success("Analyse supprimée");
-      void refresh();
+      void list.reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
@@ -180,21 +181,32 @@ function AnalysesPage() {
         {/* List */}
         <div className="px-8 py-6">
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Historique ({items.length})
+            Historique ({list.total ?? list.items.length})
           </h2>
-          {loading ? (
+          {list.loading ? (
             <div className="flex h-24 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-accent" />
             </div>
-          ) : items.length === 0 ? (
-            <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-8 text-center text-[13px] text-muted-foreground">
-              Aucune analyse pour le moment.
-            </p>
           ) : (
-            <div className="mt-3 space-y-2">
-              {items.map((a) => (
-                <AnalysisCard key={a.id} item={a} onDelete={() => handleDelete(a.id)} />
-              ))}
+            <div className="mt-3">
+              <VirtualList<AnalysisRow>
+                items={list.items}
+                estimateSize={76}
+                gap={8}
+                getKey={(a) => a.id}
+                onLoadMore={list.loadMore}
+                hasMore={list.hasMore}
+                loadingMore={list.loadingMore}
+                maxHeight={520}
+                emptyState={
+                  <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-8 text-center text-[13px] text-muted-foreground">
+                    Aucune analyse pour le moment.
+                  </p>
+                }
+                renderItem={(a) => (
+                  <AnalysisCard item={a} onDelete={() => handleDelete(a.id)} />
+                )}
+              />
             </div>
           )}
         </div>

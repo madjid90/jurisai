@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import { VirtualList } from "@/components/shared/VirtualList";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -82,10 +84,19 @@ function VeillePage() {
 function LegalUpdatesPanel() {
   const qc = useQueryClient();
   const [domain, setDomain] = useState<string>("");
-  const { data, isLoading } = useQuery({
-    queryKey: ["legal-updates", domain],
-    queryFn: () => listLegalUpdates({ data: { domain: domain || undefined, limit: 50 } }),
-  });
+
+  const fetcher = useCallback(
+    async ({ limit, offset }: { limit: number; offset: number }) => {
+      const res = await listLegalUpdates({
+        data: { domain: domain || undefined, limit, offset },
+      });
+      const items = (res ?? []) as any[];
+      return { items, hasMore: items.length === limit };
+    },
+    [domain],
+  );
+
+  const list = useInfiniteList<any>(fetcher, { pageSize: 30, deps: [domain] });
 
   const createAction = useMutation({
     mutationFn: (input: { legalUpdateId: string; actionType: "review" | "ignore" }) =>
@@ -93,6 +104,7 @@ function LegalUpdatesPanel() {
     onSuccess: () => {
       toast.success("Action enregistrée");
       qc.invalidateQueries({ queryKey: ["legal-updates"] });
+      void list.reload();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -100,7 +112,10 @@ function LegalUpdatesPanel() {
   const updateStatus = useMutation({
     mutationFn: (input: { actionId: string; status: "completed" | "in_progress" | "cancelled" }) =>
       updateLegalUpdateActionStatus({ data: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["legal-updates"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["legal-updates"] });
+      void list.reload();
+    },
   });
 
   const domains = ["", "rgpd", "social", "commercial", "fiscal", "societes", "contentieux"];
@@ -133,39 +148,47 @@ function LegalUpdatesPanel() {
         ))}
       </div>
 
-      {isLoading && (
+      {list.loading && (
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
         </div>
       )}
 
-      {!isLoading && (data?.length ?? 0) === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <Scale className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <p className="mt-2 text-sm text-muted-foreground">
-              Aucune mise à jour réglementaire pour ce domaine.
-            </p>
-          </CardContent>
-        </Card>
+      {!list.loading && (
+        <VirtualList<any>
+          items={list.items}
+          estimateSize={260}
+          gap={12}
+          getKey={(u: any) => u.id}
+          onLoadMore={list.loadMore}
+          hasMore={list.hasMore}
+          loadingMore={list.loadingMore}
+          maxHeight={720}
+          emptyState={
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Scale className="mx-auto h-10 w-10 text-muted-foreground/50" />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Aucune mise à jour réglementaire pour ce domaine.
+                </p>
+              </CardContent>
+            </Card>
+          }
+          renderItem={(u: any) => (
+            <LegalUpdateCard
+              update={u}
+              onIgnore={() =>
+                createAction.mutate({ legalUpdateId: u.id, actionType: "ignore" })
+              }
+              onReview={() =>
+                createAction.mutate({ legalUpdateId: u.id, actionType: "review" })
+              }
+              onComplete={(actionId) => updateStatus.mutate({ actionId, status: "completed" })}
+              busy={createAction.isPending}
+            />
+          )}
+        />
       )}
-
-      <div className="space-y-3">
-        {(data ?? []).map((u: any) => (
-          <LegalUpdateCard
-            key={u.id}
-            update={u}
-            onIgnore={() =>
-              createAction.mutate({ legalUpdateId: u.id, actionType: "ignore" })
-            }
-            onReview={() =>
-              createAction.mutate({ legalUpdateId: u.id, actionType: "review" })
-            }
-            onComplete={(actionId) => updateStatus.mutate({ actionId, status: "completed" })}
-            busy={createAction.isPending}
-          />
-        ))}
-      </div>
     </div>
   );
 }
