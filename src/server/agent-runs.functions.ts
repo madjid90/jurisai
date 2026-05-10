@@ -503,6 +503,14 @@ ${sourcesBlock || "(aucune)"}`;
       }
 
       // 5. Mettre à jour la run
+      // Disclaimer anti-hallucination quand aucune source RAG n'a été utilisée.
+      if (sources.length === 0 && parsed.answer) {
+        const disclaimer =
+          "⚠️ **Attention** : aucune source juridique n'a été trouvée dans la base pour cette question. " +
+          "La réponse ci-dessous est générée par l'IA sans appui sur les textes de loi indexés. " +
+          "Consultez un professionnel avant d'agir.\n\n---\n\n";
+        parsed.answer = disclaimer + parsed.answer;
+      }
       const draft = { ...(r.draft ?? {}) } as DraftShape;
       draft.analysis = { answer: parsed.answer ?? "", risks: parsed.risks ?? [] };
       draft.procedure = parsed.procedure ?? [];
