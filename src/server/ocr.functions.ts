@@ -17,6 +17,10 @@ export const runOcrDocument = createServerFn({ method: "POST" })
     }).parse(i),
   )
   .handler(async ({ data, context }) => {
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    if (!SUPABASE_URL) {
+      throw new Error("SUPABASE_URL manquant côté serveur (configurez la variable d'environnement)");
+    }
     const ctx = context as { accessToken?: string; userId: string };
     const accessToken = ctx.accessToken ?? "";
     const res = await fetch(`${SUPABASE_URL}/functions/v1/ocr-document`, {
