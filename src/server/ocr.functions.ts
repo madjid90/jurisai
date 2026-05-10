@@ -5,8 +5,10 @@ import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { processUploadedDocument } from "@/server/_shared/document-pipeline.server";
 
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ?? "https://yuvysjsyumxpekzvlzsx.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL;
+if (!SUPABASE_URL) {
+  throw new Error("SUPABASE_URL manquant côté serveur (configurez la variable d'environnement)");
+}
 
 export const runOcrDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
