@@ -288,6 +288,34 @@ export const requestValidation = createServerFn({ method: "POST" })
       metadata: { validation_id: row.id, assigned_to: assignedTo },
     });
 
+    // W12 — Notification automatique au validateur assigné (in-app + email
+    // selon préférences). On ne notifie pas le demandeur s'il est lui-même
+    // assigné (cas dégradé : aucun admin trouvé).
+    if (assignedTo && assignedTo !== userId) {
+      const { data: dossier } = await supabaseAdmin
+        .from("dossiers")
+        .select("title")
+        .eq("id", data.dossierId)
+        .maybeSingle();
+      const dossierTitle = (dossier as { title?: string } | null)?.title ?? "Dossier";
+      await notifyUser({
+        userId: assignedTo,
+        tenantId,
+        kind: "validation_requested",
+        title: `Validation à traiter : ${data.subjectType}`,
+        body: `${dossierTitle} — ${data.comment ?? "Aucun commentaire."}`,
+        link: `/dossiers/${data.dossierId}?tab=validations`,
+        metadata: {
+          validation_id: row.id,
+          dossier_id: data.dossierId,
+          subject_type: data.subjectType,
+          requested_by: userId,
+        },
+      }).catch(() => {
+        /* la notification ne doit pas casser la création */
+      });
+    }
+
     return { validation: row };
   });
 
