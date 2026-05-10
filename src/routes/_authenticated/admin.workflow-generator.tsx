@@ -112,6 +112,11 @@ function WorkflowGeneratorPage() {
                     sources_count={genM.data.quality?.scores ? undefined : undefined}
                     quality_score={genM.data.quality?.scores?.overall ? Math.round(genM.data.quality.scores.overall) : undefined}
                   />
+                  <SmartDisclaimer
+                    status={genM.data.cache_hit ? "human_validated" : (genM.data.quality?.auto_status ?? "draft_ai") as any}
+                    maxSeverity={(genM.data.quality?.sensitive?.max_severity ?? "none") as any}
+                    sensitiveCount={genM.data.quality?.sensitive?.detected?.length ?? 0}
+                  />
                   <div className="flex items-center gap-2">
                     <strong>Résultat :</strong>
                     {genM.data.cache_hit ? (
