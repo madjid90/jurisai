@@ -1510,6 +1510,74 @@ export type Database = {
           },
         ]
       }
+      email_outbox: {
+        Row: {
+          attempts: number
+          body_html: string | null
+          body_text: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          max_attempts: number
+          next_attempt_at: string
+          sent_at: string | null
+          status: string
+          subject: string
+          template: string | null
+          template_data: Json
+          tenant_id: string | null
+          to_email: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+          template?: string | null
+          template_data?: Json
+          tenant_id?: string | null
+          to_email: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          body_html?: string | null
+          body_text?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          template?: string | null
+          template_data?: Json
+          tenant_id?: string | null
+          to_email?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_queue: {
         Row: {
           attempts: number
@@ -3236,6 +3304,44 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "rag_eval_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_response_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          hit_count: number
+          payload: Json
+          question: string
+          tenant_id: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          hit_count?: number
+          payload: Json
+          question: string
+          tenant_id: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          hit_count?: number
+          payload?: Json
+          question?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_response_cache_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -5325,6 +5431,7 @@ export type Database = {
         Args: { _tenant_id: string }
         Returns: boolean
       }
+      increment_rag_cache_hit: { Args: { _key: string }; Returns: undefined }
       is_member_of_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
@@ -5374,6 +5481,7 @@ export type Database = {
         }[]
       }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
+      purge_expired_rag_cache: { Args: never; Returns: number }
       purge_expired_workflow_audit: { Args: never; Returns: number }
       run_data_quality_checks: { Args: never; Returns: undefined }
       start_ingestion_batch: {

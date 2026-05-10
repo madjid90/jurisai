@@ -10,11 +10,15 @@
 //     body: JSON.stringify(...),
 //   }, { timeoutMs: 60_000 });
 
+import { withBreaker } from "./llm-breaker.server";
+
 export type LlmFetchOptions = {
   /** Timeout en ms — défaut 60 000. */
   timeoutMs?: number;
   /** Signal externe (compose avec le timeout interne). */
   externalSignal?: AbortSignal;
+  /** Si fourni, l'appel passe par le circuit breaker pour ce modèle. */
+  breakerModel?: string;
 };
 
 export class LlmTimeoutError extends Error {
@@ -39,14 +43,26 @@ export async function llmFetch(
     else opts.externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
   }
 
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (e) {
-    if (e instanceof Error && (e.name === "AbortError" || e.message.includes("aborted"))) {
-      throw new LlmTimeoutError(timeoutMs);
+  const exec = async (): Promise<Response> => {
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      // Si breaker actif : transformer 429/5xx en throw pour que le breaker compte.
+      if (opts.breakerModel && (res.status === 429 || res.status >= 500)) {
+        throw new Error(`upstream ${res.status}`);
+      }
+      return res;
+    } catch (e) {
+      if (e instanceof Error && (e.name === "AbortError" || e.message.includes("aborted"))) {
+        throw new LlmTimeoutError(timeoutMs);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
     }
-    throw e;
-  } finally {
-    clearTimeout(timer);
+  };
+
+  if (opts.breakerModel) {
+    return withBreaker(opts.breakerModel, exec);
   }
+  return exec();
 }
