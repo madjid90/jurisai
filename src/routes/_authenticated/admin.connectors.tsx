@@ -340,6 +340,54 @@ function StatCard({ label, value, loading }: { label: string; value: number | st
   );
 }
 
+function SecretRow({
+  secret,
+}: {
+  secret: { name: string; connector: string; description: string; sensitive?: boolean; present?: boolean; value?: string };
+}) {
+  const [revealed, setRevealed] = useState(false);
+  const value = secret.value ?? "";
+  const present = secret.present ?? value.length > 0;
+  const masked = value ? "•".repeat(Math.min(value.length, 24)) : "non défini";
+  const display = !present ? "non défini" : revealed || !secret.sensitive ? value : masked;
+
+  const copy = async () => {
+    if (!present) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${secret.name} copié`);
+    } catch {
+      toast.error("Copie impossible");
+    }
+  };
+
+  return (
+    <li className="rounded-lg border border-border/30 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <code className="text-xs font-mono">{secret.name}</code>
+            <Badge variant="outline" className="text-[10px]">{secret.connector}</Badge>
+            {!present && <Badge variant="destructive" className="text-[10px]">manquant</Badge>}
+          </div>
+          <div className="mt-0.5 text-xs text-muted-foreground">{secret.description}</div>
+          <div className="mt-1 break-all font-mono text-xs text-foreground/80">{display}</div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {secret.sensitive && present && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setRevealed((r) => !r)} title={revealed ? "Masquer" : "Afficher"}>
+              {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copy} disabled={!present} title="Copier">
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 function ConnectorCard({
   connector,
   onRun,
