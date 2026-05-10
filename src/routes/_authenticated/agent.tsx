@@ -106,8 +106,27 @@ function AssistantPage() {
 
   useEffect(() => {
     refresh();
-    const t = setInterval(refresh, 4000);
-    return () => clearInterval(t);
+    let userId: string | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      userId = auth.user?.id ?? null;
+      if (!userId) return;
+      channel = supabase
+        .channel(`agent_runs:${userId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "agent_runs", filter: `user_id=eq.${userId}` },
+          () => { void refresh(); },
+        )
+        .subscribe();
+    })();
+    // Fallback léger (15s) si Realtime indisponible
+    const fallback = setInterval(refresh, 15000);
+    return () => {
+      clearInterval(fallback);
+      if (channel) void supabase.removeChannel(channel);
+    };
   }, []);
 
   const uploadAttachments = async (): Promise<Array<{ analysis_id: string; filename: string }>> => {
@@ -309,7 +328,7 @@ function RunCard({
     }
   };
 
-  // Recharger en continu tant que l'agent n'a pas fini
+  // Realtime sur cette run + fallback polling léger tant qu'elle est en cours
   useEffect(() => {
     if (!expanded) {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -317,14 +336,23 @@ function RunCard({
     }
     void load();
     const inFlight = ["pending", "running", "ready"].includes(summary.status);
+    const channel = supabase
+      .channel(`agent_run:${summary.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "agent_runs", filter: `id=eq.${summary.id}` },
+        () => { void load(); },
+      )
+      .subscribe();
     if (inFlight) {
-      pollingRef.current = setInterval(load, 2500);
+      pollingRef.current = setInterval(load, 8000);
     }
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded, summary.status]);
+  }, [expanded, summary.status, summary.id]);
 
   const meta = humanLabel(summary.status);
   const dotColor =

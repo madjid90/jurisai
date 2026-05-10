@@ -503,43 +503,62 @@ export const runLegalAgent = createServerFn({ method: "POST" })
         break;
       }
 
-      for (const call of toolCalls) {
-        const t0 = Date.now();
-        let args: Record<string, unknown> = {};
-        try {
-          args = JSON.parse(call.function.arguments || "{}");
-        } catch {
-          /* noop */
-        }
-        const outcome = await runTool(call.function.name, args, ctx);
-        const duration = Date.now() - t0;
+      // A7 : exécuter tous les tool calls indépendants en parallèle.
+      // L'ordre des `messages` (role:"tool") est conservé via Promise.all + map.
+      const results = await Promise.all(
+        toolCalls.map(async (call) => {
+          const t0 = Date.now();
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(call.function.arguments || "{}");
+          } catch {
+            /* noop */
+          }
+          try {
+            const outcome = await runTool(call.function.name, args, ctx);
+            return { call, args, outcome, duration: Date.now() - t0, error: null as string | null };
+          } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : "tool failed";
+            return {
+              call,
+              args,
+              outcome: { result: { error: errorMessage }, succeeded: false, errorMessage },
+              duration: Date.now() - t0,
+              error: errorMessage,
+            };
+          }
+        }),
+      );
 
-        // Trace DB
-        await sb.from("agent_tool_runs").insert({
-          agent_run_id: runId,
-          tenant_id: tenantId,
-          tool_name: call.function.name,
-          args,
-          result: outcome.result ?? {},
-          is_sensitive: outcome.isSensitive ?? false,
-          validation_request_id: outcome.validationRequestId ?? null,
-          succeeded: outcome.succeeded,
-          error_message: outcome.errorMessage ?? null,
-          duration_ms: duration,
-        });
+      // Trace DB en batch
+      const traceRows = results.map((r) => ({
+        agent_run_id: runId,
+        tenant_id: tenantId,
+        tool_name: r.call.function.name,
+        args: r.args,
+        result: r.outcome.result ?? {},
+        is_sensitive: (r.outcome as { isSensitive?: boolean }).isSensitive ?? false,
+        validation_request_id: (r.outcome as { validationRequestId?: string | null }).validationRequestId ?? null,
+        succeeded: r.outcome.succeeded,
+        error_message: r.outcome.errorMessage ?? null,
+        duration_ms: r.duration,
+      }));
+      if (traceRows.length > 0) {
+        await sb.from("agent_tool_runs").insert(traceRows);
+      }
 
+      for (const r of results) {
         trace.push({
-          tool: call.function.name,
-          args,
-          sensitive: outcome.isSensitive ?? false,
-          succeeded: outcome.succeeded,
-          validation_request_id: outcome.validationRequestId ?? null,
+          tool: r.call.function.name,
+          args: r.args,
+          sensitive: (r.outcome as { isSensitive?: boolean }).isSensitive ?? false,
+          succeeded: r.outcome.succeeded,
+          validation_request_id: (r.outcome as { validationRequestId?: string | null }).validationRequestId ?? null,
         });
-
         messages.push({
           role: "tool",
-          tool_call_id: call.id,
-          content: JSON.stringify(outcome.result).slice(0, 8000),
+          tool_call_id: r.call.id,
+          content: JSON.stringify(r.outcome.result).slice(0, 8000),
         });
       }
     }

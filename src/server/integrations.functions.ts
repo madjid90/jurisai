@@ -133,14 +133,16 @@ export const listWebhooks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
+    // S14 : ne JAMAIS retourner `secret` complet à l'UI ; uniquement `secret_last4`.
     const { data, error } = await supabaseAdmin
       .from("tenant_webhooks")
-      .select("id, target_url, events, active, created_at")
+      .select("id, target_url, events, active, created_at, secret_last4")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return (data ?? []) as Array<{
-      id: string; target_url: string; events: string[]; active: boolean; created_at: string;
+      id: string; target_url: string; events: string[]; active: boolean;
+      created_at: string; secret_last4: string | null;
     }>;
   });
 
@@ -149,6 +151,10 @@ const WEBHOOK_EVENTS = [
   "task.created", "task.completed",
   "comment.added", "alert.published",
 ] as const;
+
+function generateWebhookSecret(): string {
+  return `whsec_${randomBytes(24).toString("base64url")}`;
+}
 
 export const createWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -161,17 +167,36 @@ export const createWebhook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const secret = `whsec_${randomBytes(24).toString("base64url")}`;
+    const secret = generateWebhookSecret();
 
     const { data: row, error } = await supabaseAdmin
       .from("tenant_webhooks")
       .insert({
         tenant_id: tenantId, created_by: userId,
-        target_url: data.target_url, events: data.events, secret,
-      })
+        target_url: data.target_url, events: data.events,
+        secret, secret_last4: secret.slice(-4),
+      } as never)
       .select("id").single();
     if (error) throw new Error(error.message);
+    // Le secret en clair n'est renvoyé QUE ici, à la création. Plus jamais ensuite.
     return { id: row.id, secret };
+  });
+
+// S14 : régénérer le secret (le précédent devient invalide immédiatement).
+// Le nouveau secret en clair n'est renvoyé qu'une seule fois.
+export const rotateWebhookSecret = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as { userId: string };
+    const tenantId = await requireAdmin(userId);
+    const secret = generateWebhookSecret();
+    const { error } = await supabaseAdmin
+      .from("tenant_webhooks")
+      .update({ secret, secret_last4: secret.slice(-4) } as never)
+      .eq("id", data.id).eq("tenant_id", tenantId);
+    if (error) throw new Error(error.message);
+    return { id: data.id, secret };
   });
 
 export const toggleWebhook = createServerFn({ method: "POST" })

@@ -30,19 +30,29 @@ export type SourcingResult = {
   reason?: string;
 };
 
+// R12 : OpenAI text-embedding-3-* accepte ~8191 tokens (~30 000 chars).
+// On tronque dur côté client pour éviter un 400 silencieux qui ferait basculer
+// tout le pipeline RAG en fallback FTS sans le signaler.
+const EMBED_MAX_CHARS = 30000;
+
 async function embedQuery(query: string): Promise<number[] | null> {
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) return null;
+  const input = query.length > EMBED_MAX_CHARS ? query.slice(0, EMBED_MAX_CHARS) : query;
   try {
     const res = await fetch(`${AI_GATEWAY}/embeddings`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: EMBED_MODEL, input: query }),
+      body: JSON.stringify({ model: EMBED_MODEL, input }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn("[legal-rag] embedding failed:", res.status, await res.text().catch(() => ""));
+      return null;
+    }
     const json = (await res.json()) as { data?: Array<{ embedding: number[] }> };
     return json.data?.[0]?.embedding ?? null;
-  } catch {
+  } catch (e) {
+    console.warn("[legal-rag] embedding exception:", e);
     return null;
   }
 }
