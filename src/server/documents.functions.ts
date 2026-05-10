@@ -106,6 +106,7 @@ export const updateDocument = createServerFn({ method: "POST" })
       .from("documents")
       .update(update)
       .eq("id", data.id)
+      .eq("tenant_id", tenantId)
       .eq("user_id", ctx.userId);
 
     if (error) throw new Error(`Mise à jour impossible : ${error.message}`);
