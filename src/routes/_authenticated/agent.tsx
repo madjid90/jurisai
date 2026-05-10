@@ -970,6 +970,92 @@ function ToolCallsLive({ runId }: { runId: string }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Récap des actions effectuées — agrégation des agent_tool_runs réussis,
+// affichée juste avant la réponse finale pour transparence totale.
+// ---------------------------------------------------------------------------
+function ActionsRecap({ runId }: { runId: string }) {
+  const [rows, setRows] = useState<ToolRunRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("agent_tool_runs")
+        .select("id, tool_name, succeeded, duration_ms, created_at")
+        .eq("agent_run_id", runId)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (!cancelled && data) setRows(data as ToolRunRow[]);
+    })();
+    return () => { cancelled = true; };
+  }, [runId]);
+
+  // Agrégation par tool_name : nb d'appels + durée totale + succès/échec
+  const grouped = rows.reduce<Record<string, { count: number; totalMs: number; ok: number; ko: number }>>(
+    (acc, r) => {
+      const k = r.tool_name;
+      if (!acc[k]) acc[k] = { count: 0, totalMs: 0, ok: 0, ko: 0 };
+      acc[k].count += 1;
+      acc[k].totalMs += r.duration_ms ?? 0;
+      if (r.succeeded === false) acc[k].ko += 1;
+      else if (r.succeeded === true) acc[k].ok += 1;
+      return acc;
+    },
+    {},
+  );
+  const entries = Object.entries(grouped);
+  if (entries.length === 0) return null;
+
+  const totalMs = entries.reduce((sum, [, v]) => sum + v.totalMs, 0);
+  const totalCalls = entries.reduce((sum, [, v]) => sum + v.count, 0);
+
+  return (
+    <details className="rounded-lg border border-border/40 bg-muted/30 px-4 py-3 group" open>
+      <summary className="cursor-pointer list-none flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Actions effectuées
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            · {totalCalls} {totalCalls > 1 ? "étapes" : "étape"}
+            {totalMs > 0 ? ` · ${totalMs < 1000 ? `${totalMs}ms` : `${(totalMs / 1000).toFixed(1)}s`}` : ""}
+          </span>
+        </div>
+        <span className="text-[11px] text-muted-foreground group-open:hidden">Afficher</span>
+        <span className="text-[11px] text-muted-foreground hidden group-open:inline">Masquer</span>
+      </summary>
+      <ul className="mt-2.5 space-y-1.5">
+        {entries.map(([name, v]) => {
+          const { label, emoji } = humanizeTool(name);
+          return (
+            <li key={name} className="flex items-center gap-2 text-xs">
+              <span className="text-sm leading-none">{emoji}</span>
+              <span className="flex-1 truncate text-foreground/90">
+                {label}
+                {v.count > 1 ? (
+                  <span className="ml-1.5 text-muted-foreground">×{v.count}</span>
+                ) : null}
+              </span>
+              {v.ko > 0 ? (
+                <span className="text-[10px] text-destructive">
+                  {v.ko} échec{v.ko > 1 ? "s" : ""}
+                </span>
+              ) : null}
+              {v.totalMs > 0 ? (
+                <span className="text-[10px] text-muted-foreground tabular-nums">
+                  {v.totalMs < 1000 ? `${v.totalMs}ms` : `${(v.totalMs / 1000).toFixed(1)}s`}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
 function AgentProgressStepper({ status }: { status: string }) {
   // Mapping états techniques → indice d'étape courant (0..3)
   const activeIndex =
