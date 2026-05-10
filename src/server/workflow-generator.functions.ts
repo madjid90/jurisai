@@ -257,7 +257,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
           tokens_used: tokensUsed,
           duration_ms: Date.now() - startedAt,
           completed_at: new Date().toISOString(),
-          sources_used: rag.sources,
+          sources_used: ragSources,
           scores: quality.scores,
         }).eq("id", runId);
         await persistQualityChecks(runId, null, quality);
@@ -301,7 +301,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
           contains_sensitive_actions: quality.sensitive.contains_sensitive,
           sensitive_actions_detected: quality.sensitive.detected,
           llm_model: GEN_MODEL,
-          source_chunk_ids: rag.sources.map((s) => s.chunk_id),
+          source_chunk_ids: ragSources.map((s) => s.chunk_id),
           requires_sourcing: true,
         })
         .select("id")
@@ -315,7 +315,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
         tokens_used: tokensUsed,
         duration_ms: Date.now() - startedAt,
         completed_at: new Date().toISOString(),
-        sources_used: rag.sources,
+        sources_used: ragSources,
         scores: quality.scores,
       }).eq("id", runId);
 
