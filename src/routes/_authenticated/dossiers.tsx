@@ -38,6 +38,7 @@ import {
   listDossiers,
   updateDeadline,
 } from "@/server/crm.functions";
+import { VirtualList } from "@/components/shared/VirtualList";
 
 export const Route = createFileRoute("/_authenticated/dossiers")({
   head: () => ({ meta: [{ title: "Dossiers · JurisAI" }] }),
