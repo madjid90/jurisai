@@ -666,7 +666,7 @@ function GeneratedDocRow({ docId }: { docId: string }) {
     a.href = url;
     a.download = `${(doc.title ?? "document").replace(/[^\w.-]+/g, "_")}.html`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const print = () => {

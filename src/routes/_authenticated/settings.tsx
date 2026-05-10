@@ -76,7 +76,7 @@ function SettingsPage() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success("Vos données ont été exportées");
     } catch (err) {
       toast.error("Export impossible", {

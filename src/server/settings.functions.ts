@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { isValidSiret } from "@/server/_shared/validation.server";
 
 // Untyped admin client to avoid type churn
 const db = supabaseAdmin as unknown as { from: (table: string) => any };
@@ -10,7 +11,10 @@ const db = supabaseAdmin as unknown as { from: (table: string) => any };
 
 const updateTenantSchema = z.object({
   name: z.string().min(1).max(200),
-  siret: z.string().max(20).optional().nullable(),
+  siret: z.string().max(20).optional().nullable().refine(
+    (v) => v == null || v === "" || isValidSiret(v),
+    { message: "SIRET invalide (14 chiffres + clé de Luhn)" },
+  ),
   sector: z.string().max(120).optional().nullable(),
   idcc: z.string().max(20).optional().nullable(),
 });
