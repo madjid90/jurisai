@@ -95,7 +95,9 @@ function WorkflowsPage() {
     }
   };
 
-  const ACTIVE_STATUSES = new Set(["in_progress", "active"]);
+  // W2 — canon unique : "in_progress" (anciennement "active" toléré pour
+  // compat historique, plus aucune ligne en base ne porte cette valeur).
+  const ACTIVE_STATUSES = new Set(["in_progress"]);
   const activeInsts = insts.filter((i) => ACTIVE_STATUSES.has(i.status));
   const completedInsts = insts.filter((i) => !ACTIVE_STATUSES.has(i.status));
 
