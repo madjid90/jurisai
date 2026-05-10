@@ -504,14 +504,9 @@ function RunDetail({
         <WorkflowRuntimeBlock instanceId={workflowInstanceId} onAdvanced={reload} />
       ) : null}
 
-      {/* L'agent travaille */}
+      {/* L'agent travaille — stepper visuel */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
-        <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span>
-            L'agent analyse votre demande et prépare une réponse sourcée…
-          </span>
-        </div>
+        <AgentProgressStepper status={status} />
       ) : null}
 
       {/* Questions naturelles */}
