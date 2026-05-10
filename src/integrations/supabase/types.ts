@@ -3575,7 +3575,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_legal_sources_summary: {
+        Row: {
+          active_sources: number | null
+          connector: string | null
+          first_ingested: string | null
+          last_update: string | null
+          source_type: string | null
+          total_sources: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_rate_limit: {
