@@ -11,6 +11,9 @@ export type ConnectorName =
   | "kali"
   | "bofip"
   | "cdtn-modeles"
+  | "cdtn-contributions"
+  | "acco"
+  | "dole"
   | "service-public"
   | "cnil"
   | "manual";

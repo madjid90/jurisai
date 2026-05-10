@@ -1,0 +1,1 @@
+ALTER VIEW public.v_legal_sources_summary SET (security_invoker = true);
