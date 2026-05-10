@@ -79,11 +79,13 @@ export type GenerateWorkflowResult = {
   error?: string;
 };
 
-export const generateWorkflow = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => GenerateInput.parse(i))
-  .handler(async ({ data, context }): Promise<GenerateWorkflowResult> => {
-    const { userId } = context as { userId: string };
+// Helper interne réutilisable (utilisé par le serverFn ET par agent-tools)
+// Contourne uniquement la couche HTTP/middleware, mais EXIGE userId déjà
+// authentifié par l'appelant (l'agent passe par requireSupabaseAuth en amont).
+export async function runGenerateWorkflow(
+  data: z.infer<typeof GenerateInput>,
+  userId: string,
+): Promise<GenerateWorkflowResult> {
     const tenantId = await getTenantId(userId);
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY manquant côté serveur");
@@ -373,6 +375,15 @@ export const generateWorkflow = createServerFn({ method: "POST" })
         error: message,
       };
     }
+}
+
+// Wrapper HTTP : middleware + validation + délégation au helper interne.
+export const generateWorkflow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => GenerateInput.parse(i))
+  .handler(async ({ data, context }): Promise<GenerateWorkflowResult> => {
+    const { userId } = context as { userId: string };
+    return runGenerateWorkflow(data, userId);
   });
 
 // ─── Validation manuelle (admin) ───────────────────────────────────────────

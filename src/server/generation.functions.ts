@@ -60,7 +60,7 @@ export const startGenerationSession = createServerFn({ method: "POST" })
       .from("document_templates")
       .select("*")
       .eq("id", data.template_id)
-      .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
+      .or(`is_public.eq.true,and(tenant_id.eq.${z.string().uuid().parse(tenantId)})`)
       .maybeSingle();
     if (tplErr || !tpl) throw new Error("Modèle introuvable");
 
@@ -222,8 +222,8 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
-    await enforceRateLimit(userId, "generation.finalize", 5);
     try {
+    await enforceRateLimit(userId, "generation.finalize", 5);
     const { data: session, error: sErr } = await db
       .from("document_generation_sessions")
       .select("*, document_templates(*)")

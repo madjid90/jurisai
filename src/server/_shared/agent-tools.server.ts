@@ -749,16 +749,13 @@ export async function generateWorkflowTool(
   ctx: AgentCtx,
 ): Promise<ToolOutcome> {
   try {
-    const { generateWorkflow } = await import("@/server/workflow-generator.functions");
-    // On appelle la logique en re-créant un contexte serveur authentifié implicite :
-    // ici on passe par le handler interne via fetch — plus simple : on duplique l'appel
-    // direct au helper en passant tenant/user. Pour rester DRY, on appelle l'API HTTP locale.
-    // Simplification : on inline le helper d'orchestration via un import dynamique.
-    // (generateWorkflow est un createServerFn → on simule le call côté serveur)
-    const res = await (generateWorkflow as any)({
-      data: { prompt: args.prompt, category: args.category },
-      context: { userId: ctx.userId },
-    });
+    const { runGenerateWorkflow } = await import("@/server/workflow-generator.functions");
+    // Appel direct au helper interne : ctx.userId provient déjà de
+    // requireSupabaseAuth (couche agent), donc l'auth n'est pas contournée.
+    const res = await runGenerateWorkflow(
+      { prompt: args.prompt, category: args.category },
+      ctx.userId,
+    );
     const isSensitive = Boolean(res?.quality?.sensitive?.contains_sensitive);
     return {
       result: {

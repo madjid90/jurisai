@@ -60,42 +60,74 @@ function detectHallucination(answer: string, keywords: string[], sources: string
 async function runOneCase(
   authToken: string,
   c: EvalCase,
+  db: ReturnType<typeof createClient>,
+  userId: string,
+  tenantId: string,
 ): Promise<EvalResult> {
   const start = Date.now();
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/legal-chat`, {
-    method: "POST",
-    headers: {
-      Authorization: authToken,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: c.question,
-      idcc: c.idcc,
-      eval_mode: true, // hint: function should return JSON, not stream
-    }),
-  });
+  // Crée une conversation temporaire (legal-chat exige conversationId).
+  const { data: convo, error: convoErr } = await db
+    .from("conversations")
+    .insert({
+      user_id: userId,
+      tenant_id: tenantId,
+      title: `[eval] ${c.question.slice(0, 60)}`,
+    })
+    .select("id")
+    .single();
+  if (convoErr || !convo) {
+    return {
+      case_id: c.id,
+      precision_at_5: 0,
+      mrr: 0,
+      hallucination_detected: true,
+      retrieved_sources: [],
+      answer: `[ERROR conversation create] ${convoErr?.message ?? ""}`,
+      latency_ms: Date.now() - start,
+      model: "n/a",
+    };
+  }
 
-  const latency = Date.now() - start;
   let answer = "";
   const sources: string[] = [];
   let model = "unknown";
 
-  if (res.ok) {
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct.includes("application/json")) {
-      const data = await res.json();
-      answer = data.answer ?? data.text ?? "";
-      model = data.model ?? "lovable-ai";
-      const srcs = data.sources ?? data.citations ?? [];
-      for (const s of srcs) {
-        sources.push(s.reference_code ?? s.title ?? s.ref ?? String(s));
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/legal-chat`, {
+      method: "POST",
+      headers: {
+        Authorization: authToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        conversationId: (convo as { id: string }).id,
+        message: c.question,
+        history: [],
+        idcc: c.idcc,
+        eval_mode: true,
+      }),
+    });
+
+    if (res.ok) {
+      const ct = res.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
+        const data = await res.json();
+        answer = data.answer ?? data.text ?? "";
+        model = data.model ?? "lovable-ai";
+        const srcs = data.sources ?? data.citations ?? [];
+        for (const s of srcs) {
+          sources.push(s.reference_code ?? s.title ?? s.ref ?? String(s));
+        }
+      } else {
+        answer = await res.text();
       }
     } else {
-      answer = await res.text();
+      answer = `[ERROR ${res.status}] ${await res.text().catch(() => "")}`;
     }
-  } else {
-    answer = `[ERROR ${res.status}] ${await res.text().catch(() => "")}`;
+  } finally {
+    // Cleanup conversation temporaire
+    await db.from("conversations").delete().eq("id", (convo as { id: string }).id);
   }
 
   return {
@@ -105,7 +137,7 @@ async function runOneCase(
     hallucination_detected: detectHallucination(answer, c.expected_answer_keywords, sources),
     retrieved_sources: sources,
     answer: answer.slice(0, 2000),
-    latency_ms: latency,
+    latency_ms: Date.now() - start,
     model,
   };
 }
@@ -117,12 +149,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await requireSuperAdmin(req);
+    const { userId } = await requireSuperAdmin(req);
     const authToken = req.headers.get("Authorization") ?? "";
 
     const db = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    // Récupère le tenant de l'admin pour créer les conversations temporaires
+    const { data: profile } = await db
+      .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+    const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id;
+    if (!tenantId) throw new Error("Super admin sans tenant_id : impossible de créer une conversation d'évaluation.");
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body.limit ?? 50), 100);
@@ -144,7 +182,7 @@ Deno.serve(async (req) => {
     const results: EvalResult[] = [];
     for (const c of cases as EvalCase[]) {
       try {
-        const r = await runOneCase(authToken, c);
+        const r = await runOneCase(authToken, c, db, userId, tenantId);
         results.push(r);
         await db.from("rag_eval_runs").insert(r);
       } catch (e) {
