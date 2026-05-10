@@ -236,26 +236,20 @@ function ConnectorsAdminPage() {
         <Card className="glass-panel border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Key className="h-4 w-4" /> Credentials PISTE requis
+              <Key className="h-4 w-4" /> Credentials PISTE
             </CardTitle>
             <CardDescription>
               Inscription sur{" "}
               <a href="https://piste.gouv.fr/registration" target="_blank" rel="noreferrer" className="underline">
                 piste.gouv.fr
               </a>{" "}
-              · souscrire APIs Légifrance + Judilibre · ajouter les secrets dans Supabase.
+              · souscrire APIs Légifrance + Judilibre · les valeurs ci-dessous sont injectées depuis les secrets serveur.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
               {(secretsQuery.data?.required ?? []).map((s) => (
-                <li key={s.name} className="flex items-center justify-between rounded-lg border border-border/30 px-3 py-2">
-                  <div>
-                    <code className="text-xs font-mono">{s.name}</code>
-                    <span className="ml-2 text-muted-foreground">— {s.description}</span>
-                  </div>
-                  <Badge variant="outline">{s.connector}</Badge>
-                </li>
+                <SecretRow key={s.name} secret={s} />
               ))}
             </ul>
           </CardContent>
