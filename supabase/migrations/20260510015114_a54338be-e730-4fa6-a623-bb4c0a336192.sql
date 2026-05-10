@@ -1,0 +1,1 @@
+ALTER VIEW public.v_source_types_health SET (security_invoker = on);
