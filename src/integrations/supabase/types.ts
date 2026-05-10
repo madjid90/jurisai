@@ -3085,6 +3085,42 @@ export type Database = {
           },
         ]
       }
+      rgpd_requests: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          kind: string
+          metadata: Json
+          requested_at: string
+          status: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          kind: string
+          metadata?: Json
+          requested_at?: string
+          status?: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          kind?: string
+          metadata?: Json
+          requested_at?: string
+          status?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           created_at: string

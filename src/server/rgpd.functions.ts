@@ -27,6 +27,15 @@ export const exportMyData = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const ctx = context as { userId: string; userEmail: string | null };
     const { userId, userEmail } = ctx;
+    let requestId: string | null = null;
+    try {
+      const { data: req } = await db
+        .from("rgpd_requests")
+        .insert({ user_id: userId, kind: "export" })
+        .select("id")
+        .single();
+      requestId = (req as { id?: string } | null)?.id ?? null;
+    } catch { /* noop */ }
 
     const safe = async (table: string, query: (q: any) => any) => {
       try {
@@ -77,7 +86,7 @@ export const exportMyData = createServerFn({ method: "POST" })
       messages = msgs ?? [];
     }
 
-    return {
+    const result = {
       exportedAt: new Date().toISOString(),
       account: { id: userId, email: userEmail },
       profile,
@@ -94,6 +103,12 @@ export const exportMyData = createServerFn({ method: "POST" })
       dossier_comments,
       usage_logs,
     };
+    if (requestId) {
+      try {
+        await db.from("rgpd_requests").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", requestId);
+      } catch { /* noop */ }
+    }
+    return result;
   });
 
 // ─── Delete (art. 17) ───────────────────────────────────────────────────────
@@ -113,6 +128,7 @@ const HARD_DELETE_TABLES = [
   "document_analyses",
   "dossier_comments",
   "agent_runs",
+  "agent_memory",
   "user_roles",
 ] as const;
 
