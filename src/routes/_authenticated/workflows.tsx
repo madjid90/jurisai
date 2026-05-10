@@ -12,6 +12,16 @@ import {
   type WorkflowStep,
 } from "@/server/workflows.functions";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/workflows")({
   head: () => ({ meta: [{ title: "Procédures · JurisAI" }] }),
@@ -43,6 +53,8 @@ function WorkflowsPage() {
   const [tab, setTab] = useState<"actives" | "catalogue" | "completed">("actives");
   const [domain, setDomain] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; title: string } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const reload = async () => {
     try {
@@ -78,24 +90,29 @@ function WorkflowsPage() {
     }
   };
 
-  const handleCancel = async (id: string, title: string) => {
-    // R68 (BUG-W10) — confirmation explicite avant annulation.
-    if (typeof window !== "undefined") {
-      const ok = window.confirm(
-        `Annuler la procédure « ${title} » ?\n\nCette action est définitive : l'instance sera marquée comme annulée et ne pourra plus être reprise.`,
-      );
-      if (!ok) return;
-    }
+  const handleCancel = (id: string, title: string) => {
+    // R68 (BUG-W10) — confirmation explicite via AlertDialog (modal accessible).
+    setCancelTarget({ id, title });
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
     try {
-      await cancel({ data: { instanceId: id } });
+      await cancel({ data: { instanceId: cancelTarget.id } });
       toast.success("Procédure annulée");
+      setCancelTarget(null);
       await reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setCancelling(false);
     }
   };
 
-  const ACTIVE_STATUSES = new Set(["in_progress", "active"]);
+  // W2 — canon unique : "in_progress" (anciennement "active" toléré pour
+  // compat historique, plus aucune ligne en base ne porte cette valeur).
+  const ACTIVE_STATUSES = new Set(["in_progress"]);
   const activeInsts = insts.filter((i) => ACTIVE_STATUSES.has(i.status));
   const completedInsts = insts.filter((i) => !ACTIVE_STATUSES.has(i.status));
 
@@ -322,6 +339,33 @@ function WorkflowsPage() {
           </div>
         )}
         </div>
+
+      <AlertDialog open={cancelTarget !== null} onOpenChange={(open) => { if (!open && !cancelling) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler cette procédure ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelTarget ? (
+                <>
+                  La procédure <strong>« {cancelTarget.title} »</strong> sera marquée
+                  comme annulée. Cette action est définitive et l'instance ne pourra
+                  plus être reprise.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Conserver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void confirmCancel(); }}
+              disabled={cancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancelling ? "Annulation…" : "Annuler la procédure"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

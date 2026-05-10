@@ -97,29 +97,58 @@ export const validateWorkflowStep = createServerFn({ method: "POST" })
       }
     }
 
-    // 3) Validation requise → vérifier rôle
-    // BUG-W4 : on s'appuie sur la liste centralisée de rôles validateurs.
+    // 3 + 4) Validation rôle + existence des templates : checks indépendants
+    // exécutés en parallèle via Promise.allSettled (W9). Une erreur sur un
+    // check ne bloque pas les autres ; on agrège les blockers/warnings.
+    // BUG-W4 : on s'appuie sur la liste centralisée WORKFLOW_VALIDATOR_ROLES.
+    const checks: Array<Promise<{ blockers?: string[]; warnings?: string[] }>> = [];
+
     if (step.validation_required) {
-      const { data: roles } = await supabaseAdmin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .eq("tenant_id", tenantId)
-        .in("role", [...WORKFLOW_VALIDATOR_ROLES]);
-      if (!roles || roles.length === 0) {
-        blockers.push("Cette étape nécessite la validation d'un admin, manager ou super_admin");
-      }
+      checks.push(
+        (async () => {
+          const { data: roles } = await supabaseAdmin
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .eq("tenant_id", tenantId)
+            .in("role", [...WORKFLOW_VALIDATOR_ROLES]);
+          if (!roles || roles.length === 0) {
+            return {
+              blockers: [
+                "Cette étape nécessite la validation d'un admin, manager ou super_admin",
+              ],
+            };
+          }
+          return {};
+        })(),
+      );
     }
 
-    // 4) Documents prévus → contrôle d'existence des templates
     for (const slug of step.documents_to_generate ?? []) {
-      const { data: tpl } = await supabaseAdmin
-        .from("document_templates")
-        .select("id")
-        .eq("slug", slug)
-        .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
-        .maybeSingle();
-      if (!tpl) warnings.push(`Modèle de document indisponible : ${slug}`);
+      checks.push(
+        (async () => {
+          const { data: tpl } = await supabaseAdmin
+            .from("document_templates")
+            .select("id")
+            .eq("slug", slug)
+            .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
+            .maybeSingle();
+          if (!tpl) return { warnings: [`Modèle de document indisponible : ${slug}`] };
+          return {};
+        })(),
+      );
+    }
+
+    const settled = await Promise.allSettled(checks);
+    for (const r of settled) {
+      if (r.status === "fulfilled") {
+        if (r.value.blockers) blockers.push(...r.value.blockers);
+        if (r.value.warnings) warnings.push(...r.value.warnings);
+      } else {
+        warnings.push(
+          `Vérification non concluante : ${r.reason instanceof Error ? r.reason.message : "erreur inconnue"}`,
+        );
+      }
     }
 
     // 5) Étape suivante recommandée
