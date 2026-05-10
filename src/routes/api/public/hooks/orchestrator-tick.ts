@@ -13,7 +13,11 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Map connector → edge function name
 const CONNECTOR_FN: Record<string, string> = {
   "kali-full": "connector-kali-full",
-  // Other full connectors will be wired here as they ship.
+  "legifrance-full": "connector-legifrance-full",
+  "judilibre-full": "connector-judilibre-full",
+  "jade-full": "connector-jade-full",
+  "bofip-full": "connector-bofip-full",
+  "cdtn-fiches": "connector-cdtn-fiches",
 };
 
 export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
