@@ -90,20 +90,23 @@ function WorkflowsPage() {
     }
   };
 
-  const handleCancel = async (id: string, title: string) => {
-    // R68 (BUG-W10) — confirmation explicite avant annulation.
-    if (typeof window !== "undefined") {
-      const ok = window.confirm(
-        `Annuler la procédure « ${title} » ?\n\nCette action est définitive : l'instance sera marquée comme annulée et ne pourra plus être reprise.`,
-      );
-      if (!ok) return;
-    }
+  const handleCancel = (id: string, title: string) => {
+    // R68 (BUG-W10) — confirmation explicite via AlertDialog (modal accessible).
+    setCancelTarget({ id, title });
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
     try {
-      await cancel({ data: { instanceId: id } });
+      await cancel({ data: { instanceId: cancelTarget.id } });
       toast.success("Procédure annulée");
+      setCancelTarget(null);
       await reload();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setCancelling(false);
     }
   };
 
