@@ -23,12 +23,16 @@ export const listLegalUpdates = createServerFn({ method: "GET" })
         domain: z.string().optional(),
         urgency: z.enum(["low", "normal", "high", "critical"]).optional(),
         limit: z.number().min(1).max(100).optional(),
+        offset: z.number().min(0).optional(),
       })
       .parse(input ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
+
+    const limit = data.limit ?? 30;
+    const offset = data.offset ?? 0;
 
     let q = supabaseAdmin
       .from("legal_updates")
@@ -37,7 +41,7 @@ export const listLegalUpdates = createServerFn({ method: "GET" })
       )
       .order("publication_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
-      .limit(data.limit ?? 50);
+      .range(offset, offset + limit - 1);
 
     if (data.domain) q = q.eq("domain", data.domain);
     if (data.urgency) q = q.eq("urgency", data.urgency);
