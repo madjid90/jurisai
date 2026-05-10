@@ -86,7 +86,7 @@ export const exportMyData = createServerFn({ method: "POST" })
       messages = msgs ?? [];
     }
 
-    return {
+    const result = {
       exportedAt: new Date().toISOString(),
       account: { id: userId, email: userEmail },
       profile,
@@ -103,6 +103,12 @@ export const exportMyData = createServerFn({ method: "POST" })
       dossier_comments,
       usage_logs,
     };
+    if (requestId) {
+      try {
+        await db.from("rgpd_requests").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", requestId);
+      } catch { /* noop */ }
+    }
+    return result;
   });
 
 // ─── Delete (art. 17) ───────────────────────────────────────────────────────
