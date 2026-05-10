@@ -574,9 +574,12 @@ function RunDetail({
         <WorkflowRuntimeBlock instanceId={workflowInstanceId} onAdvanced={reload} />
       ) : null}
 
-      {/* L'agent travaille — stepper visuel */}
+      {/* L'agent travaille — stepper visuel + tool calls live */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
-        <AgentProgressStepper status={status} />
+        <>
+          <AgentProgressStepper status={status} />
+          <ToolCallsLive runId={run.id as string} />
+        </>
       ) : null}
 
       {/* Questions naturelles */}
