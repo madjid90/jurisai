@@ -45,6 +45,7 @@ export type Database = {
           topic: string | null
           updated_at: string
           user_id: string
+          workflow_instance_id: string | null
         }
         Insert: {
           answer?: string | null
@@ -76,6 +77,7 @@ export type Database = {
           topic?: string | null
           updated_at?: string
           user_id: string
+          workflow_instance_id?: string | null
         }
         Update: {
           answer?: string | null
@@ -107,6 +109,7 @@ export type Database = {
           topic?: string | null
           updated_at?: string
           user_id?: string
+          workflow_instance_id?: string | null
         }
         Relationships: [
           {
@@ -121,6 +124,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_workflow_instance_id_fkey"
+            columns: ["workflow_instance_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_instances"
             referencedColumns: ["id"]
           },
         ]
@@ -3740,6 +3750,9 @@ export type Database = {
       }
       workflow_instances: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           client_id: string | null
           completed_at: string | null
           context: Json
@@ -3748,6 +3761,7 @@ export type Database = {
           definition_id: string
           dossier_id: string | null
           id: string
+          started_at: string | null
           started_by: string
           status: string
           tenant_id: string
@@ -3755,6 +3769,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           client_id?: string | null
           completed_at?: string | null
           context?: Json
@@ -3763,6 +3780,7 @@ export type Database = {
           definition_id: string
           dossier_id?: string | null
           id?: string
+          started_at?: string | null
           started_by: string
           status?: string
           tenant_id: string
@@ -3770,6 +3788,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           client_id?: string | null
           completed_at?: string | null
           context?: Json
@@ -3778,6 +3799,7 @@ export type Database = {
           definition_id?: string
           dossier_id?: string | null
           id?: string
+          started_at?: string | null
           started_by?: string
           status?: string
           tenant_id?: string
@@ -4055,6 +4077,63 @@ export type Database = {
           total_tokens: number | null
         }
         Relationships: []
+      }
+      v_workflow_overdue_steps: {
+        Row: {
+          days_overdue: number | null
+          dossier_id: string | null
+          due_at: string | null
+          instance_id: string | null
+          instance_title: string | null
+          requires_validation: boolean | null
+          status: string | null
+          step_index: number | null
+          step_key: string | null
+          step_run_id: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_instances_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_step_runs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_workflow_runtime_health: {
+        Row: {
+          active_count: number | null
+          blocked_for_validation: number | null
+          cancelled_count: number | null
+          completed_30d: number | null
+          overdue_instances: number | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_instances_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
