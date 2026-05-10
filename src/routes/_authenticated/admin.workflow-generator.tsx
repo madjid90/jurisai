@@ -106,7 +106,7 @@ function WorkflowGeneratorPage() {
                 <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 text-sm space-y-3">
                   <WorkflowStatusBanner
                     status={genM.data.cache_hit ? "human_validated" : (genM.data.quality?.auto_status ?? "draft_ai")}
-                    riskLevel={genM.data.quality?.sensitive?.risk_level}
+                    riskLevel={genM.data.quality?.sensitive?.max_severity}
                     validationRequired={genM.data.quality?.sensitive?.contains_sensitive}
                     sources_count={genM.data.quality?.scores ? undefined : undefined}
                     quality_score={genM.data.quality?.scores?.overall ? Math.round(genM.data.quality.scores.overall) : undefined}
