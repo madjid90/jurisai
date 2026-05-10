@@ -3288,6 +3288,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          chat_model: string
           created_at: string
           id: string
           idcc: string | null
@@ -3303,6 +3304,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          chat_model?: string
           created_at?: string
           id?: string
           idcc?: string | null
@@ -3318,6 +3320,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          chat_model?: string
           created_at?: string
           id?: string
           idcc?: string | null
