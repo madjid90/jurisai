@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -158,7 +158,8 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
 
   const get360 = useServerFn(getDossier360);
 
-  const refresh = async () => {
+  // R62 (BUG-G7) — useCallback pour éviter une closure stale sur `dossierId`.
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const res = await get360({ data: { dossierId } });
@@ -168,12 +169,12 @@ export function Dossier360Tabs({ dossierId }: { dossierId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dossierId]);
 
   useEffect(() => {
     void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dossierId]);
+  }, [refresh]);
 
   const tabs: Array<{ key: TabKey; label: string; count?: number; icon: typeof Clock }> = [
     { key: "timeline", label: "Timeline", count: data.timeline.length, icon: Clock },

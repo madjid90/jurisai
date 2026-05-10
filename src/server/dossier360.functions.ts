@@ -178,6 +178,9 @@ export const updateRiskStatus = createServerFn({ method: "POST" })
     z
       .object({
         riskId: z.string().uuid(),
+        // R64 (BUG-G10) — exiger le dossier porteur pour empêcher la
+        // modification d'un risque d'un autre dossier du même tenant.
+        dossierId: z.string().uuid(),
         status: z.enum(["open", "mitigating", "resolved", "accepted"]),
         mitigation: z.string().trim().max(1000).optional(),
       })
@@ -192,6 +195,7 @@ export const updateRiskStatus = createServerFn({ method: "POST" })
       .select("id, dossier_id, tenant_id, title")
       .eq("id", data.riskId)
       .eq("tenant_id", tenantId)
+      .eq("dossier_id", data.dossierId)
       .maybeSingle();
     if (!existing) throw new Error("Risque introuvable");
 
@@ -208,7 +212,9 @@ export const updateRiskStatus = createServerFn({ method: "POST" })
     const { error } = await (supabaseAdmin as any)
       .from("identified_risks")
       .update(patch)
-      .eq("id", data.riskId);
+      .eq("id", data.riskId)
+      .eq("tenant_id", tenantId)
+      .eq("dossier_id", data.dossierId);
     if (error) throw new Error(error.message);
 
     await logTimelineEvent({

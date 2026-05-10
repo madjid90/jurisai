@@ -6,6 +6,7 @@
 // que les pages /agent, /dashboard, /dossiers/$id branchent à leurs handlers.
 
 import { Link } from "@tanstack/react-router";
+import ReactMarkdown from "react-markdown";
 import {
   CheckCircle2,
   ChevronRight,
@@ -208,11 +209,12 @@ export function ResultPanel({
 }
 
 function Summary({ text, sources }: { text: string; sources: Source[] }) {
-  // Render simple paragraphs + sources block. Citations [source:N] left as text.
+  // R66 (BUG-A13) — rendu Markdown via react-markdown.
+  // Citations [source:N] laissées telles quelles (rendues comme texte).
   return (
     <div className="space-y-3">
-      <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm text-foreground/90">
-        {text}
+      <div className="prose prose-sm max-w-none text-sm text-foreground/90 break-words">
+        <ReactMarkdown>{text}</ReactMarkdown>
       </div>
       {sources.length > 0 && (
         <div className="rounded-lg border border-border/60 bg-muted/40 p-3">

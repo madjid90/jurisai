@@ -19,6 +19,24 @@ import { computeLegalDeadline, extractStepDelay, type DelayResult } from "./lega
 import { detectSensitiveActions } from "./sensitive-actions.server";
 import { WORKFLOW_VALIDATOR_ROLES } from "./workflow-roles.server";
 
+// R67 (BUG-W7) — convertit "YYYY-MM-DD" en ISO UTC correspondant à 23:59:59
+// Europe/Paris (offset +01:00 hiver / +02:00 été calculé via Intl).
+function parisEndOfDayToUtcIso(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  // Heure locale Paris à 23:59:59 le jour J. On calcule l'offset via Intl.
+  const naiveUtc = Date.UTC(y, m - 1, d, 23, 59, 59);
+  const probe = new Date(naiveUtc);
+  const parisHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Paris", hour: "2-digit", hour12: false,
+    }).format(probe),
+  );
+  // probe vaut 23:59 UTC ; en heure Paris c'est probe+offset.
+  // On veut que parisHour devienne 23 → on retire l'offset (parisHour - 23) heures.
+  const offsetHours = parisHour - 23;
+  return new Date(naiveUtc - offsetHours * 3600_000).toISOString();
+}
+
 // JSON-serializable types (TanStack server-fn impose des champs définis)
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
@@ -214,6 +232,9 @@ export async function executeStep(
   }
 
   // 2) Calcul du délai si défini sur l'étape
+  // R67 (BUG-W7) — la deadline est exprimée en heure locale FR (Europe/Paris)
+  // : 23:59:59 le jour J en France, et non en UTC. On applique l'offset Paris
+  // (+01:00 hiver / +02:00 été) au moment du calcul.
   let delay: DelayResult | null = null;
   let dueAt: string | null = null;
   const d = extractStepDelay(stepDef as Record<string, unknown>);
@@ -223,7 +244,7 @@ export async function executeStep(
       amount: d.amount,
       unit: d.unit,
     });
-    dueAt = `${delay.dueDate}T23:59:59.000Z`;
+    dueAt = parisEndOfDayToUtcIso(delay.dueDate);
   }
 
   // 3) Persistance step_run

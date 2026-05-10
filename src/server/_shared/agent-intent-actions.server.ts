@@ -190,15 +190,22 @@ async function extractAndPersistDeadlines(opts: {
 }
 
 function parseFrenchDate(raw: string): Date | null {
+  // R65 (BUG-A14) — format FR strict DD/MM/YYYY, validation jour/mois réelle
+  // (rejette 31/02, 30/02, 31/04 etc.).
   const m = raw.match(/(\d{1,2})[\s/.-](\d{1,2})[\s/.-](\d{2,4})/);
   if (!m) return null;
   const d = parseInt(m[1], 10);
   const mo = parseInt(m[2], 10);
   let y = parseInt(m[3], 10);
   if (y < 100) y += 2000;
-  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1900 || y > 2100) return null;
   const dt = new Date(Date.UTC(y, mo - 1, d));
-  return isNaN(dt.getTime()) ? null : dt;
+  if (isNaN(dt.getTime())) return null;
+  // Vérifie que la date n'a pas été "roulée" (ex: 31/02 → 03/03)
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return dt;
 }
 
 function inferLabel(text: string, iso: string): string | null {
