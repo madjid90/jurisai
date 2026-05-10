@@ -60,7 +60,7 @@ export const startGenerationSession = createServerFn({ method: "POST" })
       .from("document_templates")
       .select("*")
       .eq("id", data.template_id)
-      .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
+      .or(`is_public.eq.true,and(tenant_id.eq.${z.string().uuid().parse(tenantId)})`)
       .maybeSingle();
     if (tplErr || !tpl) throw new Error("Modèle introuvable");
 
