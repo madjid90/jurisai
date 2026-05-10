@@ -455,26 +455,48 @@ function RunCard({
           ? "bg-destructive"
           : "bg-emerald-500";
 
+  const toneBadge =
+    meta.tone === "work"
+      ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+      : meta.tone === "ask"
+        ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+        : meta.tone === "err"
+          ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+          : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+
   return (
-    <Card className="border-border/60 overflow-hidden">
+    <Card
+      className={cn(
+        "border-border/60 overflow-hidden transition-shadow",
+        expanded ? "shadow-md ring-1 ring-primary/10" : "hover:shadow-sm",
+      )}
+    >
       <button
         type="button"
         onClick={onToggle}
         className="w-full text-left hover:bg-accent/30 transition-colors"
       >
         <CardContent className="py-3 px-4 flex items-center gap-3">
-          <span className={`h-2 w-2 rounded-full flex-shrink-0 ${dotColor}`} />
+          <span className={cn("h-2.5 w-2.5 rounded-full flex-shrink-0", dotColor)} />
           <div className="min-w-0 flex-1">
             <p className="font-medium truncate text-sm">
               {summary.title || summary.message.slice(0, 80)}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {meta.label} · {new Date(summary.updated_at).toLocaleString("fr-FR", {
-                dateStyle: "short",
-                timeStyle: "short",
-              })}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium", toneBadge)}>
+                {meta.label}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {new Date(summary.updated_at).toLocaleString("fr-FR", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })}
+              </span>
+            </div>
           </div>
+          <span className="text-muted-foreground/60 text-xs flex-shrink-0">
+            {expanded ? "−" : "+"}
+          </span>
         </CardContent>
       </button>
 
