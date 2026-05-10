@@ -241,6 +241,12 @@ export const analyzeDocument = createServerFn({ method: "POST" })
     const tenantId = await getTenantId(ctx.userId);
     await enforceRateLimit(ctx.userId, "analysis.analyze", 10);
 
+    // Vérifie la taille AVANT décodage (un base64 de 50MB bloque l'event loop).
+    // base64 ≈ 4/3 du binaire → byte_size ≈ length * 0.75
+    const estimatedBytes = Math.floor(data.file_base64.length * 0.75);
+    if (estimatedBytes > MAX_FILE_SIZE) {
+      throw new Error(`Fichier trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024} MB)`);
+    }
     const bytes = decodeBase64(data.file_base64);
     if (bytes.byteLength > MAX_FILE_SIZE) {
       throw new Error(`Fichier trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024} MB)`);
