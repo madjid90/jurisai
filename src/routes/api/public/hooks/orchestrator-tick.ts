@@ -18,6 +18,10 @@ const CONNECTOR_FN: Record<string, string> = {
   "jade-full": "connector-jade-full",
   "bofip-full": "connector-bofip-full",
   "cdtn-fiches": "connector-cdtn-fiches",
+  "cdtn-modeles-full": "connector-cdtn-modeles-full",
+  "cdtn-contributions-full": "connector-cdtn-contributions-full",
+  "cnil-full": "connector-cnil-full",
+  "dole-full": "connector-dole-full",
 };
 
 export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
