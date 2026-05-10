@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/public/v1/deadlines")({
           const url = new URL(request.url);
           const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
 
-          const { data, error } = await (supabaseAdmin as any)
+          const { data, error } = await supabaseAdmin
             .from("dossier_deadlines")
             .select("id, dossier_id, title, due_date, completed, completed_at, description, created_at")
             .eq("tenant_id", ctx.tenantId)
@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/public/v1/deadlines")({
           const parsed = createSchema.safeParse(body);
           if (!parsed.success) throw new ApiError(400, "Invalid body: " + parsed.error.message);
 
-          const { data: dossier } = await (supabaseAdmin as any)
+          const { data: dossier } = await supabaseAdmin
             .from("dossiers")
             .select("id, created_by")
             .eq("id", parsed.data.dossier_id)
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/public/v1/deadlines")({
             .maybeSingle();
           if (!dossier) throw new ApiError(404, "Dossier not found");
 
-          const { data, error } = await (supabaseAdmin as any)
+          const { data, error } = await supabaseAdmin
             .from("dossier_deadlines")
             .insert({
               tenant_id: ctx.tenantId,

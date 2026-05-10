@@ -20,7 +20,7 @@ export async function enforceRateLimit(
 ): Promise<RateLimitResult> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabaseAdmin as any).rpc("check_rate_limit", {
+    const { data, error } = await supabaseAdmin.rpc("check_rate_limit", {
       p_user_id: userId,
       p_endpoint: endpoint,
       p_max_per_minute: maxPerMinute,

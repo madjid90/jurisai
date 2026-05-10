@@ -117,12 +117,12 @@ export const upsertDocumentTemplate = createServerFn({ method: "POST" })
       if (data[k] !== undefined) payload[k] = data[k];
     }
     if (data.id) {
-      const { error } = await (supabaseAdmin as any)
+      const { error } = await supabaseAdmin
         .from("document_templates").update(payload).eq("id", data.id).eq("tenant_id", tenantId);
       if (error) throw new Error(error.message);
       return { id: data.id };
     }
-    const { data: inserted, error } = await (supabaseAdmin as any)
+    const { data: inserted, error } = await supabaseAdmin
       .from("document_templates").insert(payload).select("id").single();
     if (error) throw new Error(error.message);
     return { id: inserted.id as string };

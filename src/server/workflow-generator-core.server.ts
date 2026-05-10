@@ -385,7 +385,7 @@ export async function runGenerateWorkflow(
 
 async function fetchTenantIdcc(tenantId: string): Promise<string | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabaseAdmin as any)
+  const { data } = await supabaseAdmin
     .from("tenants").select("idcc").eq("id", tenantId).maybeSingle();
   return (data as { idcc: string | null } | null)?.idcc ?? null;
 }

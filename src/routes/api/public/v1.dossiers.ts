@@ -22,7 +22,7 @@ export const Route = createFileRoute("/api/public/v1/dossiers")({
           const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
           const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
 
-          const { data, error, count } = await (supabaseAdmin as any)
+          const { data, error, count } = await supabaseAdmin
             .from("dossiers")
             .select(
               "id, title, status, category, risk_level, client_id, description, created_at, updated_at",

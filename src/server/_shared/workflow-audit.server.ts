@@ -36,7 +36,7 @@ export async function logWorkflowAudit(opts: {
 }): Promise<void> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin as any).from("workflow_audit_log").insert({
+    await supabaseAdmin.from("workflow_audit_log").insert({
       tenant_id: opts.tenantId,
       user_id: opts.userId ?? null,
       workflow_definition_id: opts.workflowDefinitionId ?? null,

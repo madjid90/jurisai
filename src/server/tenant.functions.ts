@@ -145,7 +145,7 @@ export const listAllTenants = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
 
-    const { data: isAdmin } = await (supabaseAdmin as any).rpc("is_super_admin", {
+    const { data: isAdmin } = await supabaseAdmin.rpc("is_super_admin", {
       _user_id: userId,
     });
     if (!isAdmin) throw new Error("Forbidden: super-admin only");

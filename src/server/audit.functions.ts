@@ -17,7 +17,7 @@ export const listAuditLogs = createServerFn({ method: "GET" })
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
 
-    let q = (supabaseAdmin as any)
+    let q = supabaseAdmin
       .from("audit_logs")
       .select("id, action, resource_type, resource_id, ip_address, user_agent, metadata, created_at, user_id, api_key_id")
       .eq("tenant_id", tenantId)

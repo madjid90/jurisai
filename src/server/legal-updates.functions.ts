@@ -83,7 +83,7 @@ export const createLegalUpdateAction = createServerFn({ method: "POST" })
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
 
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("legal_update_actions")
       .insert({
         tenant_id: tenantId,
@@ -158,7 +158,7 @@ export const updateLegalUpdateActionStatus = createServerFn({ method: "POST" })
     const update: Record<string, unknown> = { status: data.status, updated_at: new Date().toISOString() };
     if (data.status === "completed") update.completed_at = new Date().toISOString();
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("legal_update_actions")
       .update(update)
       .eq("id", data.actionId)

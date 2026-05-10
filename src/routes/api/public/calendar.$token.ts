@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/public/calendar/$token")({
           return new Response("Invalid token", { status: 400 });
         }
 
-        const { data: integ } = await (supabaseAdmin as any)
+        const { data: integ } = await supabaseAdmin
           .from("tenant_integrations")
           .select("tenant_id")
           .eq("calendar_token", token)
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/public/calendar/$token")({
             .select("id, title, description, due_date, completed, dossier_id")
             .eq("tenant_id", tenantId).eq("completed", false)
             .order("due_date", { ascending: true }).limit(500),
-          (supabaseAdmin as any)
+          supabaseAdmin
             .from("dossier_tasks")
             .select("id, title, description, due_date, status, dossier_id")
             .eq("tenant_id", tenantId).neq("status", "done")

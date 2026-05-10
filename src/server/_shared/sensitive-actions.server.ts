@@ -49,7 +49,7 @@ const CACHE_TTL = 5 * 60_000; // 5 min
 async function loadCatalog() {
   if (CACHE && Date.now() - CACHE_AT < CACHE_TTL) return CACHE;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabaseAdmin as any)
+  const { data } = await supabaseAdmin
     .from("sensitive_actions_catalog")
     .select("action_key, action_label, domain, severity, requires_human_validation, requires_lawyer, keywords, legal_refs");
   CACHE = (data ?? []) as typeof CACHE;

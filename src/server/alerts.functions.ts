@@ -84,7 +84,7 @@ export const dismissAlert = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ alertId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("alert_dismissals")
       .upsert({ user_id: userId, alert_id: data.alertId }, { onConflict: "user_id,alert_id" });
     if (error) throw new Error(error.message);
@@ -143,7 +143,7 @@ export const updateAlertSubscription = createServerFn({ method: "POST" })
       .eq("role", "admin");
     if (!roles || roles.length === 0) throw new Error("Forbidden — admin only");
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("tenant_alert_subscriptions")
       .upsert({ tenant_id: tenantId, ...data }, { onConflict: "tenant_id" });
     if (error) throw new Error(error.message);

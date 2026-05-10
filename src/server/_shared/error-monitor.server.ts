@@ -29,7 +29,7 @@ export async function captureServerError(
   const stack = err instanceof Error ? err.stack ?? null : null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabaseAdmin as any).rpc("log_server_error", {
+    await supabaseAdmin.rpc("log_server_error", {
       _function_name: functionName,
       _user_id: context.userId ?? null,
       _tenant_id: context.tenantId ?? null,

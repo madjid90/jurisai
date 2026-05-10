@@ -615,7 +615,7 @@ export const listAgentRuns = createServerFn({ method: "GET" })
     const ctxAuth = context as { userId: string };
     const tenantId = await getTenantId(ctxAuth.userId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await (supabaseAdmin as any)
+    const { data: rows } = await supabaseAdmin
       .from("agent_runs")
       .select(
         "id, message, intent, domain, topic, confidence, refused, created_at, dossier_id",

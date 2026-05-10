@@ -66,7 +66,7 @@ export async function searchLegalSources(
 
   // Cas nominal : hybrid_search RPC (vecteur + FTS + boost autorité)
   if (embedding) {
-    const { data, error } = await (supabaseAdmin as any).rpc("hybrid_search", {
+    const { data, error } = await supabaseAdmin.rpc("hybrid_search", {
       query_embedding: embedding,
       query_text: trimmed,
       match_count: limit,
@@ -88,7 +88,7 @@ export async function searchLegalSources(
     return { sources: [], query: trimmed, ok: false, reason: "Aucun mot indexable" };
   }
 
-  const { data: rows } = await (supabaseAdmin as any)
+  const { data: rows } = await supabaseAdmin
     .from("legal_chunks")
     .select("id, source_id, content, heading, legal_sources!inner(title, source_type, reference_code, official_url, is_active, idcc)")
     .eq("legal_sources.is_active", true)

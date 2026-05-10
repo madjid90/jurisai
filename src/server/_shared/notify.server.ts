@@ -34,7 +34,7 @@ export async function notifyUser(params: {
   if (!allowed) return { skipped: true };
 
   if (!p || p.app_enabled) {
-    await (supabaseAdmin as any).from("notifications").insert({
+    await supabaseAdmin.from("notifications").insert({
       user_id: userId,
       tenant_id: tenantId,
       kind,
@@ -60,7 +60,7 @@ export async function notifyUser(params: {
         <hr style="border:none;border-top:1px solid #eee;margin:24px 0"/>
         <p style="color:#888;font-size:12px">Vous recevez cet email car vous suivez "${kind}". Modifiez vos préférences dans Réglages → Notifications.</p>
       </div>`;
-      await (supabaseAdmin as any).from("email_queue").insert({
+      await supabaseAdmin.from("email_queue").insert({
         tenant_id: tenantId,
         recipient_user_id: userId,
         recipient_email: email,

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/public/v1/me")({
       GET: async ({ request }) => {
         try {
           const ctx = await authenticateApiKey(request);
-          const { data: tenant } = await (supabaseAdmin as any)
+          const { data: tenant } = await supabaseAdmin
             .from("tenants")
             .select("id, name, plan, idcc")
             .eq("id", ctx.tenantId)

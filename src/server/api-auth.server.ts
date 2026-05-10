@@ -27,7 +27,7 @@ export async function authenticateApiKey(request: Request): Promise<ApiAuthConte
   const fullKey = m[1];
   const keyHash = createHash("sha256").update(fullKey).digest("hex");
 
-  const { data, error } = await (supabaseAdmin as any).rpc("validate_api_key", {
+  const { data, error } = await supabaseAdmin.rpc("validate_api_key", {
     _key_hash: keyHash,
   });
   if (error) throw new ApiError(500, "Auth backend error");
@@ -58,7 +58,7 @@ export async function logApiAudit(
   metadata: Record<string, unknown> = {},
 ) {
   try {
-    await (supabaseAdmin as any).from("audit_logs").insert({
+    await supabaseAdmin.from("audit_logs").insert({
       tenant_id: ctx.tenantId,
       api_key_id: ctx.apiKeyId,
       action,

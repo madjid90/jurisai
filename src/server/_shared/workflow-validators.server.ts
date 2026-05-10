@@ -187,7 +187,7 @@ async function checkDocuments(draft: WorkflowDraft, tenantId: string) {
     return { steps_with_template: 0, templates_existing: 0, missing_slugs: [], score: 70 };
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabaseAdmin as any)
+  const { data } = await supabaseAdmin
     .from("document_templates")
     .select("slug")
     .in("slug", slugs)

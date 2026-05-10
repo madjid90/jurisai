@@ -8,7 +8,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 async function requireSuperAdmin(userId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabaseAdmin as any)
+  const { data, error } = await supabaseAdmin
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
@@ -36,7 +36,7 @@ export const getDataQualitySnapshot = createServerFn({ method: "GET" })
     const { userId } = context as { userId: string };
     await requireSuperAdmin(userId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabaseAdmin as any).rpc("get_data_quality_snapshot");
+    const { data, error } = await supabaseAdmin.rpc("get_data_quality_snapshot");
     if (error) throw new Error(error.message);
     return data as DataQualitySnapshot;
   });
@@ -73,7 +73,7 @@ export const listServerErrors = createServerFn({ method: "GET" })
     const since = new Date(Date.now() - sinceHours * 3600 * 1000).toISOString();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q = (supabaseAdmin as any)
+    let q = supabaseAdmin
       .from("server_function_errors")
       .select("*")
       .gte("created_at", since)
@@ -124,7 +124,7 @@ export const getRagEvalAggregate = createServerFn({ method: "GET" })
     await requireSuperAdmin(userId);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabaseAdmin as any)
+    const { data, error } = await supabaseAdmin
       .from("rag_eval_runs")
       .select(
         "precision_at_5, mrr, retrieval_accuracy, citation_coverage, answer_correctness, source_authority_score, refusal_quality, user_feedback_score, hallucination_detected, latency_ms",
