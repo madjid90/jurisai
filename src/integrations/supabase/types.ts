@@ -4054,6 +4054,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_workflow_audit_stats: {
+        Row: {
+          action: string | null
+          distinct_users: number | null
+          event_count: number | null
+          month: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       v_workflow_definitions_health: {
         Row: {
           avg_quality: number | null
@@ -4263,6 +4273,7 @@ export type Database = {
         }[]
       }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
+      purge_expired_workflow_audit: { Args: never; Returns: number }
       run_data_quality_checks: { Args: never; Returns: undefined }
       start_ingestion_batch: {
         Args: {
