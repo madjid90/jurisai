@@ -37,6 +37,27 @@ const SENSITIVE_DOC_TYPES = new Set([
   "assignation",
 ]);
 
+/**
+ * Parse JSON tolérant : enlève les ```json fences``` et tente d'extraire le
+ * premier objet `{...}` si JSON.parse direct échoue. Évite les crashs quand
+ * le LLM ajoute du texte autour.
+ */
+export function safeParseJSON(raw: string): any {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced) {
+      try { return JSON.parse(fenced[1].trim()); } catch { /* fall through */ }
+    }
+    const obj = raw.match(/\{[\s\S]*\}/);
+    if (obj) {
+      try { return JSON.parse(obj[0]); } catch { /* fall through */ }
+    }
+    throw new Error(`Réponse LLM non-JSON: ${raw.slice(0, 200)}`);
+  }
+}
+
 // ------------------------------------------------------------------ classify
 export async function classifyIntent(
   message: string,
@@ -87,7 +108,7 @@ Aucun texte hors JSON.`,
   if (!res.ok) throw new Error(`Classification IA ${res.status}`);
   const j = await res.json();
   const raw = j.choices?.[0]?.message?.content ?? "{}";
-  const parsed = JSON.parse(raw);
+  const parsed = safeParseJSON(raw);
   return {
     intent: String(parsed.intent ?? "autre"),
     domain: String(parsed.domain ?? "general"),
@@ -695,7 +716,7 @@ export async function analyzeDocumentTool(
   if (!res.ok) return { result: { error: `IA ${res.status}` }, succeeded: false };
   const j = await res.json();
   let parsed: any = {};
-  try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? "{}"); } catch { /* noop */ }
+  try { parsed = safeParseJSON(j.choices?.[0]?.message?.content ?? "{}"); } catch { /* noop */ }
 
   // Si dossier fourni, persister les risques détectés
   let riskCount = 0;
