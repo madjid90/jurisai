@@ -170,118 +170,50 @@ export const runLegalAgent = createServerFn({ method: "POST" })
       .single();
     const runId = (runRow as { id: string }).id;
 
-    // ÉTAPE 2-7 : boucle outils
-    // Top 51-60 / sécurité : on enveloppe le message utilisateur dans un bloc
-    // sanitisé pour neutraliser les tentatives de prompt-injection.
+    // ÉTAPE 2-7 : boucle outils (extraite dans agent-loop.server.ts)
     const { sanitizePromptInput, PROMPT_INJECTION_GUARD } = await import(
       "@/server/_shared/prompt-sanitizer.server"
     );
     const safeMessage = sanitizePromptInput(data.message, { maxLength: 4000 });
+
+    // Mémoire agentique : on rappelle les souvenirs pertinents (tenant + dossier + user).
+    const memories = await recallMemory({
+      tenantId,
+      userId,
+      dossierId: data.dossier_id,
+      limit: 8,
+    }).catch(() => []);
+    const memoryBlock = memoryPreamble(memories);
+
     const userPreamble = data.dossier_id
       ? `[Contexte dossier actif : ${data.dossier_id}]\nClassification préalable : intent=${classification.intent}, domaine=${classification.domain}, sujet="${classification.topic}".\n\nDemande utilisateur :\n${safeMessage}`
       : `Classification préalable : intent=${classification.intent}, domaine=${classification.domain}, sujet="${classification.topic}".\n\nDemande utilisateur :\n${safeMessage}`;
 
-    const messages: Array<Record<string, unknown>> = [
-      { role: "system", content: `${SYSTEM_PROMPT}\n\n${PROMPT_INJECTION_GUARD}` },
+    const systemContent = [SYSTEM_PROMPT, PROMPT_INJECTION_GUARD, memoryBlock]
+      .filter(Boolean)
+      .join("\n\n");
+    const initialMessages: Array<Record<string, unknown>> = [
+      { role: "system", content: systemContent },
       { role: "user", content: userPreamble },
     ];
-    const trace: AgentRunOutput["trace"] = [];
 
-    let answer = "";
+    const { runAgentLoop } = await import("./_shared/agent-loop.server");
+    const chatModel = await resolveChatModel(tenantId);
+    const loopResult = await runAgentLoop({
+      apiKey,
+      model: chatModel,
+      tools: TOOLS,
+      initialMessages,
+      ctx,
+      runId,
+      tenantId,
+      maxRounds: MAX_ROUNDS,
+    });
+    let answer = loopResult.answer;
+    const trace = loopResult.trace;
+
     let refused = false;
     let refusalReason: string | null = null;
-
-    const chatModel = await resolveChatModel(tenantId);
-    for (let round = 0; round < MAX_ROUNDS; round++) {
-      const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: chatModel,
-          messages,
-          tools: TOOLS,
-          tool_choice: "auto",
-        }),
-      });
-      if (!res.ok) {
-        if (res.status === 429) throw new Error("Trop de requêtes IA");
-        if (res.status === 402) throw new Error("Crédits IA épuisés");
-        throw new Error(`Erreur IA ${res.status}`);
-      }
-      const json = await res.json();
-      const msg = json.choices?.[0]?.message;
-      if (!msg) throw new Error("Réponse IA invalide");
-      messages.push(msg);
-
-      const toolCalls = msg.tool_calls as
-        | Array<{ id: string; function: { name: string; arguments: string } }>
-        | undefined;
-
-      if (!toolCalls || toolCalls.length === 0) {
-        answer = (msg.content ?? "").toString();
-        break;
-      }
-
-      // A7 : exécuter tous les tool calls indépendants en parallèle.
-      // L'ordre des `messages` (role:"tool") est conservé via Promise.all + map.
-      const results = await Promise.all(
-        toolCalls.map(async (call) => {
-          const t0 = Date.now();
-          let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(call.function.arguments || "{}");
-          } catch {
-            /* noop */
-          }
-          try {
-            const outcome = await runTool(call.function.name, args, ctx);
-            return { call, args, outcome, duration: Date.now() - t0, error: null as string | null };
-          } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : "tool failed";
-            return {
-              call,
-              args,
-              outcome: { result: { error: errorMessage }, succeeded: false, errorMessage },
-              duration: Date.now() - t0,
-              error: errorMessage,
-            };
-          }
-        }),
-      );
-
-      // Trace DB en batch
-      const traceRows = results.map((r) => ({
-        agent_run_id: runId,
-        tenant_id: tenantId,
-        tool_name: r.call.function.name,
-        args: r.args,
-        result: r.outcome.result ?? {},
-        is_sensitive: (r.outcome as { isSensitive?: boolean }).isSensitive ?? false,
-        validation_request_id: (r.outcome as { validationRequestId?: string | null }).validationRequestId ?? null,
-        succeeded: r.outcome.succeeded,
-        error_message: r.outcome.errorMessage ?? null,
-        duration_ms: r.duration,
-      }));
-      if (traceRows.length > 0) {
-        await sb.from("agent_tool_runs").insert(traceRows);
-      }
-
-      for (const r of results) {
-        trace.push({
-          tool: r.call.function.name,
-          args: r.args,
-          sensitive: (r.outcome as { isSensitive?: boolean }).isSensitive ?? false,
-          succeeded: r.outcome.succeeded,
-          validation_request_id: (r.outcome as { validationRequestId?: string | null }).validationRequestId ?? null,
-        });
-        messages.push({
-          role: "tool",
-          tool_call_id: r.call.id,
-          content: JSON.stringify(r.outcome.result).slice(0, 8000),
-        });
-      }
-    }
-
     if (!answer.trim()) {
       refused = true;
       refusalReason = "L'agent n'a pas pu finaliser la réponse — réessayez ou précisez la demande.";
