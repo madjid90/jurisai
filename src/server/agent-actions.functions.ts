@@ -251,13 +251,32 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
 
       // -------------------------------------------------------- validate_action
       case "validate_action": {
+        // Contrôle de rôle : seuls admin / juriste / manager peuvent valider
+        const { data: roles } = await db
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("tenant_id", tenantId);
+        const allowed = new Set(["admin", "admin_tenant", "super_admin", "juriste", "manager"]);
+        const canValidate = (roles ?? []).some((r: { role: string }) => allowed.has(r.role));
+        if (!canValidate) {
+          throw new Error(
+            "Permission refusée : seuls les administrateurs, juristes ou managers peuvent valider une action.",
+          );
+        }
+
         const { data: v, error: getErr } = await db
           .from("validation_requests")
-          .select("id, dossier_id, title")
+          .select("id, dossier_id, title, requested_by, assigned_to")
           .eq("id", data.validation_id)
           .eq("tenant_id", tenantId)
           .maybeSingle();
         if (getErr || !v) throw new Error("Validation introuvable");
+
+        // Empêche l'auto-validation : le demandeur ne peut pas approuver sa propre demande
+        if (v.requested_by === userId) {
+          throw new Error("Vous ne pouvez pas valider votre propre demande.");
+        }
 
         const { error } = await db
           .from("validation_requests")

@@ -342,8 +342,18 @@ export async function requestValidation(
     .select("user_id")
     .eq("tenant_id", ctx.tenantId)
     .in("role", ["admin", "admin_tenant", "super_admin"])
+    .neq("user_id", ctx.userId) // ne jamais s'assigner à soi-même (auto-validation)
     .limit(1);
-  const assigned_to = (admins?.[0] as { user_id: string } | undefined)?.user_id ?? ctx.userId;
+  const assigned_to = (admins?.[0] as { user_id: string } | undefined)?.user_id;
+  if (!assigned_to) {
+    return {
+      result: {
+        error:
+          "Validation impossible : aucun admin disponible dans ce tenant pour valider une action sensible. Contactez votre administrateur.",
+      },
+      succeeded: false,
+    };
+  }
 
   const { data, error } = await sb
     .from("validation_requests")
