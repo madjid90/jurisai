@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
             const content = buildArticleContent(art, item.title);
             const hash = await sha256(content);
             const externalId = `kali:${item.idcc}:${art.externalId}`;
-            const decision = await shouldIngest(db, "kali-full", externalId, hash);
+            const decision = await shouldIngest(db, "kali", externalId, hash);
             if (!decision.shouldIngest) {
               perTickSkipped++;
               continue;
