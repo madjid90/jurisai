@@ -5,8 +5,24 @@ const PISTE_OAUTH_URL = "https://oauth.piste.gouv.fr/api/oauth/token";
 const PISTE_OAUTH_SANDBOX = "https://sandbox-oauth.aife.economie.gouv.fr/api/oauth/token";
 
 let cached: { token: string; expiresAt: number; env: "prod" | "sandbox" } | null = null;
+// R10 — race PISTE : un seul OAuth en vol par cold-start. Sans ça, N appels
+// concurrents au démarrage déclenchent N appels OAuth (rate-limit + waste).
+let inflight: Promise<string> | null = null;
 
 export async function getPisteToken(scope = "openid"): Promise<string> {
+  if (cached && Date.now() < cached.expiresAt - 60_000) return cached.token;
+  if (inflight) return inflight;
+  inflight = (async () => {
+    try {
+      return await fetchPisteToken(scope);
+    } finally {
+      inflight = null;
+    }
+  })();
+  return inflight;
+}
+
+async function fetchPisteToken(scope: string): Promise<string> {
   if (cached && Date.now() < cached.expiresAt - 60_000) return cached.token;
 
   const id = Deno.env.get("LEGIFRANCE_OAUTH_ID");

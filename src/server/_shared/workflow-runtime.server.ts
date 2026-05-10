@@ -128,6 +128,9 @@ export type ExecuteStepInput = {
   output?: Record<string, unknown>;
   /** Si true, force l'exécution malgré les actions sensibles (validation déjà obtenue) */
   validationOverrideId?: string;
+  /** W8 — clé d'idempotence (UUID côté client). Une seconde tentative
+   *  avec la même clé renvoie le step_run existant sans réexécuter. */
+  idempotencyKey?: string;
 };
 
 export type ExecuteStepResult = {
@@ -152,6 +155,31 @@ export async function executeStep(
 ): Promise<ExecuteStepResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabaseAdmin as any;
+
+  // W8 — court-circuit idempotent : si une exécution avec cette clé existe
+  // déjà pour cette instance, on renvoie son résultat sans rejouer.
+  if (input.idempotencyKey) {
+    const { data: existing } = await sb
+      .from("workflow_step_runs")
+      .select("id, step_index, status, due_at, requires_validation, validation_request_id, delay_calculation")
+      .eq("instance_id", input.instanceId)
+      .eq("idempotency_key", input.idempotencyKey)
+      .maybeSingle();
+    if (existing) {
+      const { delay_calculation, ...stepRun } = existing as Record<string, unknown> & {
+        delay_calculation: unknown;
+      };
+      return {
+        step_run: stepRun as ExecuteStepResult["step_run"],
+        delay: (delay_calculation ?? null) as DelayResult | null,
+        blocked_for_validation: (stepRun as { status: string }).status === "pending",
+        validation_request_id: (stepRun as { validation_request_id: string | null }).validation_request_id,
+        workflow_completed: false,
+        next_step: null,
+      };
+    }
+  }
+
   const inst = await loadInstance(input.instanceId, ctx.tenantId);
 
   if (input.stepIndex !== inst.current_step_index) {
@@ -266,6 +294,7 @@ export async function executeStep(
       validation_request_id: validationId,
       step_definition: stepDef as Record<string, unknown>,
       legal_sources: Array.isArray(stepDef.legal_refs) ? stepDef.legal_refs : [],
+      idempotency_key: input.idempotencyKey ?? null,
     })
     .select("id, step_index, status, due_at, requires_validation, validation_request_id")
     .single();

@@ -37,6 +37,7 @@ export const runWorkflowStep = createServerFn({ method: "POST" })
         notes: z.string().max(2000).optional(),
         output: z.record(z.string(), z.unknown()).optional(),
         validation_override_id: z.string().uuid().optional(),
+        idempotency_key: z.string().min(8).max(128).optional(),
       })
       .parse(i),
   )
@@ -50,6 +51,7 @@ export const runWorkflowStep = createServerFn({ method: "POST" })
         notes: data.notes,
         output: data.output,
         validationOverrideId: data.validation_override_id,
+        idempotencyKey: data.idempotency_key,
       },
       { userId, tenantId },
     );
