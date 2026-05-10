@@ -46,9 +46,8 @@ export async function llmFetch(
   const exec = async (): Promise<Response> => {
     try {
       const res = await fetch(url, { ...init, signal: controller.signal });
-      // Normalise les erreurs upstream pour que le breaker les voie.
-      if (res.status === 429 || res.status >= 500) {
-        // On ne consomme pas le body : on le rejette pour signaler au breaker.
+      // Si breaker actif : transformer 429/5xx en throw pour que le breaker compte.
+      if (opts.breakerModel && (res.status === 429 || res.status >= 500)) {
         throw new Error(`upstream ${res.status}`);
       }
       return res;
