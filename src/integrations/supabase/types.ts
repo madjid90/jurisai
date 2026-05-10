@@ -3887,6 +3887,7 @@ export type Database = {
           executed_by: string | null
           generated_document_id: string | null
           id: string
+          idempotency_key: string | null
           instance_id: string
           legal_sources: Json
           notes: string | null
@@ -3906,6 +3907,7 @@ export type Database = {
           executed_by?: string | null
           generated_document_id?: string | null
           id?: string
+          idempotency_key?: string | null
           instance_id: string
           legal_sources?: Json
           notes?: string | null
@@ -3925,6 +3927,7 @@ export type Database = {
           executed_by?: string | null
           generated_document_id?: string | null
           id?: string
+          idempotency_key?: string | null
           instance_id?: string
           legal_sources?: Json
           notes?: string | null
