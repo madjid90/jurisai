@@ -749,7 +749,7 @@ export async function generateWorkflowTool(
   ctx: AgentCtx,
 ): Promise<ToolOutcome> {
   try {
-    const { runGenerateWorkflow } = await import("@/server/workflow-generator.functions");
+    const { runGenerateWorkflow } = await import("@/server/workflow-generator-core.server");
     // Appel direct au helper interne : ctx.userId provient déjà de
     // requireSupabaseAuth (couche agent), donc l'auth n'est pas contournée.
     const res = await runGenerateWorkflow(
