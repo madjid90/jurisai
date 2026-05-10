@@ -436,11 +436,10 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
     }
     const merged: Record<string, string> = { ...ctxVars, ...data.variables };
 
-    // Render {{var}} placeholders
+    // G5 — Render {{var}} placeholders via le helper partagé.
     const body = String((tpl as any).body ?? "");
-    const rendered = body.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_m, key: string) => {
-      const v = merged[key];
-      return v != null && v !== "" ? v : `[${key}]`;
+    const rendered = sharedFillTemplate(body, merged, {
+      onMissing: (key) => `[${key}]`,
     });
 
     // Append "Bases légales" block + footer marqueur citations
