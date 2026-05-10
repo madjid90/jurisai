@@ -157,18 +157,26 @@ export const deleteClient = createServerFn({ method: "POST" })
 
 // ─── Dossiers ───────────────────────────────────────────────────────────────
 
+const listDossiersSchema = z
+  .object({ limit: z.number().min(1).max(100).optional(), offset: z.number().min(0).optional() })
+  .optional();
+
 export const listDossiers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: unknown) => listDossiersSchema.parse(input ?? {}) ?? {})
+  .handler(async ({ data, context }) => {
     const ctx = context as Ctx;
     const tenantId = await getTenantId(ctx.userId);
-    const { data, error } = await ctx.supabase
+    const limit = data?.limit ?? 30;
+    const offset = data?.offset ?? 0;
+    const { data: rows, error, count } = await ctx.supabase
       .from("dossiers")
-      .select("*, client:clients(id, full_name)")
+      .select("*, client:clients(id, full_name)", { count: "exact" })
       .eq("tenant_id", tenantId)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .range(offset, offset + limit - 1);
     if (error) throw new Error(error.message);
-    return { dossiers: data ?? [] };
+    return { dossiers: rows ?? [], total: count ?? 0, hasMore: (rows?.length ?? 0) === limit };
   });
 
 export const getDossier = createServerFn({ method: "POST" })
