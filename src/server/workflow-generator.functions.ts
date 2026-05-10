@@ -375,6 +375,15 @@ export async function runGenerateWorkflow(
         error: message,
       };
     }
+}
+
+// Wrapper HTTP : middleware + validation + délégation au helper interne.
+export const generateWorkflow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => GenerateInput.parse(i))
+  .handler(async ({ data, context }): Promise<GenerateWorkflowResult> => {
+    const { userId } = context as { userId: string };
+    return runGenerateWorkflow(data, userId);
   });
 
 // ─── Validation manuelle (admin) ───────────────────────────────────────────
