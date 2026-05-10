@@ -1,34 +1,58 @@
-// Shared utility: call Lovable AI Gateway for text embeddings.
-// Uses Lovable AI Gateway with a supported 1536-dim embedding model.
+// Shared utility: génère des embeddings 1536-dim.
+// Préfère OpenAI direct (text-embedding-3-small) si OPENAI_API_KEY présent,
+// sinon fallback Lovable AI Gateway.
 
+const OPENAI_URL = "https://api.openai.com/v1/embeddings";
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/embeddings";
-const EMBED_MODEL = "openai/text-embedding-3-large";
+const OPENAI_MODEL = "text-embedding-3-small"; // 1536 dims, ~$0.02/1M tokens
+const GATEWAY_MODEL = "openai/text-embedding-3-small";
 
 export async function embedTexts(
   apiKey: string,
   inputs: string[],
 ): Promise<number[][]> {
   if (inputs.length === 0) return [];
+
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+
+  // Préférence : OpenAI direct si clé dispo
+  if (openaiKey) {
+    const res = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: OPENAI_MODEL, input: inputs }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`OpenAI embedding ${res.status}: ${txt.slice(0, 300)}`);
+    }
+    const json = await res.json();
+    return (json.data ?? []).map((d: { embedding: number[] }) => d.embedding);
+  }
+
+  // Fallback Lovable Gateway
   const res = await fetch(GATEWAY_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ model: EMBED_MODEL, input: inputs }),
+    body: JSON.stringify({ model: GATEWAY_MODEL, input: inputs }),
   });
   if (!res.ok) {
     const txt = await res.text();
     if (res.status === 404 && txt.includes("route_not_found")) {
       console.warn(
-        "[embeddings] Gateway embeddings indisponible pour ce workspace, ingestion poursuivie sans vecteurs.",
+        "[embeddings] Gateway embeddings indisponible et OPENAI_API_KEY absent — ingestion sans vecteurs.",
       );
       return new Array(inputs.length) as number[][];
     }
-    throw new Error(`Embedding error ${res.status}: ${txt.slice(0, 200)}`);
+    throw new Error(`Gateway embedding ${res.status}: ${txt.slice(0, 200)}`);
   }
   const json = await res.json();
-  // OpenAI-compatible: data: [{ embedding: number[] }, ...]
   return (json.data ?? []).map((d: { embedding: number[] }) => d.embedding);
 }
 
