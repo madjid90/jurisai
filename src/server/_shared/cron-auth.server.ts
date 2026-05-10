@@ -2,9 +2,8 @@
 // Compare en temps constant via timingSafeEqual.
 // Header attendu : `x-cron-secret: <CRON_SECRET>` (ou `Authorization: Bearer <CRON_SECRET>`).
 //
-// Fallback dégradé : si `CRON_SECRET` n'est pas configuré, on accepte encore
-// l'anon key historique pour ne pas casser les crons existants — un warning
-// est loggé. À retirer une fois tous les jobs pg_cron migrés sur le secret.
+// Top 41-50 / sécurité P0 : suppression du fallback anon key.
+// CRON_SECRET est désormais OBLIGATOIRE — toute requête cron sans secret est rejetée.
 
 import { timingSafeEqual } from "node:crypto";
 
@@ -17,25 +16,23 @@ function safeEqual(a: string, b: string): boolean {
 
 export function verifyCronAuth(request: Request): { ok: true } | { ok: false; response: Response } {
   const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error("[cron-auth] CRON_SECRET manquant — toutes les requêtes cron sont rejetées");
+    return {
+      ok: false,
+      response: new Response(JSON.stringify({ error: "cron_secret_not_configured" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      }),
+    };
+  }
+
   const provided =
     request.headers.get("x-cron-secret") ??
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
     "";
 
-  if (secret) {
-    if (provided && safeEqual(provided, secret)) return { ok: true };
-  } else {
-    // Fallback temporaire : anon key (à supprimer)
-    const anon =
-      process.env.SUPABASE_PUBLISHABLE_KEY ??
-      process.env.SUPABASE_ANON_KEY ??
-      process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const apikey = request.headers.get("apikey") ?? "";
-    if (anon && apikey && safeEqual(apikey, anon)) {
-      console.warn("[cron-auth] fallback anon key — configure CRON_SECRET");
-      return { ok: true };
-    }
-  }
+  if (provided && safeEqual(provided, secret)) return { ok: true };
 
   return {
     ok: false,

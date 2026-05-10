@@ -1,28 +1,33 @@
 project_id = "yuvysjsyumxpekzvlzsx"
 
+# Toutes les edge functions exigent un JWT valide en entrée.
+# La logique métier vérifie ensuite le rôle (requireSuperAdmin / requireUser)
+# et les jobs cron passent par /api/public/hooks/* avec CRON_SECRET — pas par
+# une edge function directement.
+
 [functions.legal-chat]
 verify_jwt = true
 
 [functions.seed-demo]
-verify_jwt = false
+verify_jwt = true
 
 [functions.seed-legal]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-legal-source]
-verify_jwt = false
+verify_jwt = true
 
 [functions.connector-kali]
-verify_jwt = false
+verify_jwt = true
 
 [functions.connector-cdtn-modeles]
-verify_jwt = false
+verify_jwt = true
 
 [functions.connector-legifrance]
-verify_jwt = false
+verify_jwt = true
 
 [functions.connector-judilibre]
-verify_jwt = false
+verify_jwt = true
 
 [functions.evaluate-rag]
-verify_jwt = false
+verify_jwt = true
