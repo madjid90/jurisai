@@ -26,6 +26,7 @@ import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import { marked } from "marked";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -746,7 +747,26 @@ function RunDetail({
           ) : null}
 
           {status !== "archived" ? (
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportAnswerToPdf({
+                    title: (run.title as string) || (run.message as string).slice(0, 80),
+                    question: run.message as string,
+                    answer: answerText,
+                    procedure,
+                    sources,
+                    confidence: confidence ?? null,
+                    createdAt: run.created_at as string | undefined,
+                  })
+                }
+                className="gap-1.5"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Exporter en PDF
+              </Button>
               <Button variant="ghost" size="sm" onClick={doArchive} disabled={busy}>
                 Classer cette demande
               </Button>
@@ -793,6 +813,183 @@ function RunDetail({
       ) : null}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Export PDF — génère un PDF propre (réponse + procédure + sources) via une
+// fenêtre d'impression dédiée. Le navigateur permet "Enregistrer en PDF".
+// Approche choisie pour préserver typographie, pagination et liens cliquables.
+// ---------------------------------------------------------------------------
+function exportAnswerToPdf({
+  title,
+  question,
+  answer,
+  procedure,
+  sources,
+  confidence,
+  createdAt,
+}: {
+  title: string;
+  question: string;
+  answer: string;
+  procedure: Array<{ step: number; title: string; description: string }>;
+  sources: Array<{ title: string; reference?: string; url?: string }>;
+  confidence: number | null;
+  createdAt?: string;
+}) {
+  // Conversion markdown → HTML (sync via marked.parse)
+  const answerHtml = DOMPurify.sanitize(marked.parse(answer ?? "", { async: false }) as string);
+  const safeTitle = (title || "Réponse JurisAI").replace(/[<>&"']/g, "");
+  const safeQuestion = DOMPurify.sanitize(question ?? "");
+  const dateStr = createdAt
+    ? new Date(createdAt).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })
+    : new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+
+  const confidenceBlock =
+    confidence != null
+      ? `<span class="badge badge-${confidence >= 0.8 ? "ok" : confidence >= 0.5 ? "mid" : "low"}">
+          Fiabilité ${Math.round(confidence * 100)}%
+        </span>`
+      : "";
+
+  const procedureBlock =
+    procedure.length > 0
+      ? `<section>
+          <h2>Procédure à suivre</h2>
+          <ol class="procedure">
+            ${procedure
+              .map(
+                (p) => `
+              <li>
+                <p class="step-title">${DOMPurify.sanitize(p.title)}</p>
+                <p class="step-desc">${DOMPurify.sanitize(p.description)}</p>
+              </li>`,
+              )
+              .join("")}
+          </ol>
+        </section>`
+      : "";
+
+  const sourcesBlock =
+    sources.length > 0
+      ? `<section>
+          <h2>Sources juridiques</h2>
+          <ol class="sources">
+            ${sources
+              .map((s) => {
+                const t = DOMPurify.sanitize(s.title ?? "");
+                const ref = s.reference ? ` — ${DOMPurify.sanitize(s.reference)}` : "";
+                if (s.url) {
+                  const safeUrl = /^https?:\/\//i.test(s.url) ? s.url : "";
+                  return safeUrl
+                    ? `<li><a href="${safeUrl}">${t}</a>${ref}</li>`
+                    : `<li>${t}${ref}</li>`;
+                }
+                return `<li>${t}${ref}</li>`;
+              })
+              .join("")}
+          </ol>
+        </section>`
+      : "";
+
+  const html = `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>${safeTitle}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.55;
+    font-size: 11pt;
+    margin: 0;
+  }
+  header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 18px; }
+  .brand { font-size: 10pt; color: #2563eb; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+  h1 { font-size: 17pt; margin: 6px 0 4px; color: #0f172a; }
+  .meta { font-size: 9pt; color: #64748b; }
+  .question {
+    background: #f1f5f9; border-left: 3px solid #2563eb;
+    padding: 10px 14px; margin: 14px 0 18px; font-style: italic; color: #334155; font-size: 10.5pt;
+  }
+  h2 {
+    font-size: 12pt; color: #0f172a; margin: 22px 0 10px;
+    border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;
+  }
+  .answer { font-size: 11pt; }
+  .answer h1, .answer h2, .answer h3 { color: #0f172a; }
+  .answer h1 { font-size: 14pt; } .answer h2 { font-size: 12.5pt; border: 0; padding: 0; }
+  .answer h3 { font-size: 11.5pt; }
+  .answer p { margin: 8px 0; }
+  .answer ul, .answer ol { padding-left: 22px; }
+  .answer li { margin: 4px 0; }
+  .answer table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+  .answer th, .answer td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
+  .answer th { background: #f1f5f9; }
+  .answer code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 10pt; }
+  .answer blockquote { border-left: 3px solid #cbd5e1; margin: 8px 0; padding-left: 12px; color: #475569; }
+  .procedure { padding-left: 22px; }
+  .procedure li { margin-bottom: 10px; page-break-inside: avoid; }
+  .step-title { font-weight: 600; color: #0f172a; margin: 0 0 2px; }
+  .step-desc { color: #475569; margin: 0; font-size: 10.5pt; }
+  .sources { padding-left: 22px; font-size: 10pt; color: #475569; }
+  .sources li { margin: 3px 0; page-break-inside: avoid; }
+  .sources a { color: #2563eb; text-decoration: none; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 8.5pt; font-weight: 600; margin-left: 8px; vertical-align: middle;
+  }
+  .badge-ok { background: #d1fae5; color: #065f46; }
+  .badge-mid { background: #fef3c7; color: #92400e; }
+  .badge-low { background: #fee2e2; color: #991b1b; }
+  footer {
+    margin-top: 28px; padding-top: 10px; border-top: 1px solid #e2e8f0;
+    font-size: 8.5pt; color: #94a3b8; text-align: center;
+  }
+  @media print { .no-print { display: none; } }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">JurisAI · Assistant juridique</div>
+    <h1>${safeTitle}${confidenceBlock}</h1>
+    <div class="meta">Généré le ${dateStr}</div>
+  </header>
+
+  <div class="question">« ${safeQuestion} »</div>
+
+  <section>
+    <h2>Réponse</h2>
+    <div class="answer">${answerHtml}</div>
+  </section>
+
+  ${procedureBlock}
+  ${sourcesBlock}
+
+  <footer>
+    Document généré par JurisAI à titre informatif. Les réponses sont sourcées sur la base juridique officielle
+    mais ne se substituent pas à un conseil personnalisé d'un professionnel du droit.
+  </footer>
+
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 250);
+    };
+  </script>
+</body>
+</html>`;
+
+  const w = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
+  if (!w) {
+    toast.error("Veuillez autoriser les pop-ups pour exporter en PDF.");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 // Ligne d'un document généré : charge le titre/HTML et propose télécharger/imprimer.
