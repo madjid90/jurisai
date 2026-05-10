@@ -359,12 +359,15 @@ function ConnectorCard({
   return (
     <Card className="glass-panel border-0">
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <CardTitle className="text-base">{connector.name}</CardTitle>
-            <CardDescription>{connector.description}</CardDescription>
+            <div className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+              Source : {(connector as { source?: string }).source ?? "—"}
+            </div>
+            <CardDescription className="mt-2">{connector.description}</CardDescription>
           </div>
-          <Badge variant={connector.auth ? "secondary" : "default"}>{connector.badge}</Badge>
+          <Badge variant={connector.auth ? "secondary" : "default"} className="shrink-0">{connector.badge}</Badge>
         </div>
         <div className="mt-2 text-xs text-muted-foreground">
           {sourcesCount} source(s) déjà ingérée(s)
