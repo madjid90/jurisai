@@ -76,7 +76,7 @@ export function exportHtmlAsDoc(html: string, title: string, fileName: string): 
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function escapeHtml(s: string): string {
