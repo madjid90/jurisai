@@ -1,0 +1,1 @@
+TRUNCATE TABLE public.templates_public RESTART IDENTITY CASCADE;
