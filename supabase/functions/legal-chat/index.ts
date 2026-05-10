@@ -489,7 +489,7 @@ Deno.serve(async (req) => {
                 role: "assistant",
                 content: assistantContent,
               })
-              .select("id")
+              .select("id, created_at")
               .single();
 
             // Persist citations only for chunks actually referenced [source:N] in the answer
@@ -504,6 +504,7 @@ Deno.serve(async (req) => {
                 .filter((n) => n >= 1 && n <= chunks.length)
                 .map((n) => ({
                   message_id: assistantMsg.id,
+                  message_created_at: assistantMsg.created_at,
                   chunk_id: chunks[n - 1].chunk_id,
                   tenant_id: convo.tenant_id,
                   rank: n,
