@@ -271,20 +271,37 @@ export async function executeStep(
     .single();
   if (srErr) throw new Error(`Step run: ${srErr.message}`);
 
-  // 4) Avancer si non bloqué
+  // 4) Avancer si non bloqué — W6/W9 : UPDATE conditionnel sur
+  // current_step_index pour éviter qu'une exécution concurrente n'écrase
+  // l'avancement (race condition multi-onglets / agent + UI). Si la mise à
+  // jour ne touche aucune ligne, l'instance a déjà avancé : on retourne une
+  // erreur explicite plutôt que de produire un état incohérent.
   let completed = false;
   let nextStep: StepDef | null = null;
   if (!blocked) {
     const newIndex = input.stepIndex + 1;
     completed = newIndex >= inst.total_steps;
-    await sb
+    const { data: updated, error: updErr } = await sb
       .from("workflow_instances")
       .update({
         current_step_index: completed ? input.stepIndex : newIndex,
         status: completed ? "completed" : "in_progress",
         completed_at: completed ? new Date().toISOString() : null,
       })
-      .eq("id", inst.id);
+      .eq("id", inst.id)
+      .eq("current_step_index", input.stepIndex)
+      .select("id");
+    if (updErr) throw new Error(`Workflow advance: ${updErr.message}`);
+    if (!updated || updated.length === 0) {
+      // Compensation : marquer le step_run comme superseded pour l'historique.
+      await sb
+        .from("workflow_step_runs")
+        .update({ status: "superseded", notes: "Avancement concurrent détecté" })
+        .eq("id", stepRun.id);
+      throw new Error(
+        "Cette étape a déjà été franchie par une autre session ; rechargez le workflow.",
+      );
+    }
     nextStep = completed ? null : (inst.steps[newIndex] ?? null);
   }
 
@@ -365,14 +382,22 @@ export async function skipStep(
 
   const newIndex = input.stepIndex + 1;
   const completed = newIndex >= inst.total_steps;
-  await sb
+  // W6/W9 — UPDATE conditionnel pour bloquer les avancements concurrents.
+  const { data: updated } = await sb
     .from("workflow_instances")
     .update({
       current_step_index: completed ? input.stepIndex : newIndex,
       status: completed ? "completed" : "in_progress",
       completed_at: completed ? new Date().toISOString() : null,
     })
-    .eq("id", inst.id);
+    .eq("id", inst.id)
+    .eq("current_step_index", input.stepIndex)
+    .select("id");
+  if (!updated || updated.length === 0) {
+    throw new Error(
+      "Cette étape a déjà été franchie par une autre session ; rechargez le workflow.",
+    );
+  }
 
   if (inst.dossier_id) {
     await logTimelineEvent({

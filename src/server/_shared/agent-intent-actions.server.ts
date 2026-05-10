@@ -10,6 +10,7 @@ import { logTimelineEvent } from "./timeline.server";
 import { extractEntities } from "./entity-extraction.server";
 import { prefillSession } from "./prefill.server";
 import type { PrefillSource, TemplateField } from "@/lib/templates/template-config";
+import { fillTemplate } from "./template";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabaseAdmin as any;
@@ -300,11 +301,10 @@ async function generateDraftDocument(opts: {
     console.warn("[agent-intent-actions] prefill failed", err);
   }
 
-  // Substitution {{key}}
+  // G5 — Substitution {{key}} via le helper partagé.
   const body = (tpl.body as string) ?? "";
-  const filled = body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key: string) => {
-    const v = merged[key];
-    return v == null || v === "" ? `[à compléter : ${key}]` : String(v);
+  const filled = fillTemplate(body, merged, {
+    onMissing: (key) => `[à compléter : ${key}]`,
   });
 
   const title = `${tpl.name} — ${new Date().toLocaleDateString("fr-FR")}`;
