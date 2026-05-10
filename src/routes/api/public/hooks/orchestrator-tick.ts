@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
         }
 
         // 2. Find paused or stale-running batches to resume
-        const { data: pending, error } = await supabaseAdmin
+        const { data: pendingRaw, error } = await supabaseAdmin
           .from("ingestion_batch_state")
           .select("id, connector, status, updated_at, items_total, items_processed")
           .in("status", ["paused", "running"])
@@ -44,6 +44,16 @@ export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
           console.error("[orchestrator-tick] list batches error:", error.message);
           return Response.json({ ok: false, error: error.message }, { status: 500 });
         }
+
+        type PendingBatch = {
+          id: string;
+          connector: string;
+          status: string;
+          updated_at: string;
+          items_total: number | null;
+          items_processed: number | null;
+        };
+        const pending = (pendingRaw ?? []) as unknown as PendingBatch[];
 
         const STALE_MS = 5 * 60 * 1000;
         const now = Date.now();
