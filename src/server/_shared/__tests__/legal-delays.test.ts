@@ -25,7 +25,7 @@ describe("computeLegalDeadline — calendar_days + art. 642", () => {
       amount: 5,
       unit: "calendar_days",
     });
-    expect(r.dueDate).toBe("2025-01-11"); // samedi → rolled
+    expect(r.dueDate).toBe("2025-01-13"); // 11 sam → roll lundi 13
     // En réalité 06+5=11 (sam) → rolled au 13 (lun)
     expect(r.rolled).toBe(true);
     expect(r.rollReason).toMatch(/samedi/);
