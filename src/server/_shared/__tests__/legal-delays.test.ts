@@ -95,7 +95,7 @@ describe("computeLegalDeadline — months (art. 641 CPC)", () => {
       amount: 1,
       unit: "months",
     });
-    expect(r.dueDate).toBe("2025-02-15"); // sam → rolled au 17 lun
+    expect(r.dueDate).toBe("2025-02-17"); // 15 sam → roll lundi 17
     expect(r.rolled).toBe(true);
   });
 
