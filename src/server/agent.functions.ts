@@ -24,6 +24,7 @@ import {
   startWorkflowTool,
   analyzeDocumentTool,
   generateReportTool,
+  generateWorkflowTool,
 } from "./_shared/agent-tools.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
@@ -248,6 +249,22 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_workflow",
+      description: "Génère une nouvelle procédure (workflow) juridique à partir d'une demande en langage naturel, avec validation RAG + consensus + safety. Retourne un workflow_definition_id et un score de confiance. Utiliser uniquement si aucun workflow existant ne correspond.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Description en langage naturel de la procédure souhaitée" },
+          domain: { type: "string", description: "rh|commercial|societes|rgpd|fiscal|contentieux|administratif" },
+          dossier_id: { type: "string" },
+        },
+        required: ["prompt"],
+      },
+    },
+  },
 ];
 
 async function runTool(
@@ -283,6 +300,8 @@ async function runTool(
         return await analyzeDocumentTool(args as never, ctx);
       case "generate_report":
         return await generateReportTool(args as never, ctx);
+      case "generate_workflow":
+        return await generateWorkflowTool(args as never, ctx);
       default:
         return { result: { error: "Unknown tool" }, succeeded: false };
     }
