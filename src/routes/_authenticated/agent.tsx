@@ -574,9 +574,12 @@ function RunDetail({
         <WorkflowRuntimeBlock instanceId={workflowInstanceId} onAdvanced={reload} />
       ) : null}
 
-      {/* L'agent travaille — stepper visuel */}
+      {/* L'agent travaille — stepper visuel + tool calls live */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
-        <AgentProgressStepper status={status} />
+        <>
+          <AgentProgressStepper status={status} />
+          <ToolCallsLive runId={run.id as string} />
+        </>
       ) : null}
 
       {/* Questions naturelles */}
@@ -854,6 +857,118 @@ function GeneratedDocRow({ docId }: { docId: string }) {
 // Stepper de progression — montre les 4 phases de réflexion de l'agent
 // (Comprendre → Sourcer → Rédiger → Finaliser) sans jargon technique.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Tool calls live — affiche en temps réel les outils que l'agent appelle
+// (recherche juridique, OCR, génération doc…) traduits en libellés humains.
+// ---------------------------------------------------------------------------
+const TOOL_LABELS: Record<string, { label: string; emoji: string }> = {
+  search_legal_database: { label: "Consultation de la base juridique", emoji: "📚" },
+  search_legal: { label: "Consultation de la base juridique", emoji: "📚" },
+  rag_search: { label: "Recherche dans les sources", emoji: "🔎" },
+  multi_query_rag: { label: "Recherche multi-angles", emoji: "🔎" },
+  identify_risk: { label: "Identification des risques", emoji: "⚠️" },
+  classify_intent: { label: "Compréhension de la demande", emoji: "🧭" },
+  generate_document: { label: "Rédaction du document", emoji: "📝" },
+  generate_doc: { label: "Rédaction du document", emoji: "📝" },
+  ocr_document: { label: "Lecture du document joint", emoji: "👁️" },
+  ocr: { label: "Lecture du document joint", emoji: "👁️" },
+  read_dossier: { label: "Lecture du dossier", emoji: "📁" },
+  list_workflows: { label: "Recherche d'une procédure", emoji: "🗂️" },
+  start_workflow: { label: "Démarrage de la procédure", emoji: "▶️" },
+  send_notification: { label: "Préparation d'une notification", emoji: "🔔" },
+  request_validation: { label: "Demande de validation", emoji: "✋" },
+};
+
+function humanizeTool(name: string): { label: string; emoji: string } {
+  if (TOOL_LABELS[name]) return TOOL_LABELS[name];
+  // Fallback : prettify snake_case
+  const pretty = name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return { label: pretty, emoji: "🔧" };
+}
+
+type ToolRunRow = {
+  id: string;
+  tool_name: string;
+  succeeded: boolean | null;
+  duration_ms: number | null;
+  created_at: string;
+};
+
+function ToolCallsLive({ runId }: { runId: string }) {
+  const [rows, setRows] = useState<ToolRunRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRows = async () => {
+      const { data } = await supabase
+        .from("agent_tool_runs")
+        .select("id, tool_name, succeeded, duration_ms, created_at")
+        .eq("agent_run_id", runId)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (!cancelled && data) setRows(data as ToolRunRow[]);
+    };
+    void fetchRows();
+    const channel = supabase
+      .channel(`agent_tool_runs:${runId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "agent_tool_runs", filter: `agent_run_id=eq.${runId}` },
+        () => { void fetchRows(); },
+      )
+      .subscribe();
+    const interval = setInterval(fetchRows, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+  }, [runId]);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-border/40 bg-background/40 p-3">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+        En coulisses
+      </p>
+      <ul className="space-y-1.5">
+        {rows.map((r) => {
+          const { label, emoji } = humanizeTool(r.tool_name);
+          const inProgress = r.succeeded === null;
+          return (
+            <li key={r.id} className="flex items-center gap-2 text-xs">
+              <span className="text-sm leading-none">{emoji}</span>
+              <span
+                className={cn(
+                  "flex-1 truncate",
+                  inProgress ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {label}
+              </span>
+              {inProgress ? (
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+              ) : r.succeeded ? (
+                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {r.duration_ms != null ? (
+                    <span className="text-[10px] opacity-70">
+                      {r.duration_ms < 1000 ? `${r.duration_ms}ms` : `${(r.duration_ms / 1000).toFixed(1)}s`}
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <AlertCircle className="h-3 w-3 text-destructive" />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function AgentProgressStepper({ status }: { status: string }) {
   // Mapping états techniques → indice d'étape courant (0..3)
   const activeIndex =
