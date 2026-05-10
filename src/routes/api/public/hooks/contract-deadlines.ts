@@ -4,6 +4,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { notifyUser } from "@/server/_shared/notify.server";
+import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
 
 const REMIND_AT_DAYS = [30, 14, 7, 2];
 
