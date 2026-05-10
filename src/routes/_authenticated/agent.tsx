@@ -26,6 +26,9 @@ import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,9 +43,11 @@ import {
   AlertCircle,
   Download,
   Printer,
-  Mail,
+  // Mail,
   FileText,
   Paperclip,
+  Shield,
+  RotateCcw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/agent")({
@@ -409,6 +414,7 @@ function RunDetail({
   const archive = useServerFn(archiveAgentRun);
   const execute = useServerFn(executeAgentRun);
   const process = useServerFn(processAgentRun);
+  const create = useServerFn(createAgentRun);
 
   const [busy, setBusy] = useState(false);
   const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
@@ -425,6 +431,7 @@ function RunDetail({
   const answerText = (run.answer as string) ?? "";
   const refused = run.refused as boolean | null;
   const refusalReason = run.refusal_reason as string | null;
+  const confidence = (run as Record<string, unknown>).confidence as number | null | undefined;
 
   const submitAnswers = async () => {
     setBusy(true);
@@ -580,11 +587,34 @@ function RunDetail({
       {answerText ? (
         <div className="space-y-3">
           <div className="rounded-lg bg-background border border-border/60 p-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Réponse
-            </p>
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
-              {answerText}
+            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Réponse
+              </p>
+              {confidence != null ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                    confidence >= 0.8
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                      : confidence >= 0.5
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+                  )}
+                  title="Niveau de confiance estimé par l'agent"
+                >
+                  <Shield className="h-3 w-3" />
+                  {confidence >= 0.8
+                    ? "Fiabilité élevée"
+                    : confidence >= 0.5
+                      ? "Fiabilité moyenne"
+                      : "Fiabilité faible — vérifiez les sources"}
+                  <span className="opacity-60">({Math.round(confidence * 100)}%)</span>
+                </span>
+              ) : null}
+            </div>
+            <div className="prose prose-sm max-w-none dark:prose-invert text-sm">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{answerText}</ReactMarkdown>
             </div>
           </div>
 
@@ -657,8 +687,39 @@ function RunDetail({
       ) : null}
 
       {status === "failed" && !refused ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {(run.error_message as string) ?? "Une erreur s'est produite. Réessayez plus tard."}
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <p className="flex-1">
+              {(run.error_message as string) ?? "Une erreur s'est produite. Réessayez plus tard."}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await create({
+                  data: {
+                    message: run.message as string,
+                    dossier_id: (run.dossier_id as string | null) ?? undefined,
+                  },
+                });
+                onChanged();
+                toast.success("Nouvelle demande créée");
+              } catch (e) {
+                toast.error((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="gap-2"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Réessayer
+          </Button>
         </div>
       ) : null}
     </div>
@@ -719,9 +780,7 @@ function GeneratedDocRow({ docId }: { docId: string }) {
       <Button variant="ghost" size="sm" className="h-7 px-2" onClick={print} disabled={!doc}>
         <Printer className="h-3.5 w-3.5" />
       </Button>
-      <Button variant="ghost" size="sm" className="h-7 px-2" disabled>
-        <Mail className="h-3.5 w-3.5" />
-      </Button>
+      {/* Bouton Mail masqué tant que l'envoi par email n'est pas implémenté. */}
     </div>
   );
 }
