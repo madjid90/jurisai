@@ -282,7 +282,14 @@ export const answerAgentRun = createServerFn({ method: "POST" })
     }
 
     const draft = ((run as { draft: DraftShape }).draft ?? {}) as DraftShape;
-    draft.form = { ...((draft.form as Record<string, unknown>) ?? {}), ...data.answers };
+    // Filtre les clés dangereuses (prototype pollution).
+    const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+    const safeAnswers: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(data.answers)) {
+      if (FORBIDDEN_KEYS.has(k)) continue;
+      safeAnswers[k] = v;
+    }
+    draft.form = { ...((draft.form as Record<string, unknown>) ?? {}), ...safeAnswers };
 
     await supabaseAdmin
       .from("agent_runs")
