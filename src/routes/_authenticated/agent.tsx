@@ -25,6 +25,7 @@ import { getWorkflowInstance } from "@/server/workflow-runtime.functions";
 import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
