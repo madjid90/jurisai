@@ -155,17 +155,18 @@ async function consensusOne(model: string, apiKey: string, draft: WorkflowDraft)
 }
 
 async function consensusCheck(draft: WorkflowDraft, apiKey: string) {
-  const [flash, pro, flashLite] = await Promise.all([
+  const fallback = { score: 0, agrees: false, missing: [] as string[], comments: "[error] model unavailable" };
+  const settled = await Promise.allSettled([
     consensusOne(FLASH, apiKey, draft),
     consensusOne(PRO, apiKey, draft),
     consensusOne(FLASH_LITE, apiKey, draft),
   ]);
+  const [flash, pro, flashLite] = settled.map((r) => r.status === "fulfilled" ? r.value : fallback);
   const scores = [flash.score, pro.score, flashLite.score];
   const max = Math.max(...scores);
   const min = Math.min(...scores);
   const disagreement = max - min;
   const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  // Pénalité jusqu'à -20 si désaccord > 30 entre modèles
   const penalty = disagreement > 30 ? Math.min(20, disagreement - 30) : 0;
   const agreementRatio = [flash.agrees, pro.agrees, flashLite.agrees].filter(Boolean).length / 3;
   return {
