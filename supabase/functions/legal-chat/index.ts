@@ -9,6 +9,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { sanitizeQuery, mmrRerank, logEvent } from "../_shared/rag.ts";
 import { PROMPTS_BY_MODE, type RagMode } from "../_shared/rag-prompts.ts";
 import { validateAnswerCitations } from "../_shared/citation-validator.ts";
+import { verifyReferences } from "../_shared/reference-verifier.ts";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
 const EMBED_MODEL = "openai/text-embedding-3-small";
