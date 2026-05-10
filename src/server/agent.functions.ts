@@ -249,6 +249,22 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_workflow",
+      description: "Génère une nouvelle procédure (workflow) juridique à partir d'une demande en langage naturel, avec validation RAG + consensus + safety. Retourne un workflow_definition_id et un score de confiance. Utiliser uniquement si aucun workflow existant ne correspond.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Description en langage naturel de la procédure souhaitée" },
+          domain: { type: "string", description: "rh|commercial|societes|rgpd|fiscal|contentieux|administratif" },
+          dossier_id: { type: "string" },
+        },
+        required: ["prompt"],
+      },
+    },
+  },
 ];
 
 async function runTool(
