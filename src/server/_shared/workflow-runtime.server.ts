@@ -166,11 +166,14 @@ export async function executeStep(
       .eq("idempotency_key", input.idempotencyKey)
       .maybeSingle();
     if (existing) {
+      const { delay_calculation, ...stepRun } = existing as Record<string, unknown> & {
+        delay_calculation: unknown;
+      };
       return {
-        step_run: existing,
-        delay: (existing.delay_calculation ?? null) as DelayResult | null,
-        blocked_for_validation: existing.status === "pending",
-        validation_request_id: existing.validation_request_id,
+        step_run: stepRun as ExecuteStepResult["step_run"],
+        delay: (delay_calculation ?? null) as DelayResult | null,
+        blocked_for_validation: (stepRun as { status: string }).status === "pending",
+        validation_request_id: (stepRun as { validation_request_id: string | null }).validation_request_id,
         workflow_completed: false,
         next_step: null,
       };
