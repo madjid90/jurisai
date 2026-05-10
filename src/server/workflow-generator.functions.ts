@@ -17,6 +17,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
+import { multiQueryRag } from "./_shared/multi-query-rag.server";
 import { embedText, toPgVector } from "./_shared/embeddings.server";
 import {
   validateWorkflowDraft,
