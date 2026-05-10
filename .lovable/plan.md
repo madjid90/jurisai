@@ -1,83 +1,138 @@
+## Contexte
 
-# Refonte JurisAI — partie principale (hors home)
+L'audit fait 14 semaines (Phase 1-3, ~200 tâches). Beaucoup est déjà fait dans les sessions précédentes (CRON_SECRET, verify_jwt, DOMPurify, rate-limit fail-closed, isolation tenant docs, deleteComment vérif, fillTemplate centralisé, ocr URL non hardcodée, partitionnement usage_logs, idempotence workflow, validation concurrente, NotificationBell realtime…).
 
-Spec reçue : transformer l'app "modules" en assistant orienté actions. Voici le plan d'exécution, par lots livrables et testables. Je n'attaque PAS la home/dashboard (déjà refondu récemment).
+Ce plan exécute **tout ce qui reste**, regroupé en **lots cohérents** dans l'ordre exact de l'audit (Phase 1 → 2 → 3). Chaque lot = une livraison testable.
 
-## État actuel — déjà conforme
-- Sidebar collapsable (`AppShell.tsx`), persistée en localStorage : OK.
-- `/scan`, `/analyses`, `/links`, `/templates`, `/workflows` déjà déplacés en section Admin/Outils : OK.
-- Helpers `getTenantId` + `logTimelineEvent` + RAG `[source:N]` en place.
+---
 
-## Lot 1 — Sidebar client finale (rapide)
-- Renommer "Mes dossiers" → "Dossiers", "Mes documents" → "Documents".
-- Ajouter "Notifications" comme entrée principale (route `/notifications` à créer, liste pleine page de `notifications`).
-- Vérifier que les rôles non-admin ne voient AUCUNE route Outils/Admin.
+## LOT 1 — Reste de la Sécurité bloquante (Phase 1 / Sem. 1)
 
-## Lot 2 — ResultPanel central (cœur UX)
-Nouveau composant `src/components/agent/ResultPanel.tsx` :
-```
-<ResultPanel>
-  <Summary />            // texte agent + citations [source:N]
-  <SuggestedActions />   // boutons → executeSuggestedAction()
-  <ValidationActions />  // "Compléter / Valider" → ouvre slide-panel au clic
-  <LinkedDocuments />    // documents rapprochés
-  <TimelinePreview />    // 3 derniers events du dossier lié
-</ResultPanel>
-```
-- Branché dans `/agent` (remplace l'affichage actuel des messages assistant).
-- Plus de popup auto : panneau slide droit `<FormSlideOver>` ouvert uniquement au clic.
+- **BUG-A2** (`agent-tools.server.ts` L296) : ne pas auto-créer le document si action sensible et qu'aucun admin n'existe → bloquer + créer demande de validation visible.
+- **BUG-A3** (`agent-actions.functions.ts` `validate_action`) : exiger `has_role(admin|manager)` avant exécution.
+- **S16** : rate-limit sur `sendInvitation`, `deleteMyAccount`, `createApiKey`.
+- **S20** : CORS — répondre 403 si origin inconnue (au lieu de fallback permissif).
+- **S22** : unifier `requireAdmin` (un seul helper dans `_shared/`).
+- **S14** : hasher le secret webhook `tenant_webhooks` (migration + reissue endpoint).
+- **BUG-A12** : `AbortController` 60s sur tous les appels LLM agent.
 
-## Lot 3 — Intent router + executeSuggestedAction
-- Server fn `src/server/agent-intent.functions.ts` :
-  - `detectIntent({message, attachments})` → `question | procedure | document | dossier | generation | analysis | follow_up`
-  - Reuse `agent-intent-actions.server.ts` existant, mais expose un point d'entrée unique consommé par `/agent`.
-- Server fn `executeSuggestedAction({type, payload})` couvrant :
-  `open_dossier, create_dossier, link_document, start_workflow, generate_document, create_reminder, validate_action, assign_task, send_notification`.
-- Suppression de `onRelaunch(label)` dans le front.
+## LOT 2 — Code propre & types (Phase 1 / Sem. 2)
 
-## Lot 4 — openForm centralisé
-- Hook `useFormSlideOver()` + composant `<FormSlideOver type data />`.
-- Types : `procedure_validation | edit_extracted_data | create_dossier | missing_information | workflow_confirmation`.
-- Slide panel droit, sauvegarde draft auto en localStorage par `(type,id)`.
+- Régénérer `database.types.ts` (commande `supabase gen types`) + script `gen:types` dans `package.json`.
+- Pointer `client.server.ts` vers `database.types.ts` à jour, **éliminer les `as any/never`** restants par batch (server functions critiques d'abord : agent, workflows, dossier360, generation, documents).
+- **BUG-G2** : injection PostgREST `generation.functions.ts` L63 (échapper / valider).
+- **BUG-G3** : déplacer rate-limit dans le try/catch.
+- **BUG-A9** : filtrer clés dangereuses (`__proto__`, `constructor`, `prototype`) avant merge draft.
+- **S24** : échapper `_` et `%` dans toutes les queries ILIKE (helper `escapeIlike`).
+- **S23** : validation SIRET (Luhn) dans onboarding + settings.
+- `JSON.parse` LLM wrappés en try/catch + Zod (`classifyIntent`, `multi-query-rag`, `agent-runs` L482, `workflow-generator` L240).
+- Supprimer `console.debug`, bouton Mail désactivé, lignes mortes.
+- Year hardcodé → `new Date().getFullYear()` (`rag-prompts.ts`).
 
-## Lot 5 — Pipeline document `processUploadedDocument()`
-Server fn orchestrateur unique enchaînant :
-1. `runOcrDocument()` (existant `ocr.functions.ts`)
-2. Extraction entités (réutiliser `analysis.functions.ts`)
-3. Analyse risques/échéances
-4. `findRelatedContext()` (nouveau — vector search sur `dossier_context_index`)
-5. Création `document_links` + `entity_mentions`
-6. Création rappels/échéances + `logTimelineEvent`
-7. Retour structuré → `ResultPanel`
+## LOT 3 — CI/CD + tests fondation (Phase 1 / Sem. 3)
 
-## Lot 6 — Dossier 360 & Page Document
-- `/dossiers/$id` : vérifier les 9 sections (timeline, documents, analyses, rappels, risques, tâches, validations, historique, veille liée). Compléter celles manquantes via onglets dans `Dossier360Tabs.tsx`.
-- `/documents/$id` : vérifier sections (résumé, données extraites, risques, échéances, rappels, docs liés, actions). Compléter si besoin.
+- `.github/workflows/ci.yml` : typecheck + lint + vitest.
+- Scripts `package.json` : `typecheck`, `lint`, `test`, `test:coverage`, `gen:types`.
+- Supprimer `package-lock.json` (Bun seul).
+- Tests Vitest : `api-auth.server.ts`, `rate-limit.server.ts`, `auth-middleware`, isolation tenant, `validate_action` rôles, injection prompt (20 payloads), `sensitive-actions`.
 
-## Lot 7 — Notifications & background tasks
-- Page `/notifications` (liste + filtres + clic → `navigate(target)`).
-- Table `background_jobs` (déjà existante ?) — sinon migration : `id, type, status, payload, result, error, created_at`.
-- Worker via cron edge function `process-background-jobs` (OCR, embeddings, veille, PDF).
+## LOT 4 — Agent fiable (Phase 2 / Sem. 4)
 
-## Lot 8 — agentState global + observabilité
-- Store Zustand `useAgentState` : `idle | thinking | processing | waiting_validation | completed | error`.
-- Logs : insérer dans `agent_runs` (existe) à chaque transition + erreurs dans `server_errors`.
+- **BUG-A4** : lock atomique `UPDATE ... WHERE status='pending' RETURNING *` sur agent_runs.
+- **BUG-A7** : `Promise.all` sur tool calls indépendants.
+- **BUG-A10** : batch insert deadlines (1 INSERT au lieu de N).
+- Polling `agent_runs` (4s/2.5s) → Supabase Realtime `postgres_changes`.
+- SSE streaming réponse agent + tokens en flux dans `ResultPanel`.
+- `react-markdown` dans ResultPanel + citations cliquables `[source:N]` + copy-to-clipboard.
+- Feedback 👍/👎 → table `message_feedback`.
+- Retry exponentiel 429/502/503 + séparer modèle classify (light) du modèle answer (frontier).
 
-## Code mort à supprimer (audit V2)
-- `src/server/chat.functions.ts`, `src/server/agent-validations.functions.ts`
-- `src/components/app/MessageFeedback.tsx`
-- Edge function `legal-chat`
+## LOT 5 — RAG puissant (Phase 2 / Sem. 5)
 
-## Ordre d'exécution proposé
-1. **Lot 1** (sidebar finale) — 1 itération
-2. **Lot 2 + Lot 4** (ResultPanel + FormSlideOver) — squelette UI
-3. **Lot 3** (intent + executeSuggestedAction) — branche le ResultPanel
-4. **Lot 5** (pipeline document)
-5. **Lot 6** (Dossier 360 / Doc 360 — vérif + compléments)
-6. **Lot 7 + 8** (notifs, background, agentState, observabilité)
-7. Nettoyage code mort
+- **R1** evaluate-rag : créer conversation temporaire avant scoring.
+- **R2** : remplacer Gemini Flash Preview par modèle stable (config tenant).
+- **R3** : sanitize message côté legal-chat L317 (pas seulement le query embedding).
+- **R4** : `hit_count = hit_count + 1` (RPC) au lieu d'écrasement.
+- **R7** : score sémantique × 0.9.
+- **R12** : troncature embedding 30 000 chars.
+- **R10** : mutex token PISTE (déjà partiellement fait — vérifier).
+- **R14/R15** : negative lookbehind dates + cleanup staging si promote échoue.
+- Table `legal_reference_index` + vérification post-réponse des citations.
+- Fenêtre glissante conversation > 10 messages (résumé).
+- 50 `rag_eval_cases` gold standard + dashboard admin scores.
 
-## Questions avant de lancer
-1. **Périmètre tour 1** : je commence par Lots 1+2+4 (sidebar + ResultPanel + slide-over vide branché sur `/agent`) ? Ou tu veux que j'attaque directement Lot 5 (pipeline document) qui a plus d'impact métier ?
-2. **Notifications** : route `/notifications` dédiée OK, ou on garde uniquement la cloche dans le header ?
-3. **Background jobs** : on accepte une nouvelle table + cron edge function (seul cas autorisé d'edge selon mémoire), ou on diffère et on reste en synchrone pour le moment ?
+## LOT 6 — Workflows nickels (Phase 2 / Sem. 6)
+
+- **W1** : filtrer `status != 'draft_ai'` dans `listWorkflowDefinitions`.
+- **W2** : unifier statuts (`active` ≡ `in_progress` → choisir un canon + migration).
+- **W4** : unifier liste rôles admin partout.
+- **W5** : Zod sur draft workflow.
+- **W6** : RPC transactionnelle `executeStep`.
+- **W7** : timezone tenant.
+- **W8** : seuils validation configurables par tenant (table `tenant_settings`).
+- **W9** : `Promise.allSettled` validations.
+- **W10** : ConfirmDialog avant cancel.
+- **DynamicFormStep** : composant générique (text/textarea/select/date/bool/file/user/client) + persistance `workflow_step_runs.data` + préremplissage contexte dossier.
+- Conditions `if field=value then skip/goto`.
+
+## LOT 7 — Architecture agentique (Phase 2 / Sem. 7)
+
+- Refacto : `agent-loop.server.ts`, `agent-tool-router.server.ts`, interface `AgentTool` typée Zod input/output.
+- Table `agent_memory(tenant_id, dossier_id, key, value)` + UI gestion mémoires.
+- Migrer 13 règles `business-rules.ts` → table `business_rules` + UI admin + IDCC + versioning.
+- Pipeline post-réponse : vérif citations vs `legal_reference_index`, vérif délais vs `legal-delays`, vérif montants → score pondéré → disclaimer si < seuil → log dans `agent_tool_runs`.
+
+## LOT 8 — Tests Phase 2 (Sem. 8)
+
+- Tests agent end-to-end (classify→tools→RAG→answer→actions), chaque outil avec mock, 9 types d'actions, machine à états, formulaires dynamiques, pipeline vérif.
+- Tests workflow : génération + runtime + conditions + sensitive + seuils.
+- Tests RAG : pipeline complet + multi-query + ingestion + vérification citations.
+- Playwright E2E : Login→Question→Sources, Dossier→Upload→Analyse, Workflow start→complete, Onboarding.
+
+## LOT 9 — Frontend nickel (Phase 3 / Sem. 9-10)
+
+- `lazyRouteComponent` sur toutes les routes.
+- ErrorBoundary global dans `__root.tsx`.
+- `React.memo`/`useMemo` sur sous-vues Dossier360.
+- Export DOCX (`docx`) + PDF (`jspdf`).
+- ⌘K mobile.
+- A11y : `aria-expanded`, `aria-live`, focus-trap (FormSlideOver), skip-to-content.
+- Fix memory leak `URL.createObjectURL` (`agent.tsx`).
+- Hook `useFileUpload`.
+
+## LOT 10 — Base de données propre (Phase 3 / Sem. 11)
+
+- Tous les index manquants (PARTIE 6 audit).
+- Unifier `dossier_deadlines` + `contract_deadlines`.
+- Table `rgpd_requests` + compléter purge RGPD (9 tables manquantes — S13).
+- Table `dossier_members` (permissions niveau dossier).
+- Partitionner `messages` (mensuel) — `usage_logs` déjà fait.
+- Pagination cursor sur API v1.
+- Fix N+1 (`contract-deadlines`, `document-pipeline`).
+- Vues SQL pour agrégats usage.
+
+## LOT 11 — Scalabilité (Phase 3 / Sem. 12)
+
+- Supavisor pooling, circuit breaker LLM + fallback provider, cache Redis chunks/sessions, worker email cron 1min, transactions Postgres composées, `Promise.allSettled` partout où fragile.
+
+## LOT 12 — Collaboration & features avancées (Phase 3 / Sem. 13-14)
+
+- TipTap éditeur principal, commentaires inline + @mentions, versions docs + diff, templates variables dossier, calendrier audiences/deadlines, OpenAPI doc, webhooks sortants tenant, k6 charge 500 users, couverture tests > 60%.
+
+---
+
+## Détails techniques transverses
+
+- **Migrations** : un fichier par lot, RLS systématique, `REVOKE EXECUTE FROM PUBLIC; GRANT EXECUTE TO service_role` sur chaque nouvelle SECURITY DEFINER, jamais de CHECK pour validation temporelle (triggers).
+- **Multi-tenant** : tout passe par `getTenantId(userId)` + RLS `is_member_of_tenant` (memory Core).
+- **Timeline** : tout événement nouveau passe par `logTimelineEvent`.
+- **Types** : interdit d'éditer `types.ts` directement — toujours via régénération.
+- **Lots livrables** : à la fin de chaque lot, build + tests passent, notification courte au user, on attend "go" pour le lot suivant **sauf** si tu me dis maintenant "enchaîne tout sans pause".
+
+---
+
+## Cadence proposée
+
+Je te propose d'enchaîner **lot par lot** (1 → 12), avec un message court à la fin de chaque lot listant ce qui a bougé. Tu interviens uniquement si tu veux changer la priorité.
+
+Démarre-t-on **par le LOT 1** (sécurité bloquante restante) ?
