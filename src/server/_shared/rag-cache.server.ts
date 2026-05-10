@@ -61,7 +61,7 @@ export async function setCachedRag(
           cache_key: key,
           tenant_id: tenantId,
           question: question.slice(0, 1000),
-          payload: payload as unknown as Record<string, unknown>,
+          payload: payload as never,
           expires_at: expires,
         },
       ],
