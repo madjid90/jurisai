@@ -58,6 +58,30 @@ export const GenerateInput = z.object({
   dryRun: z.boolean().optional(),
 });
 
+// BUG-W5 : schéma Zod du draft IA pour valider avant insertion en base.
+const WorkflowDraftSchema = z.object({
+  title: z.string().min(1).max(300),
+  description: z.string().optional(),
+  category: z.string().min(1),
+  estimated_duration_days: z.number().int().nonnegative().optional(),
+  legal_refs: z.array(z.object({
+    code: z.string().optional(),
+    source: z.string().optional(),
+    reference: z.string().optional(),
+  })).optional(),
+  steps: z.array(z.object({
+    key: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    kind: z.string().optional(),
+    type: z.string().optional(),
+    template_slug: z.string().nullable().optional(),
+    legal_refs: z.array(z.string()).optional(),
+    requires_sourcing: z.boolean().optional(),
+    delay_days: z.number().int().nonnegative().optional(),
+  })).min(1),
+});
+
 export type GenerateWorkflowResult = {
   run_id: string;
   cache_hit: boolean;
