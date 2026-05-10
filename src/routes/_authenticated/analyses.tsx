@@ -181,21 +181,32 @@ function AnalysesPage() {
         {/* List */}
         <div className="px-8 py-6">
           <h2 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Historique ({items.length})
+            Historique ({list.total ?? list.items.length})
           </h2>
-          {loading ? (
+          {list.loading ? (
             <div className="flex h-24 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-accent" />
             </div>
-          ) : items.length === 0 ? (
-            <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-8 text-center text-[13px] text-muted-foreground">
-              Aucune analyse pour le moment.
-            </p>
           ) : (
-            <div className="mt-3 space-y-2">
-              {items.map((a) => (
-                <AnalysisCard key={a.id} item={a} onDelete={() => handleDelete(a.id)} />
-              ))}
+            <div className="mt-3">
+              <VirtualList<AnalysisRow>
+                items={list.items}
+                estimateSize={76}
+                gap={8}
+                getKey={(a) => a.id}
+                onLoadMore={list.loadMore}
+                hasMore={list.hasMore}
+                loadingMore={list.loadingMore}
+                maxHeight={520}
+                emptyState={
+                  <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-8 text-center text-[13px] text-muted-foreground">
+                    Aucune analyse pour le moment.
+                  </p>
+                }
+                renderItem={(a) => (
+                  <AnalysisCard item={a} onDelete={() => handleDelete(a.id)} />
+                )}
+              />
             </div>
           )}
         </div>
