@@ -120,7 +120,7 @@ export const getConnectorStats = createServerFn({ method: "POST" })
 export const triggerConnector = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: {
-    connector: "kali" | "cdtn-modeles" | "legifrance" | "judilibre" | "cdtn-contributions" | "acco" | "dole" | "cnil";
+    connector: "kali" | "kali-full" | "cdtn-modeles" | "legifrance" | "judilibre" | "cdtn-contributions" | "acco" | "dole" | "cnil";
     payload?: Record<string, unknown>;
   }) => input)
   .handler(async ({ data, context }) => {
