@@ -90,13 +90,15 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ConfirmProvider>
-          <Outlet />
-          <Toaster richColors position="top-right" />
-          <CookieBanner />
-        </ConfirmProvider>
-      </AuthProvider>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <ConfirmProvider>
+            <Outlet />
+            <Toaster richColors position="top-right" />
+            <CookieBanner />
+          </ConfirmProvider>
+        </AuthProvider>
+      </AppErrorBoundary>
     </QueryClientProvider>
   );
 }
