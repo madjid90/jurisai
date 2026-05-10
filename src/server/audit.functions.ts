@@ -2,18 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-async function requireAdmin(userId: string) {
-  const { data: profile } = await supabaseAdmin
-    .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
-  const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id;
-  if (!tenantId) throw new Error("No tenant");
-  const { data: role } = await supabaseAdmin
-    .from("user_roles").select("role")
-    .eq("user_id", userId).eq("tenant_id", tenantId).eq("role", "admin").maybeSingle();
-  if (!role) throw new Error("Forbidden — admin only");
-  return tenantId;
-}
+// S22 (audit) : un seul `requireAdmin`, centralisé dans `_shared/tenant.server.ts`.
+import { requireAdmin } from "@/server/_shared/tenant.server";
 
 export const listAuditLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

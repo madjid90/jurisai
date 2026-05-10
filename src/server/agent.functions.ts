@@ -27,6 +27,7 @@ import {
   generateWorkflowTool,
   runWorkflowStepTool,
 } from "./_shared/agent-tools.server";
+import { llmFetch } from "./_shared/llm-fetch.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const CHAT_MODEL = "google/gemini-3-flash-preview";
@@ -473,7 +474,7 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     let refusalReason: string | null = null;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
+      const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({

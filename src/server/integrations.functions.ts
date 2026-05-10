@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId, requireAdmin } from "@/server/_shared/tenant.server";
+import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 
 // ─── INTEGRATIONS SETTINGS ──────────────────────────────────────────────────
 
@@ -89,6 +90,8 @@ export const createApiKey = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
+    // S16 (audit) : 3 créations de clé/min — empêche scripting massif.
+    await enforceRateLimit(userId, "create_api_key", 3);
     const tenantId = await requireAdmin(userId);
 
     const raw = randomBytes(24).toString("base64url");

@@ -11,6 +11,7 @@ import { classifyIntent, type AgentCtx } from "./_shared/agent-tools.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
 import { runIntentActions } from "./_shared/agent-intent-actions.server";
+import { llmFetch } from "./_shared/llm-fetch.server";
 
 const STATUSES = [
   "pending",
@@ -478,7 +479,7 @@ SOURCES JURIDIQUES:
 ${sourcesBlock || "(aucune)"}`;
 
       // 4. Appel IA
-      const aiRes = await fetch(`${AI_GATEWAY}/chat/completions`, {
+      const aiRes = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({

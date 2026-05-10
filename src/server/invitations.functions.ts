@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 
 // Untyped admin client to avoid type churn when DB schema evolves
 const db = supabaseAdmin as unknown as {
@@ -47,6 +48,9 @@ export const sendInvitation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const ctx = context as { userId: string };
     const { userId } = ctx;
+
+    // S16 (audit) : 5 invitations/min/utilisateur — empêche le spam de mails.
+    await enforceRateLimit(userId, "send_invitation", 5);
 
     // 1. Get user's tenant + verify admin/manager role
     const { data: profile } = await db
