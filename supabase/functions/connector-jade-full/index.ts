@@ -65,55 +65,79 @@ Deno.serve(async (req) => {
       batchId = await startBatch(db, "jade-full", "decisions", items, { query, dStart, dEnd });
     }
 
-    const start = Date.now();
-    let ingested = 0, skipped = 0, failed = 0;
+    // @ts-ignore EdgeRuntime injecté par Supabase
 
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, 15);
-      if (!items.length) break;
-      const ok: BatchItem[] = [], fl: BatchItem[] = [];
-      let ing = 0, sk = 0;
+    EdgeRuntime.waitUntil((async () => {
 
-      for (const it of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          const res = await fetch(`${baseUrl()}/decision?id=${encodeURIComponent(it.id)}`, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
-          if (!res.ok) throw new Error(`/decision ${res.status}`);
-          const d = await res.json() as Hit & { text?: string; texte?: string; summary?: string; sommaire?: string };
-          const raw = d.text ?? d.texte ?? d.summary ?? d.sommaire ?? "";
-          const text = stripHtml(raw);
-          if (!text || text.length < 100) { ok.push(it); continue; }
+      try {
 
-          const content = `**Conseil d'État** · ${d.juridiction ?? ""} · ${d.date ?? ""}\n\n# Décision ${d.numero ?? d.id}\n\n${text}`;
-          const hash = await sha256(content);
-          const dec = await shouldIngest(db, "jade", d.id, hash);
-          if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+          const start = Date.now();
+          let ingested = 0, skipped = 0, failed = 0;
 
-          await ingestSource(db, apiKey, "jade", {
-            external_id: d.id,
-            source_type: "jurisprudence_administrative",
-            title: `CE ${d.juridiction ?? ""} ${d.date ?? ""} — ${d.numero ?? d.id}`.trim(),
-            content,
-            reference_code: d.numero ?? null,
-            official_url: `https://www.conseil-etat.fr/fr/arianeweb/CE/decision/${encodeURIComponent(d.id)}`,
-            legal_date: d.date ?? null,
-            raw_metadata: { juridiction: d.juridiction, type: d.type, solution: d.solution, content_hash: hash, jade_id: d.id },
-          });
-          ing++; ok.push(it);
-        } catch (err) {
-          fl.push(it);
-          console.error(`[jade-full] ${it.id}:`, (err as Error).message);
-        }
-        await new Promise((r) => setTimeout(r, 100));
+          while (Date.now() - start < TIME_BUDGET_MS) {
+            const items = await getNextItems<BatchItem>(db, batchId, 15);
+            if (!items.length) break;
+            const ok: BatchItem[] = [], fl: BatchItem[] = [];
+            let ing = 0, sk = 0;
+
+            for (const it of items) {
+              if (Date.now() - start > TIME_BUDGET_MS) break;
+              try {
+                const res = await fetch(`${baseUrl()}/decision?id=${encodeURIComponent(it.id)}`, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
+                if (!res.ok) throw new Error(`/decision ${res.status}`);
+                const d = await res.json() as Hit & { text?: string; texte?: string; summary?: string; sommaire?: string };
+                const raw = d.text ?? d.texte ?? d.summary ?? d.sommaire ?? "";
+                const text = stripHtml(raw);
+                if (!text || text.length < 100) { ok.push(it); continue; }
+
+                const content = `**Conseil d'État** · ${d.juridiction ?? ""} · ${d.date ?? ""}\n\n# Décision ${d.numero ?? d.id}\n\n${text}`;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "jade", d.id, hash);
+                if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+
+                await ingestSource(db, apiKey, "jade", {
+                  external_id: d.id,
+                  source_type: "jurisprudence_administrative",
+                  title: `CE ${d.juridiction ?? ""} ${d.date ?? ""} — ${d.numero ?? d.id}`.trim(),
+                  content,
+                  reference_code: d.numero ?? null,
+                  official_url: `https://www.conseil-etat.fr/fr/arianeweb/CE/decision/${encodeURIComponent(d.id)}`,
+                  legal_date: d.date ?? null,
+                  raw_metadata: { juridiction: d.juridiction, type: d.type, solution: d.solution, content_hash: hash, jade_id: d.id },
+                });
+                ing++; ok.push(it);
+              } catch (err) {
+                fl.push(it);
+                console.error(`[jade-full] ${it.id}:`, (err as Error).message);
+              }
+              await new Promise((r) => setTimeout(r, 100));
+            }
+
+            if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
+            if (fl.length) await markFailed(db, batchId, fl, "see logs");
+            ingested += ing; skipped += sk; failed += fl.length;
+          }
+
+          const fin = await finalizeBatch(db, batchId);
+          console.log(`[return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });`.replace('return json(','').replace(');',''));
+
+      } catch (err) {
+
+        console.error(`[connector-jade-full] background error:`, (err as Error).message);
+
       }
 
-      if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
-      if (fl.length) await markFailed(db, batchId, fl, "see logs");
-      ingested += ing; skipped += sk; failed += fl.length;
-    }
+    })());
 
-    const fin = await finalizeBatch(db, batchId);
-    return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });
+    return json({
+
+      status: "started",
+
+      message: "Ingestion lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+
+      batch_id: batchId,
+
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);

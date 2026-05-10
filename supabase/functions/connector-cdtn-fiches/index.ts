@@ -54,60 +54,84 @@ Deno.serve(async (req) => {
       batchId = await startBatch(db, "cdtn-fiches", "fiches", items, {});
     }
 
-    const start = Date.now();
-    let ingested = 0, skipped = 0, failed = 0;
+    // @ts-ignore EdgeRuntime injecté par Supabase
 
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, 15);
-      if (!items.length) break;
-      const ok: BatchItem[] = [], fl: BatchItem[] = [];
-      let ing = 0, sk = 0;
+    EdgeRuntime.waitUntil((async () => {
 
-      for (const it of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          const ficheUrl = `https://www.code.travail.gouv.fr/api/items/${it.slug}.json`;
-          const r = await fetch(ficheUrl);
-          if (!r.ok) throw new Error(`fiche ${it.slug} HTTP ${r.status}`);
-          const f = await r.json() as { title?: string; description?: string; html?: string; text?: string; raw?: string; sections?: Array<{ title?: string; html?: string; text?: string }> };
+      try {
 
-          let body = f.text ?? f.raw ?? f.description ?? "";
-          if (!body && Array.isArray(f.sections)) {
-            body = f.sections.map((s) => `## ${s.title ?? ""}\n${(s.text ?? s.html ?? "").replace(/<[^>]+>/g, " ")}`).join("\n\n");
+          const start = Date.now();
+          let ingested = 0, skipped = 0, failed = 0;
+
+          while (Date.now() - start < TIME_BUDGET_MS) {
+            const items = await getNextItems<BatchItem>(db, batchId, 15);
+            if (!items.length) break;
+            const ok: BatchItem[] = [], fl: BatchItem[] = [];
+            let ing = 0, sk = 0;
+
+            for (const it of items) {
+              if (Date.now() - start > TIME_BUDGET_MS) break;
+              try {
+                const ficheUrl = `https://www.code.travail.gouv.fr/api/items/${it.slug}.json`;
+                const r = await fetch(ficheUrl);
+                if (!r.ok) throw new Error(`fiche ${it.slug} HTTP ${r.status}`);
+                const f = await r.json() as { title?: string; description?: string; html?: string; text?: string; raw?: string; sections?: Array<{ title?: string; html?: string; text?: string }> };
+
+                let body = f.text ?? f.raw ?? f.description ?? "";
+                if (!body && Array.isArray(f.sections)) {
+                  body = f.sections.map((s) => `## ${s.title ?? ""}\n${(s.text ?? s.html ?? "").replace(/<[^>]+>/g, " ")}`).join("\n\n");
+                }
+                if (!body && f.html) body = f.html.replace(/<[^>]+>/g, " ");
+                body = body.replace(/\s+/g, " ").trim();
+
+                if (!body || body.length < 100) { ok.push(it); continue; }
+
+                const title = f.title ?? it.title;
+                const content = `**Source officielle** : ${it.source === "fiches-service-public" ? "Service-Public.fr" : "Ministère du Travail"}\n\n# ${title}\n\n${body}`;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "cdtn-fiches", it.slug, hash);
+                if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+
+                await ingestSource(db, apiKey, "cdtn-fiches", {
+                  external_id: it.slug,
+                  source_type: it.source === "fiches-service-public" ? "fiche_service_public" : "fiche_ministere_travail",
+                  title,
+                  content,
+                  official_url: it.url ?? `https://www.code.travail.gouv.fr/${it.slug}`,
+                  raw_metadata: { slug: it.slug, source: it.source, content_hash: hash },
+                });
+                ing++; ok.push(it);
+              } catch (err) {
+                fl.push(it);
+                console.error(`[cdtn-fiches] ${it.slug}:`, (err as Error).message);
+              }
+            }
+
+            if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
+            if (fl.length) await markFailed(db, batchId, fl, "see logs");
+            ingested += ing; skipped += sk; failed += fl.length;
           }
-          if (!body && f.html) body = f.html.replace(/<[^>]+>/g, " ");
-          body = body.replace(/\s+/g, " ").trim();
 
-          if (!body || body.length < 100) { ok.push(it); continue; }
+          const fin = await finalizeBatch(db, batchId);
+          console.log(`[return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });`.replace('return json(','').replace(');',''));
 
-          const title = f.title ?? it.title;
-          const content = `**Source officielle** : ${it.source === "fiches-service-public" ? "Service-Public.fr" : "Ministère du Travail"}\n\n# ${title}\n\n${body}`;
-          const hash = await sha256(content);
-          const dec = await shouldIngest(db, "cdtn-fiches", it.slug, hash);
-          if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+      } catch (err) {
 
-          await ingestSource(db, apiKey, "cdtn-fiches", {
-            external_id: it.slug,
-            source_type: it.source === "fiches-service-public" ? "fiche_service_public" : "fiche_ministere_travail",
-            title,
-            content,
-            official_url: it.url ?? `https://www.code.travail.gouv.fr/${it.slug}`,
-            raw_metadata: { slug: it.slug, source: it.source, content_hash: hash },
-          });
-          ing++; ok.push(it);
-        } catch (err) {
-          fl.push(it);
-          console.error(`[cdtn-fiches] ${it.slug}:`, (err as Error).message);
-        }
+        console.error(`[connector-cdtn-fiches] background error:`, (err as Error).message);
+
       }
 
-      if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
-      if (fl.length) await markFailed(db, batchId, fl, "see logs");
-      ingested += ing; skipped += sk; failed += fl.length;
-    }
+    })());
 
-    const fin = await finalizeBatch(db, batchId);
-    return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });
+    return json({
+
+      status: "started",
+
+      message: "Ingestion lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+
+      batch_id: batchId,
+
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);

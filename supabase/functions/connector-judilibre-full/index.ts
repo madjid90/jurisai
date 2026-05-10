@@ -76,55 +76,79 @@ Deno.serve(async (req) => {
       batchId = await startBatch(db, "judilibre-full", "decisions", items, { chambers, query, dStart, dEnd });
     }
 
-    const start = Date.now();
-    let ingested = 0, skipped = 0, failed = 0;
-    const key = getKey();
+    // @ts-ignore EdgeRuntime injecté par Supabase
 
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, 15);
-      if (!items.length) break;
-      const ok: BatchItem[] = [], fl: BatchItem[] = [];
-      let ing = 0, sk = 0;
+    EdgeRuntime.waitUntil((async () => {
 
-      for (const it of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          const res = await fetch(`${baseUrl()}/decision?id=${encodeURIComponent(it.id)}`, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
-          if (!res.ok) throw new Error(`/decision ${res.status}`);
-          const d = await res.json() as Hit;
-          const text = (d.text ?? d.summary ?? "").trim();
-          if (!text || text.length < 100) { ok.push(it); continue; }
+      try {
 
-          const content = `**Cour de cassation** · ${d.chamber ?? ""} · ${d.decision_date ?? ""}\n\n# Décision ${d.number ?? d.id}\n\n${text}`;
-          const hash = await sha256(content);
-          const dec = await shouldIngest(db, "judilibre", d.id, hash);
-          if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+          const start = Date.now();
+          let ingested = 0, skipped = 0, failed = 0;
+          const key = getKey();
 
-          await ingestSource(db, apiKey, "judilibre", {
-            external_id: d.id,
-            source_type: "jurisprudence",
-            title: `Cass. ${d.chamber ?? ""} ${d.decision_date ?? ""} — ${d.number ?? d.id}`.trim(),
-            content,
-            reference_code: d.number ?? null,
-            official_url: `https://www.courdecassation.fr/decision/${d.id}`,
-            legal_date: d.decision_date ?? null,
-            raw_metadata: { chamber: d.chamber, formation: d.formation, solution: d.solution, themes: d.themes, content_hash: hash },
-          });
-          ing++; ok.push(it);
-        } catch (err) {
-          fl.push(it);
-          console.error(`[judilibre-full] ${it.id}:`, (err as Error).message);
-        }
-        await new Promise((r) => setTimeout(r, 100));
+          while (Date.now() - start < TIME_BUDGET_MS) {
+            const items = await getNextItems<BatchItem>(db, batchId, 15);
+            if (!items.length) break;
+            const ok: BatchItem[] = [], fl: BatchItem[] = [];
+            let ing = 0, sk = 0;
+
+            for (const it of items) {
+              if (Date.now() - start > TIME_BUDGET_MS) break;
+              try {
+                const res = await fetch(`${baseUrl()}/decision?id=${encodeURIComponent(it.id)}`, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
+                if (!res.ok) throw new Error(`/decision ${res.status}`);
+                const d = await res.json() as Hit;
+                const text = (d.text ?? d.summary ?? "").trim();
+                if (!text || text.length < 100) { ok.push(it); continue; }
+
+                const content = `**Cour de cassation** · ${d.chamber ?? ""} · ${d.decision_date ?? ""}\n\n# Décision ${d.number ?? d.id}\n\n${text}`;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "judilibre", d.id, hash);
+                if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+
+                await ingestSource(db, apiKey, "judilibre", {
+                  external_id: d.id,
+                  source_type: "jurisprudence",
+                  title: `Cass. ${d.chamber ?? ""} ${d.decision_date ?? ""} — ${d.number ?? d.id}`.trim(),
+                  content,
+                  reference_code: d.number ?? null,
+                  official_url: `https://www.courdecassation.fr/decision/${d.id}`,
+                  legal_date: d.decision_date ?? null,
+                  raw_metadata: { chamber: d.chamber, formation: d.formation, solution: d.solution, themes: d.themes, content_hash: hash },
+                });
+                ing++; ok.push(it);
+              } catch (err) {
+                fl.push(it);
+                console.error(`[judilibre-full] ${it.id}:`, (err as Error).message);
+              }
+              await new Promise((r) => setTimeout(r, 100));
+            }
+
+            if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
+            if (fl.length) await markFailed(db, batchId, fl, "see logs");
+            ingested += ing; skipped += sk; failed += fl.length;
+          }
+
+          const fin = await finalizeBatch(db, batchId);
+          console.log(`[return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });`.replace('return json(','').replace(');',''));
+
+      } catch (err) {
+
+        console.error(`[connector-judilibre-full] background error:`, (err as Error).message);
+
       }
 
-      if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
-      if (fl.length) await markFailed(db, batchId, fl, "see logs");
-      ingested += ing; skipped += sk; failed += fl.length;
-    }
+    })());
 
-    const fin = await finalizeBatch(db, batchId);
-    return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });
+    return json({
+
+      status: "started",
+
+      message: "Ingestion lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+
+      batch_id: batchId,
+
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);

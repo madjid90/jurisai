@@ -59,62 +59,86 @@ Deno.serve(async (req) => {
       batchId = await startBatch(db, "cnil-full", "cnil_articles", items, { types });
     }
 
-    const start = Date.now();
-    let ingested = 0, skipped = 0, failed = 0;
+    // @ts-ignore EdgeRuntime injecté par Supabase
 
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, 10);
-      if (!items.length) break;
-      const ok: BatchItem[] = [], fl: BatchItem[] = [];
-      let ing = 0, sk = 0;
+    EdgeRuntime.waitUntil((async () => {
 
-      for (const it of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          // Fetch HTML for full body — clean it.
-          const r = await fetch(it.url, { headers: { "User-Agent": "JurisAI/1.0" } });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const html = await r.text();
-          // Extract main article body (heuristic)
-          const m = html.match(/<article[\s\S]*?<\/article>/i);
-          let text = (m ? m[0] : html)
-            .replace(/<script[\s\S]*?<\/script>/gi, " ")
-            .replace(/<style[\s\S]*?<\/style>/gi, " ")
-            .replace(/<[^>]+>/g, " ")
-            .replace(/&nbsp;/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-          if (text.length < 200) { ok.push(it); continue; }
-          if (text.length > 60_000) text = text.slice(0, 60_000);
+      try {
 
-          const content = `**Source officielle** : CNIL — ${it.type}\n\n# ${it.title}\n\n${text}`;
-          const hash = await sha256(content);
-          const dec = await shouldIngest(db, "cnil-full", it.id, hash);
-          if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+          const start = Date.now();
+          let ingested = 0, skipped = 0, failed = 0;
 
-          await ingestSource(db, apiKey, "cnil", {
-            external_id: it.id,
-            source_type: it.type === "sanction" ? "cnil_sanction" : "cnil_deliberation",
-            title: it.title,
-            content,
-            official_url: it.url,
-            legal_date: it.date ? it.date.slice(0, 10) : null,
-            raw_metadata: { cnil_type: it.type, content_hash: hash },
-          });
-          ing++; ok.push(it);
-        } catch (err) {
-          fl.push(it);
-          console.error(`[cnil-full] ${it.id}:`, (err as Error).message);
-        }
+          while (Date.now() - start < TIME_BUDGET_MS) {
+            const items = await getNextItems<BatchItem>(db, batchId, 10);
+            if (!items.length) break;
+            const ok: BatchItem[] = [], fl: BatchItem[] = [];
+            let ing = 0, sk = 0;
+
+            for (const it of items) {
+              if (Date.now() - start > TIME_BUDGET_MS) break;
+              try {
+                // Fetch HTML for full body — clean it.
+                const r = await fetch(it.url, { headers: { "User-Agent": "JurisAI/1.0" } });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const html = await r.text();
+                // Extract main article body (heuristic)
+                const m = html.match(/<article[\s\S]*?<\/article>/i);
+                let text = (m ? m[0] : html)
+                  .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                  .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                  .replace(/<[^>]+>/g, " ")
+                  .replace(/&nbsp;/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim();
+                if (text.length < 200) { ok.push(it); continue; }
+                if (text.length > 60_000) text = text.slice(0, 60_000);
+
+                const content = `**Source officielle** : CNIL — ${it.type}\n\n# ${it.title}\n\n${text}`;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "cnil-full", it.id, hash);
+                if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+
+                await ingestSource(db, apiKey, "cnil", {
+                  external_id: it.id,
+                  source_type: it.type === "sanction" ? "cnil_sanction" : "cnil_deliberation",
+                  title: it.title,
+                  content,
+                  official_url: it.url,
+                  legal_date: it.date ? it.date.slice(0, 10) : null,
+                  raw_metadata: { cnil_type: it.type, content_hash: hash },
+                });
+                ing++; ok.push(it);
+              } catch (err) {
+                fl.push(it);
+                console.error(`[cnil-full] ${it.id}:`, (err as Error).message);
+              }
+            }
+
+            if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
+            if (fl.length) await markFailed(db, batchId, fl, "see logs");
+            ingested += ing; skipped += sk; failed += fl.length;
+          }
+
+          const fin = await finalizeBatch(db, batchId);
+          console.log(`[return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });`.replace('return json(','').replace(');',''));
+
+      } catch (err) {
+
+        console.error(`[connector-cnil-full] background error:`, (err as Error).message);
+
       }
 
-      if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
-      if (fl.length) await markFailed(db, batchId, fl, "see logs");
-      ingested += ing; skipped += sk; failed += fl.length;
-    }
+    })());
 
-    const fin = await finalizeBatch(db, batchId);
-    return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });
+    return json({
+
+      status: "started",
+
+      message: "Ingestion lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+
+      batch_id: batchId,
+
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);
