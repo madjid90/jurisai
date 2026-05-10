@@ -222,8 +222,8 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
-    await enforceRateLimit(userId, "generation.finalize", 5);
     try {
+    await enforceRateLimit(userId, "generation.finalize", 5);
     const { data: session, error: sErr } = await db
       .from("document_generation_sessions")
       .select("*, document_templates(*)")
