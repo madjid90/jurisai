@@ -654,8 +654,10 @@ function GeneratedDocRow({ docId }: { docId: string }) {
 
   const download = () => {
     if (!doc?.content_html) return;
+    const cleanHtml = DOMPurify.sanitize(doc.content_html);
+    const safeTitle = (doc.title ?? "Document").replace(/[<>&"']/g, "");
     const blob = new Blob(
-      [`<!doctype html><meta charset="utf-8"><title>${doc.title ?? "Document"}</title>${doc.content_html}`],
+      [`<!doctype html><meta charset="utf-8"><title>${safeTitle}</title>${cleanHtml}`],
       { type: "text/html;charset=utf-8" },
     );
     const url = URL.createObjectURL(blob);
@@ -670,7 +672,9 @@ function GeneratedDocRow({ docId }: { docId: string }) {
     if (!doc?.content_html) return;
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!doctype html><title>${doc.title ?? ""}</title>${doc.content_html}`);
+    const cleanHtml = DOMPurify.sanitize(doc.content_html);
+    const safeTitle = (doc.title ?? "").replace(/[<>&"']/g, "");
+    w.document.write(`<!doctype html><title>${safeTitle}</title>${cleanHtml}`);
     w.document.close();
     w.focus();
     w.print();
