@@ -307,15 +307,17 @@ export const decideValidation = createServerFn({ method: "POST" })
 
     const { data: existing } = await supabaseAdmin
       .from("validation_requests")
-      .select("id, dossier_id, tenant_id, assigned_to, subject_type")
+      .select("id, dossier_id, tenant_id, assigned_to, subject_type, status")
       .eq("id", data.validationId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
     if (!existing) throw new Error("Demande introuvable");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ex = existing as any;
+    if (ex.status && ex.status !== "pending") {
+      throw new Error(`Cette demande a déjà été ${ex.status === "approved" ? "approuvée" : "rejetée"}.`);
+    }
     if (ex.assigned_to !== userId) {
-      // Vérifier si admin
       const { data: role } = await supabaseAdmin
         .from("user_roles")
         .select("role")
@@ -326,8 +328,10 @@ export const decideValidation = createServerFn({ method: "POST" })
       if (!role) throw new Error("Vous n'êtes pas habilité à décider de cette validation");
     }
 
+    // W11 — UPDATE conditionnel sur status='pending' : bloque une seconde
+    // décision concurrente (deux validateurs cliquent en même temps).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabaseAdmin as any)
+    const { data: updated, error } = await (supabaseAdmin as any)
       .from("validation_requests")
       .update({
         status: data.decision,
@@ -335,8 +339,13 @@ export const decideValidation = createServerFn({ method: "POST" })
         decided_by: userId,
         decision_comment: data.comment ?? null,
       })
-      .eq("id", data.validationId);
+      .eq("id", data.validationId)
+      .eq("status", "pending")
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!updated || updated.length === 0) {
+      throw new Error("Décision concurrente détectée — rechargez la demande.");
+    }
 
     await logTimelineEvent({
       tenantId,
