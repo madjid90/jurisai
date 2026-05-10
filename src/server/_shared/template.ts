@@ -24,14 +24,29 @@ function asString(v: unknown): string {
  * sont laissés tels quels (utile pour signaler des variables manquantes au validateur).
  * Sinon ils sont remplacés par chaîne vide.
  */
+export type FillTemplateOptions = {
+  /** Si true, garde le token `{{key}}` quand la valeur est absente. */
+  keepUnknown?: boolean;
+  /** Remplacement personnalisé pour les clés absentes (prioritaire sur keepUnknown). */
+  onMissing?: (key: string) => string;
+};
+
 export function fillTemplate(
   body: string,
   values: TemplateValues,
-  options: { keepUnknown?: boolean } = {},
+  options: FillTemplateOptions = {},
 ): string {
   if (!body) return "";
   return body.replace(TOKEN_RE, (match, key: string) => {
-    if (key in values) return asString(values[key]);
+    if (key in values) {
+      const v = values[key];
+      if (v === undefined || v === null || v === "") {
+        if (options.onMissing) return options.onMissing(key);
+        return options.keepUnknown ? match : "";
+      }
+      return asString(v);
+    }
+    if (options.onMissing) return options.onMissing(key);
     return options.keepUnknown ? match : "";
   });
 }
