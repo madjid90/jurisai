@@ -365,7 +365,7 @@ export async function skipStep(
     userId: ctx.userId,
     workflowDefinitionId: inst.definition_id,
     workflowInstanceId: inst.id,
-    action: "step_skipped",
+    action: "workflow.step_skipped",
     metadata: { step_index: input.stepIndex, reason: input.reason },
   });
 
