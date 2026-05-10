@@ -12,23 +12,35 @@ import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
 import { shouldRequestValidation, type TemplateField, type PrefillSource } from "@/lib/templates/template-config";
 import { searchLegalSources } from "@/server/_shared/legal-rag.server";
+import {
+  fillTemplate as sharedFillTemplate,
+  findMissingTemplateVars,
+} from "@/server/_shared/template";
 
 const db = supabaseAdmin as unknown as { from: (t: string) => any };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+// G5 — délègue au helper partagé `fillTemplate` ; conserve le balisage HTML
+// pour signaler les variables manquantes dans le brouillon.
 function fillTemplate(body: string, variables: Record<string, unknown>): {
   filled: string;
   missing: string[];
 } {
-  const missing: string[] = [];
-  const filled = body.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (_, key: string) => {
-    const v = variables[key];
-    if (v === undefined || v === null || v === "") {
-      missing.push(key);
-      return `<span data-missing="${key}" class="bg-amber-100 text-amber-900 px-1 rounded">[${key}]</span>`;
+  const missing = findMissingTemplateVars(body, variables).filter((k) => {
+    const v = variables[k];
+    return v === undefined || v === null || v === "";
+  });
+  // également les clés présentes mais vides
+  for (const k of Object.keys(variables)) {
+    const v = variables[k];
+    if ((v === undefined || v === null || v === "") && body.includes(`{{${k}}}`) && !missing.includes(k)) {
+      missing.push(k);
     }
-    return String(v);
+  }
+  const filled = sharedFillTemplate(body, variables, {
+    onMissing: (key) =>
+      `<span data-missing="${key}" class="bg-amber-100 text-amber-900 px-1 rounded">[${key}]</span>`,
   });
   return { filled, missing: Array.from(new Set(missing)) };
 }
