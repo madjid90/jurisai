@@ -247,8 +247,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
       const genDuration = Date.now() - t0;
 
       // 4. Validation 3 couches
-      const idcc = await fetchTenantIdcc(tenantId);
-      const quality = await validateWorkflowDraft(draft, { tenantId, idcc, apiKey });
+      const quality = await validateWorkflowDraft(draft, { tenantId, idcc: idccEarly, apiKey });
 
       // 5. Persistance — si dryRun, on s'arrête là
       if (data.dryRun) {
