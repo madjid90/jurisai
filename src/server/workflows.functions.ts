@@ -35,7 +35,7 @@ export const listWorkflowDefinitions = createServerFn({ method: "GET" })
       .from("workflow_definitions")
       .select("id, slug, title, description, category, status, lifecycle_status, version, steps, legal_refs, estimated_duration_days, tenant_id")
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
-      .in("lifecycle_status", ["published", "ai_validated_auto", "human_validated"])
+      .in("lifecycle_status", ["ai_validated_auto", "human_validated"])
       .order("title", { ascending: true });
     if (error) throw new Error(error.message);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
