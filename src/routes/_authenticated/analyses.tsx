@@ -116,7 +116,7 @@ function AnalysesPage() {
     try {
       await deleteFn({ data: { id } });
       toast.success("Analyse supprimée");
-      void refresh();
+      void list.reload();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     }
