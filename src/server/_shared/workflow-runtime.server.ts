@@ -170,7 +170,7 @@ export async function executeStep(
       .from("user_roles")
       .select("user_id")
       .eq("tenant_id", ctx.tenantId)
-      .in("role", ["admin", "admin_tenant", "super_admin"])
+      .in("role", [...WORKFLOW_VALIDATOR_ROLES])
       .limit(1);
     const assignedTo =
       (admins?.[0] as { user_id: string } | undefined)?.user_id ?? ctx.userId;
