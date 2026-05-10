@@ -28,10 +28,8 @@ export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") ?? request.headers.get("authorization")?.replace("Bearer ", "");
-        if (!apikey || apikey !== ANON_KEY) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+        const auth = verifyCronAuth(request);
+        if (!auth.ok) return auth.response;
 
         // 1. Cleanup zombies older than 1h
         try {
