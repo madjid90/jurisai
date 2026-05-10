@@ -16,6 +16,7 @@ import {
   setWorkflowLifecycleStatus,
 } from "@/server/workflow-generator.functions";
 import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
+import { SmartDisclaimer } from "@/components/agent/SmartDisclaimer";
 
 export const Route = createFileRoute("/_authenticated/admin/workflow-generator")({
   component: WorkflowGeneratorPage,
