@@ -7,6 +7,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { notifyUser } from "@/server/_shared/notify.server";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
