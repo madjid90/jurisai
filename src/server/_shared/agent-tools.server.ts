@@ -733,6 +733,43 @@ export async function analyzeDocumentTool(
   };
 }
 
+// ------------------------------------------------------------------ generate_workflow
+export async function generateWorkflowTool(
+  args: { prompt: string; category?: string },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  try {
+    const { generateWorkflow } = await import("@/server/workflow-generator.functions");
+    // On appelle la logique en re-créant un contexte serveur authentifié implicite :
+    // ici on passe par le handler interne via fetch — plus simple : on duplique l'appel
+    // direct au helper en passant tenant/user. Pour rester DRY, on appelle l'API HTTP locale.
+    // Simplification : on inline le helper d'orchestration via un import dynamique.
+    // (generateWorkflow est un createServerFn → on simule le call côté serveur)
+    const res = await (generateWorkflow as any)({
+      data: { prompt: args.prompt, category: args.category },
+      context: { userId: ctx.userId },
+    });
+    const isSensitive = Boolean(res?.quality?.sensitive?.contains_sensitive);
+    return {
+      result: {
+        run_id: res?.run_id,
+        cache_hit: res?.cache_hit,
+        workflow_definition_id: res?.workflow_definition_id,
+        auto_status: res?.quality?.auto_status ?? null,
+        scores: res?.quality?.scores ?? null,
+        sensitive_actions: res?.quality?.sensitive?.detected ?? [],
+        duplicate_of: res?.duplicate_of ?? null,
+        error: res?.error ?? null,
+      },
+      isSensitive,
+      succeeded: !res?.error,
+      errorMessage: res?.error,
+    };
+  } catch (e) {
+    return { result: { error: (e as Error).message }, succeeded: false };
+  }
+}
+
 // ------------------------------------------------------------------ generate_report
 export async function generateReportTool(
   args: { dossier_id: string; report_type?: string },

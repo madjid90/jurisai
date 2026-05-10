@@ -38,6 +38,7 @@ import { Route as AuthenticatedWorkflowsIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
+import { Route as AuthenticatedAdminWorkflowGeneratorRouteImport } from './routes/_authenticated/admin.workflow-generator'
 import { Route as AuthenticatedAdminUsageRouteImport } from './routes/_authenticated/admin.usage'
 import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authenticated/admin.tenants'
 import { Route as AuthenticatedAdminServerErrorsRouteImport } from './routes/_authenticated/admin.server-errors'
@@ -204,6 +205,12 @@ const AuthenticatedAnalysesIdRoute = AuthenticatedAnalysesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AuthenticatedAnalysesRoute,
 } as any)
+const AuthenticatedAdminWorkflowGeneratorRoute =
+  AuthenticatedAdminWorkflowGeneratorRouteImport.update({
+    id: '/admin/workflow-generator',
+    path: '/admin/workflow-generator',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminUsageRoute = AuthenticatedAdminUsageRouteImport.update({
   id: '/admin/usage',
   path: '/admin/usage',
@@ -331,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/usage': typeof AuthenticatedAdminUsageRoute
+  '/admin/workflow-generator': typeof AuthenticatedAdminWorkflowGeneratorRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -378,6 +386,7 @@ export interface FileRoutesByTo {
   '/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
   '/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/admin/usage': typeof AuthenticatedAdminUsageRoute
+  '/admin/workflow-generator': typeof AuthenticatedAdminWorkflowGeneratorRoute
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -427,6 +436,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
   '/_authenticated/admin/tenants': typeof AuthenticatedAdminTenantsRoute
   '/_authenticated/admin/usage': typeof AuthenticatedAdminUsageRoute
+  '/_authenticated/admin/workflow-generator': typeof AuthenticatedAdminWorkflowGeneratorRoute
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
@@ -476,6 +486,7 @@ export interface FileRouteTypes {
     | '/admin/server-errors'
     | '/admin/tenants'
     | '/admin/usage'
+    | '/admin/workflow-generator'
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
@@ -523,6 +534,7 @@ export interface FileRouteTypes {
     | '/admin/server-errors'
     | '/admin/tenants'
     | '/admin/usage'
+    | '/admin/workflow-generator'
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
@@ -571,6 +583,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/server-errors'
     | '/_authenticated/admin/tenants'
     | '/_authenticated/admin/usage'
+    | '/_authenticated/admin/workflow-generator'
     | '/_authenticated/analyses/$id'
     | '/_authenticated/documents/$id'
     | '/_authenticated/dossiers/$id'
@@ -815,6 +828,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalysesIdRouteImport
       parentRoute: typeof AuthenticatedAnalysesRoute
     }
+    '/_authenticated/admin/workflow-generator': {
+      id: '/_authenticated/admin/workflow-generator'
+      path: '/admin/workflow-generator'
+      fullPath: '/admin/workflow-generator'
+      preLoaderRoute: typeof AuthenticatedAdminWorkflowGeneratorRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/usage': {
       id: '/_authenticated/admin/usage'
       path: '/admin/usage'
@@ -985,6 +1005,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminServerErrorsRoute: typeof AuthenticatedAdminServerErrorsRoute
   AuthenticatedAdminTenantsRoute: typeof AuthenticatedAdminTenantsRoute
   AuthenticatedAdminUsageRoute: typeof AuthenticatedAdminUsageRoute
+  AuthenticatedAdminWorkflowGeneratorRoute: typeof AuthenticatedAdminWorkflowGeneratorRoute
   AuthenticatedDocumentsIdRoute: typeof AuthenticatedDocumentsIdRoute
   AuthenticatedWorkflowsIdRoute: typeof AuthenticatedWorkflowsIdRoute
   AuthenticatedDocumentsIndexRoute: typeof AuthenticatedDocumentsIndexRoute
@@ -1012,6 +1033,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminServerErrorsRoute: AuthenticatedAdminServerErrorsRoute,
   AuthenticatedAdminTenantsRoute: AuthenticatedAdminTenantsRoute,
   AuthenticatedAdminUsageRoute: AuthenticatedAdminUsageRoute,
+  AuthenticatedAdminWorkflowGeneratorRoute:
+    AuthenticatedAdminWorkflowGeneratorRoute,
   AuthenticatedDocumentsIdRoute: AuthenticatedDocumentsIdRoute,
   AuthenticatedWorkflowsIdRoute: AuthenticatedWorkflowsIdRoute,
   AuthenticatedDocumentsIndexRoute: AuthenticatedDocumentsIndexRoute,
