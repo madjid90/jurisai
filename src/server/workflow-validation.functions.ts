@@ -105,37 +105,37 @@ export const validateWorkflowStep = createServerFn({ method: "POST" })
 
     if (step.validation_required) {
       checks.push(
-        supabaseAdmin
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .eq("tenant_id", tenantId)
-          .in("role", [...WORKFLOW_VALIDATOR_ROLES])
-          .then(({ data: roles }) => {
-            if (!roles || roles.length === 0) {
-              return {
-                blockers: [
-                  "Cette étape nécessite la validation d'un admin, manager ou super_admin",
-                ],
-              };
-            }
-            return {};
-          }),
+        (async () => {
+          const { data: roles } = await supabaseAdmin
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .eq("tenant_id", tenantId)
+            .in("role", [...WORKFLOW_VALIDATOR_ROLES]);
+          if (!roles || roles.length === 0) {
+            return {
+              blockers: [
+                "Cette étape nécessite la validation d'un admin, manager ou super_admin",
+              ],
+            };
+          }
+          return {};
+        })(),
       );
     }
 
     for (const slug of step.documents_to_generate ?? []) {
       checks.push(
-        supabaseAdmin
-          .from("document_templates")
-          .select("id")
-          .eq("slug", slug)
-          .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
-          .maybeSingle()
-          .then(({ data: tpl }) => {
-            if (!tpl) return { warnings: [`Modèle de document indisponible : ${slug}`] };
-            return {};
-          }),
+        (async () => {
+          const { data: tpl } = await supabaseAdmin
+            .from("document_templates")
+            .select("id")
+            .eq("slug", slug)
+            .or(`is_public.eq.true,tenant_id.eq.${tenantId}`)
+            .maybeSingle();
+          if (!tpl) return { warnings: [`Modèle de document indisponible : ${slug}`] };
+          return {};
+        })(),
       );
     }
 
