@@ -4032,6 +4032,30 @@ export type Database = {
         }
         Relationships: []
       }
+      v_workflow_definitions_health: {
+        Row: {
+          avg_quality: number | null
+          generated_by: string | null
+          sensitive_count: number | null
+          status: string | null
+          workflows_count: number | null
+        }
+        Relationships: []
+      }
+      v_workflow_generator_stats: {
+        Row: {
+          avg_duration_ms: number | null
+          avg_quality_score: number | null
+          completed: number | null
+          day: string | null
+          failed: number | null
+          from_cache: number | null
+          rejected: number | null
+          total_runs: number | null
+          total_tokens: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_rate_limit: {
