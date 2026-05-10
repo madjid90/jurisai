@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
+import { WORKFLOW_VALIDATOR_ROLES } from "@/server/_shared/workflow-roles.server";
 
 export type ExtendedWorkflowStep = {
   key: string;
