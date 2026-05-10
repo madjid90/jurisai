@@ -24,7 +24,6 @@ afterEach(() => {
   globalThis.fetch = origFetch;
 });
 
-import { afterEach } from "vitest";
 import { multiQueryRag } from "../multi-query-rag.server";
 
 function row(chunkId: string, sourceId = "s1") {
