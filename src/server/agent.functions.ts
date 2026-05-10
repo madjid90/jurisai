@@ -452,12 +452,18 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     const runId = (runRow as { id: string }).id;
 
     // ÉTAPE 2-7 : boucle outils
+    // Top 51-60 / sécurité : on enveloppe le message utilisateur dans un bloc
+    // sanitisé pour neutraliser les tentatives de prompt-injection.
+    const { sanitizePromptInput, PROMPT_INJECTION_GUARD } = await import(
+      "@/server/_shared/prompt-sanitizer.server"
+    );
+    const safeMessage = sanitizePromptInput(data.message, { maxLength: 4000 });
     const userPreamble = data.dossier_id
-      ? `[Contexte dossier actif : ${data.dossier_id}]\nClassification préalable : intent=${classification.intent}, domaine=${classification.domain}, sujet="${classification.topic}".\n\nDemande utilisateur :\n${data.message}`
-      : `Classification préalable : intent=${classification.intent}, domaine=${classification.domain}, sujet="${classification.topic}".\n\nDemande utilisateur :\n${data.message}`;
+      ? `[Contexte dossier actif : ${data.dossier_id}]\nClassification préalable : intent=${classification.intent}, domaine=${classification.domain}, sujet="${classification.topic}".\n\nDemande utilisateur :\n${safeMessage}`
+      : `Classification préalable : intent=${classification.intent}, domaine=${classification.domain}, sujet="${classification.topic}".\n\nDemande utilisateur :\n${safeMessage}`;
 
     const messages: Array<Record<string, unknown>> = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: `${SYSTEM_PROMPT}\n\n${PROMPT_INJECTION_GUARD}` },
       { role: "user", content: userPreamble },
     ];
     const trace: AgentRunOutput["trace"] = [];
