@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { fillTemplate as sharedFillTemplate } from "@/server/_shared/template";
 
 const db = supabaseAdmin as unknown as {
   from: (table: string) => any;
