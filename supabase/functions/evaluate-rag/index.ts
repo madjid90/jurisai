@@ -149,12 +149,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    await requireSuperAdmin(req);
+    const { userId } = await requireSuperAdmin(req);
     const authToken = req.headers.get("Authorization") ?? "";
 
     const db = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    // Récupère le tenant de l'admin pour créer les conversations temporaires
+    const { data: profile } = await db
+      .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+    const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id;
+    if (!tenantId) throw new Error("Super admin sans tenant_id : impossible de créer une conversation d'évaluation.");
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.min(Number(body.limit ?? 50), 100);
@@ -176,7 +182,7 @@ Deno.serve(async (req) => {
     const results: EvalResult[] = [];
     for (const c of cases as EvalCase[]) {
       try {
-        const r = await runOneCase(authToken, c);
+        const r = await runOneCase(authToken, c, db, userId, tenantId);
         results.push(r);
         await db.from("rag_eval_runs").insert(r);
       } catch (e) {
