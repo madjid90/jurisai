@@ -20,7 +20,37 @@ export type WorkflowStep = {
   template_slug?: string;
   legal_refs?: string[];
   delay_days?: number;
+  reminder_days?: number;
   requires_sourcing?: boolean;
+};
+
+type WorkflowInstanceRow = {
+  id: string;
+  tenant_id: string;
+  current_step_index: number | null;
+  definition_id: string;
+  dossier_id: string | null;
+  client_id?: string | null;
+  title: string;
+  status?: string;
+  context: Record<string, unknown> | null;
+  workflow_definitions?: WorkflowDefinitionRow | null;
+};
+
+type WorkflowDefinitionRow = {
+  id: string;
+  title: string;
+  steps: WorkflowStep[];
+  requires_sourcing?: boolean | null;
+};
+
+type DocumentTemplateRow = {
+  id: string;
+  name: string;
+  body: string | null;
+  variables: unknown;
+  is_public: boolean | null;
+  tenant_id: string | null;
 };
 
 // ─── List workflow definitions (public + tenant) ───────────────────────────
