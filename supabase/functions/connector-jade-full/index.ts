@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
           const dec = await shouldIngest(db, "jade", d.id, hash);
           if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
 
-          await ingestSource(db, apiKey, "judilibre" /* RAG bucket */, {
-            external_id: `jade:${d.id}`,
+          await ingestSource(db, apiKey, "jade", {
+            external_id: d.id,
             source_type: "jurisprudence_administrative",
             title: `CE ${d.juridiction ?? ""} ${d.date ?? ""} — ${d.numero ?? d.id}`.trim(),
             content,
