@@ -41,7 +41,7 @@ export async function getCachedRag(
   void supabaseAdmin
     .rpc("increment_rag_cache_hit", { _key: key })
     .then(() => void 0, () => void 0);
-  return (data as { payload: CachedRagPayload }).payload ?? null;
+  return ((data as unknown) as { payload: CachedRagPayload }).payload ?? null;
 }
 
 export async function setCachedRag(
@@ -56,13 +56,15 @@ export async function setCachedRag(
   await supabaseAdmin
     .from("rag_response_cache")
     .upsert(
-      {
-        cache_key: key,
-        tenant_id: tenantId,
-        question: question.slice(0, 1000),
-        payload,
-        expires_at: expires,
-      },
+      [
+        {
+          cache_key: key,
+          tenant_id: tenantId,
+          question: question.slice(0, 1000),
+          payload: payload as unknown as Record<string, unknown>,
+          expires_at: expires,
+        },
+      ],
       { onConflict: "cache_key" },
     );
 }
