@@ -382,14 +382,22 @@ export async function skipStep(
 
   const newIndex = input.stepIndex + 1;
   const completed = newIndex >= inst.total_steps;
-  await sb
+  // W6/W9 — UPDATE conditionnel pour bloquer les avancements concurrents.
+  const { data: updated } = await sb
     .from("workflow_instances")
     .update({
       current_step_index: completed ? input.stepIndex : newIndex,
       status: completed ? "completed" : "in_progress",
       completed_at: completed ? new Date().toISOString() : null,
     })
-    .eq("id", inst.id);
+    .eq("id", inst.id)
+    .eq("current_step_index", input.stepIndex)
+    .select("id");
+  if (!updated || updated.length === 0) {
+    throw new Error(
+      "Cette étape a déjà été franchie par une autre session ; rechargez le workflow.",
+    );
+  }
 
   if (inst.dossier_id) {
     await logTimelineEvent({
