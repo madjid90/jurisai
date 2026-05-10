@@ -47,7 +47,7 @@ export const listWorkflowDefinitions = createServerFn({ method: "GET" })
 export const listWorkflowInstances = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ status: z.enum(["active", "completed", "cancelled", "all"]).optional() }).parse(i ?? {}),
+    z.object({ status: z.enum(["in_progress", "completed", "cancelled", "all"]).optional() }).parse(i ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
