@@ -26,6 +26,7 @@ import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import { marked } from "marked";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
