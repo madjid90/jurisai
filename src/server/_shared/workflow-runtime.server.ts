@@ -18,18 +18,21 @@ import { logWorkflowAudit } from "./workflow-audit.server";
 import { computeLegalDeadline, extractStepDelay, type DelayResult } from "./legal-delays.server";
 import { detectSensitiveActions } from "./sensitive-actions.server";
 
+// JSON-serializable types (TanStack server-fn impose des champs définis)
+export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
+
 export type StepDef = {
   key?: string;
   title?: string;
   description?: string;
   type?: string;
-  legal_refs?: unknown[];
+  legal_refs?: Json[];
   delay_amount?: number;
   delay_unit?: string;
   delay_days?: number;
   duration_days?: number;
   requires_human_review?: boolean;
-  [k: string]: unknown;
+  [k: string]: Json | undefined;
 };
 
 export type WorkflowInstanceFull = {
@@ -41,7 +44,7 @@ export type WorkflowInstanceFull = {
   title: string;
   status: string;
   current_step_index: number;
-  context: Record<string, unknown>;
+  context: { [k: string]: Json };
   steps: StepDef[];
   definition_title: string;
   total_steps: number;
@@ -52,10 +55,10 @@ export type WorkflowInstanceFull = {
     status: string;
     due_at: string | null;
     notes: string | null;
-    output: Record<string, unknown> | null;
+    output: { [k: string]: Json } | null;
     requires_validation: boolean;
     validation_request_id: string | null;
-    delay_calculation: Record<string, unknown>;
+    delay_calculation: { [k: string]: Json };
     executed_at: string | null;
   }>;
   current_step: StepDef | null;
