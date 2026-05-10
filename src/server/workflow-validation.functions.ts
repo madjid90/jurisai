@@ -105,7 +105,7 @@ export const validateWorkflowStep = createServerFn({ method: "POST" })
         .select("role")
         .eq("user_id", userId)
         .eq("tenant_id", tenantId)
-        .in("role", WORKFLOW_VALIDATOR_ROLES as unknown as string[]);
+        .in("role", [...WORKFLOW_VALIDATOR_ROLES]);
       if (!roles || roles.length === 0) {
         blockers.push("Cette étape nécessite la validation d'un admin, manager ou super_admin");
       }
