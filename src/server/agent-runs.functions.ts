@@ -478,7 +478,7 @@ SOURCES JURIDIQUES:
 ${sourcesBlock || "(aucune)"}`;
 
       // 4. Appel IA
-      const aiRes = await fetch(`${AI_GATEWAY}/chat/completions`, {
+      const aiRes = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({

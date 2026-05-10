@@ -52,7 +52,7 @@ export async function classifyIntent(
   suggested_actions: Array<{ kind: string; label: string; payload?: Record<string, unknown> }>;
   missing_information: string[];
 }> {
-  const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
+  const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${ctx.apiKey}`,
@@ -107,7 +107,7 @@ export async function searchLaw(
   ctx: AgentCtx,
 ): Promise<ToolOutcome> {
   try {
-    const embRes = await fetch(`${AI_GATEWAY}/embeddings`, {
+    const embRes = await llmFetch(`${AI_GATEWAY}/embeddings`, {
       method: "POST",
       headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: EMBED_MODEL, input: [query] }),
@@ -669,7 +669,7 @@ export async function analyzeDocumentTool(
   if (!text.trim()) return { result: { error: "Document vide" }, succeeded: false };
 
   // LLM : extraction de risques + résumé court
-  const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
+  const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({

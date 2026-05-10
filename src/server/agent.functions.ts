@@ -473,7 +473,7 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     let refusalReason: string | null = null;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
+      const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
