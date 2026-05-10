@@ -19,6 +19,12 @@ export async function embedTexts(
   });
   if (!res.ok) {
     const txt = await res.text();
+    if (res.status === 404 && txt.includes("route_not_found")) {
+      console.warn(
+        "[embeddings] Gateway embeddings indisponible pour ce workspace, ingestion poursuivie sans vecteurs.",
+      );
+      return new Array(inputs.length) as number[][];
+    }
     throw new Error(`Embedding error ${res.status}: ${txt.slice(0, 200)}`);
   }
   const json = await res.json();
