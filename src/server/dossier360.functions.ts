@@ -7,6 +7,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { notifyUser } from "@/server/_shared/notify.server";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -286,6 +287,34 @@ export const requestValidation = createServerFn({ method: "POST" })
       title: `Validation demandée : ${data.subjectType}`,
       metadata: { validation_id: row.id, assigned_to: assignedTo },
     });
+
+    // W12 — Notification automatique au validateur assigné (in-app + email
+    // selon préférences). On ne notifie pas le demandeur s'il est lui-même
+    // assigné (cas dégradé : aucun admin trouvé).
+    if (assignedTo && assignedTo !== userId) {
+      const { data: dossier } = await supabaseAdmin
+        .from("dossiers")
+        .select("title")
+        .eq("id", data.dossierId)
+        .maybeSingle();
+      const dossierTitle = (dossier as { title?: string } | null)?.title ?? "Dossier";
+      await notifyUser({
+        userId: assignedTo,
+        tenantId,
+        kind: "validation_requested",
+        title: `Validation à traiter : ${data.subjectType}`,
+        body: `${dossierTitle} — ${data.comment ?? "Aucun commentaire."}`,
+        link: `/dossiers/${data.dossierId}?tab=validations`,
+        metadata: {
+          validation_id: row.id,
+          dossier_id: data.dossierId,
+          subject_type: data.subjectType,
+          requested_by: userId,
+        },
+      }).catch(() => {
+        /* la notification ne doit pas casser la création */
+      });
+    }
 
     return { validation: row };
   });

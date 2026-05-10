@@ -3337,40 +3337,527 @@ export type Database = {
           cost_cents: number | null
           created_at: string
           id: string
-          metadata: Json | null
-          tenant_id: string
+          metadata: Json
+          tenant_id: string | null
           tokens_used: number | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           action: string
           cost_cents?: number | null
           created_at?: string
           id?: string
-          metadata?: Json | null
-          tenant_id: string
+          metadata?: Json
+          tenant_id?: string | null
           tokens_used?: number | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           action?: string
           cost_cents?: number | null
           created_at?: string
           id?: string
-          metadata?: Json | null
-          tenant_id?: string
+          metadata?: Json
+          tenant_id?: string | null
           tokens_used?: number | null
-          user_id?: string
+          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "usage_logs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      usage_logs_part_2026_04: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_05: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_06: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_07: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_08: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_09: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_10: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_11: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2026_12: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2027_01: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2027_02: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2027_03: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2027_04: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_2027_05: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_logs_part_default: {
+        Row: {
+          action: string
+          cost_cents: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          tenant_id: string | null
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          cost_cents?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string | null
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -4177,6 +4664,10 @@ export type Database = {
         Returns: string
       }
       current_tenant_id: { Args: never; Returns: string }
+      ensure_usage_logs_partition: {
+        Args: { p_month?: string }
+        Returns: undefined
+      }
       finalize_batch: { Args: { p_batch_id: string }; Returns: Json }
       get_data_quality_snapshot: { Args: never; Returns: Json }
       get_next_batch_items: {
