@@ -27,7 +27,11 @@ const RX_SIRET = /\b(\d{3}[\s.]?\d{3}[\s.]?\d{3}[\s.]?\d{5})\b/g;
 const RX_IBAN = /\b([A-Z]{2}\d{2}(?:[\s]?[A-Z0-9]{4}){3,7})\b/g;
 const RX_EMAIL = /\b([\w.+-]+@[\w-]+\.[\w.-]+)\b/g;
 const RX_PHONE = /\b(?:\+33|0)\s?[1-9](?:[\s.-]?\d{2}){4}\b/g;
-const RX_DATE_FR = /\b(\d{1,2}[\s/.-]\d{1,2}[\s/.-]\d{2,4})\b/g;
+// R14 — Negative lookbehind/lookahead pour éviter les faux positifs dans des
+// séquences de chiffres plus longues (téléphones, SIRET, IBAN). On exige que
+// la date ne soit ni précédée ni suivie d'un chiffre ou d'un séparateur de
+// chiffres (/, -, ., espace + chiffre).
+const RX_DATE_FR = /(?<![\d./\-])(\d{1,2}[\s/.-]\d{1,2}[\s/.-]\d{2,4})(?![\d./\-])/g;
 const RX_AMOUNT = /\b(\d{1,3}(?:[\s.]\d{3})*(?:,\d{2})?)\s?(?:€|EUR|euros?)\b/gi;
 const RX_DOSSIER_REF = /\b(?:dossier|réf(?:érence)?|ref|n°|numéro)\s*:?\s*([A-Z0-9][\w/-]{2,20})\b/gi;
 

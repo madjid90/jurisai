@@ -1939,6 +1939,13 @@ export type Database = {
             foreignKeyName: "ingestion_jobs_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
+            referencedRelation: "legal_reference_index"
+            referencedColumns: ["source_id"]
+          },
+          {
+            foreignKeyName: "ingestion_jobs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
             referencedRelation: "legal_sources"
             referencedColumns: ["id"]
           },
@@ -2036,6 +2043,13 @@ export type Database = {
             foreignKeyName: "legal_alerts_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
+            referencedRelation: "legal_reference_index"
+            referencedColumns: ["source_id"]
+          },
+          {
+            foreignKeyName: "legal_alerts_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
             referencedRelation: "legal_sources"
             referencedColumns: ["id"]
           },
@@ -2073,6 +2087,13 @@ export type Database = {
           version_date?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "legal_article_versions_source_fk"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_reference_index"
+            referencedColumns: ["source_id"]
+          },
           {
             foreignKeyName: "legal_article_versions_source_fk"
             columns: ["source_id"]
@@ -2117,6 +2138,13 @@ export type Database = {
           token_count?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "legal_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_reference_index"
+            referencedColumns: ["source_id"]
+          },
           {
             foreignKeyName: "legal_chunks_source_id_fkey"
             columns: ["source_id"]
@@ -2350,6 +2378,13 @@ export type Database = {
           who_is_concerned?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "legal_updates_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_reference_index"
+            referencedColumns: ["source_id"]
+          },
           {
             foreignKeyName: "legal_updates_source_id_fkey"
             columns: ["source_id"]
@@ -4458,6 +4493,36 @@ export type Database = {
       }
     }
     Views: {
+      legal_reference_index: {
+        Row: {
+          idcc: string | null
+          official_url: string | null
+          reference_code: string | null
+          reference_norm: string | null
+          source_id: string | null
+          source_type: string | null
+          title: string | null
+        }
+        Insert: {
+          idcc?: string | null
+          official_url?: string | null
+          reference_code?: string | null
+          reference_norm?: never
+          source_id?: string | null
+          source_type?: string | null
+          title?: string | null
+        }
+        Update: {
+          idcc?: string | null
+          official_url?: string | null
+          reference_code?: string | null
+          reference_norm?: never
+          source_id?: string | null
+          source_type?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       v_ingestion_progress: {
         Row: {
           articles_ingested: number | null
