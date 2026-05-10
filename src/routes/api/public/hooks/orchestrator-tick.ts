@@ -91,7 +91,7 @@ export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
 
         return Response.json({
           ok: true,
-          inspected: pending?.length ?? 0,
+          inspected: pending.length,
           resumed: launched.filter((l) => l.ok).length,
           launched,
           timestamp: new Date().toISOString(),
