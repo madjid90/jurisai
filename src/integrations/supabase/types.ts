@@ -1765,6 +1765,66 @@ export type Database = {
           },
         ]
       }
+      ingestion_batch_state: {
+        Row: {
+          articles_ingested: number
+          articles_skipped_unchanged: number
+          batch_type: string
+          completed_at: string | null
+          connector: string
+          error_log: Json
+          failed_count: number
+          failed_items: Json
+          id: string
+          last_tick_at: string
+          metadata: Json
+          processed_count: number
+          processed_items: Json
+          started_at: string
+          status: string
+          total_count: number
+          total_items: Json
+        }
+        Insert: {
+          articles_ingested?: number
+          articles_skipped_unchanged?: number
+          batch_type: string
+          completed_at?: string | null
+          connector: string
+          error_log?: Json
+          failed_count?: number
+          failed_items?: Json
+          id?: string
+          last_tick_at?: string
+          metadata?: Json
+          processed_count?: number
+          processed_items?: Json
+          started_at?: string
+          status?: string
+          total_count?: number
+          total_items?: Json
+        }
+        Update: {
+          articles_ingested?: number
+          articles_skipped_unchanged?: number
+          batch_type?: string
+          completed_at?: string | null
+          connector?: string
+          error_log?: Json
+          failed_count?: number
+          failed_items?: Json
+          id?: string
+          last_tick_at?: string
+          metadata?: Json
+          processed_count?: number
+          processed_items?: Json
+          started_at?: string
+          status?: string
+          total_count?: number
+          total_items?: Json
+        }
+        Relationships: []
+      }
       ingestion_errors: {
         Row: {
           connector: string
@@ -3575,11 +3635,81 @@ export type Database = {
       }
     }
     Views: {
+      v_ingestion_progress: {
+        Row: {
+          articles_ingested: number | null
+          articles_skipped_unchanged: number | null
+          batch_id: string | null
+          batch_type: string | null
+          connector: string | null
+          elapsed_sec: number | null
+          estimated_remaining_sec: number | null
+          failed_count: number | null
+          last_tick_at: string | null
+          metadata: Json | null
+          percent_complete: number | null
+          processed_count: number | null
+          started_at: string | null
+          status: string | null
+          total_count: number | null
+        }
+        Insert: {
+          articles_ingested?: number | null
+          articles_skipped_unchanged?: number | null
+          batch_id?: string | null
+          batch_type?: string | null
+          connector?: string | null
+          elapsed_sec?: never
+          estimated_remaining_sec?: never
+          failed_count?: number | null
+          last_tick_at?: string | null
+          metadata?: Json | null
+          percent_complete?: never
+          processed_count?: number | null
+          started_at?: string | null
+          status?: string | null
+          total_count?: number | null
+        }
+        Update: {
+          articles_ingested?: number | null
+          articles_skipped_unchanged?: number | null
+          batch_id?: string | null
+          batch_type?: string | null
+          connector?: string | null
+          elapsed_sec?: never
+          estimated_remaining_sec?: never
+          failed_count?: number | null
+          last_tick_at?: string | null
+          metadata?: Json | null
+          percent_complete?: never
+          processed_count?: number | null
+          started_at?: string | null
+          status?: string | null
+          total_count?: number | null
+        }
+        Relationships: []
+      }
+      v_legal_chunks_summary: {
+        Row: {
+          avg_chunk_size: number | null
+          chunks_count: number | null
+          connector: string | null
+          embedded_chunks: number | null
+          missing_embeddings: number | null
+          source_type: string | null
+          sources_count: number | null
+        }
+        Relationships: []
+      }
       v_legal_sources_summary: {
         Row: {
           active_sources: number | null
           connector: string | null
+          distinct_codes: number | null
+          distinct_idcc: number | null
           first_ingested: string | null
+          hashed_sources: number | null
+          inactive_sources: number | null
           last_update: string | null
           source_type: string | null
           total_sources: number | null
@@ -3601,6 +3731,7 @@ export type Database = {
         }[]
       }
       cleanup_rate_limits: { Args: never; Returns: undefined }
+      cleanup_zombie_batches: { Args: never; Returns: number }
       create_notification: {
         Args: {
           _body?: string
@@ -3614,7 +3745,12 @@ export type Database = {
         Returns: string
       }
       current_tenant_id: { Args: never; Returns: string }
+      finalize_batch: { Args: { p_batch_id: string }; Returns: Json }
       get_data_quality_snapshot: { Args: never; Returns: Json }
+      get_next_batch_items: {
+        Args: { p_batch_id: string; p_limit?: number }
+        Returns: Json
+      }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
@@ -3676,6 +3812,23 @@ export type Database = {
         }
         Returns: string
       }
+      mark_items_failed: {
+        Args: {
+          p_batch_id: string
+          p_error_message: string
+          p_failed_items: Json
+        }
+        Returns: undefined
+      }
+      mark_items_processed: {
+        Args: {
+          p_articles_ingested?: number
+          p_articles_skipped?: number
+          p_batch_id: string
+          p_processed_items: Json
+        }
+        Returns: undefined
+      }
       match_dossier_context: {
         Args: {
           p_embedding: string
@@ -3692,6 +3845,15 @@ export type Database = {
       }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
       run_data_quality_checks: { Args: never; Returns: undefined }
+      start_ingestion_batch: {
+        Args: {
+          p_batch_type: string
+          p_connector: string
+          p_items: Json
+          p_metadata?: Json
+        }
+        Returns: string
+      }
       validate_api_key: {
         Args: { _key_hash: string }
         Returns: {
