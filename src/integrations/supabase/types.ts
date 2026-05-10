@@ -3859,6 +3859,8 @@ export type Database = {
       workflow_step_runs: {
         Row: {
           created_at: string
+          delay_calculation: Json
+          due_at: string | null
           executed_at: string | null
           executed_by: string | null
           generated_document_id: string | null
@@ -3867,12 +3869,17 @@ export type Database = {
           legal_sources: Json
           notes: string | null
           output: Json | null
+          requires_validation: boolean
           status: string
+          step_definition: Json
           step_index: number
           step_key: string
+          validation_request_id: string | null
         }
         Insert: {
           created_at?: string
+          delay_calculation?: Json
+          due_at?: string | null
           executed_at?: string | null
           executed_by?: string | null
           generated_document_id?: string | null
@@ -3881,12 +3888,17 @@ export type Database = {
           legal_sources?: Json
           notes?: string | null
           output?: Json | null
+          requires_validation?: boolean
           status?: string
+          step_definition?: Json
           step_index: number
           step_key: string
+          validation_request_id?: string | null
         }
         Update: {
           created_at?: string
+          delay_calculation?: Json
+          due_at?: string | null
           executed_at?: string | null
           executed_by?: string | null
           generated_document_id?: string | null
@@ -3895,9 +3907,12 @@ export type Database = {
           legal_sources?: Json
           notes?: string | null
           output?: Json | null
+          requires_validation?: boolean
           status?: string
+          step_definition?: Json
           step_index?: number
           step_key?: string
+          validation_request_id?: string | null
         }
         Relationships: [
           {
@@ -3912,6 +3927,13 @@ export type Database = {
             columns: ["instance_id"]
             isOneToOne: false
             referencedRelation: "workflow_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_step_runs_validation_request_id_fkey"
+            columns: ["validation_request_id"]
+            isOneToOne: false
+            referencedRelation: "validation_requests"
             referencedColumns: ["id"]
           },
         ]
