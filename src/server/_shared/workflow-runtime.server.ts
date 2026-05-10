@@ -16,7 +16,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
 import { logWorkflowAudit } from "./workflow-audit.server";
 import { computeLegalDeadline, extractStepDelay, type DelayResult } from "./legal-delays.server";
-import { detectSensitiveAction } from "./sensitive-actions.server";
+import { detectSensitiveActions } from "./sensitive-actions.server";
 
 export type StepDef = {
   key?: string;
