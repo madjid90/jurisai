@@ -62,55 +62,79 @@ Deno.serve(async (req) => {
       batchId = await startBatch(db, "cdtn-contributions-full", "contributions", items, {});
     }
 
-    const start = Date.now();
-    let ingested = 0, skipped = 0, failed = 0;
+    // @ts-ignore EdgeRuntime injecté par Supabase
 
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, 15);
-      if (!items.length) break;
-      const ok: BatchItem[] = [], fl: BatchItem[] = [];
-      let ing = 0, sk = 0;
+    EdgeRuntime.waitUntil((async () => {
 
-      for (const it of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          const r = await fetch(it.download_url ?? `${RAW_BASE}/${it.name}`);
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const c = await r.json() as Contribution;
-          const content = extractContent(c);
-          if (content.length < 100) { ok.push(it); continue; }
+      try {
 
-          const externalId = c.id ?? it.sha;
-          const hash = await sha256(content);
-          const dec = await shouldIngest(db, "cdtn-contributions-full", externalId, hash);
-          if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+          const start = Date.now();
+          let ingested = 0, skipped = 0, failed = 0;
 
-          await ingestSource(db, apiKey, "cdtn-contributions", {
-            external_id: externalId,
-            source_type: "cdtn_question",
-            title: c.title.slice(0, 500),
-            content: `**Source officielle** : Code du travail numérique (DGT)\n\n${content}`,
-            reference_code: c.index ?? null,
-            official_url: `https://code.travail.gouv.fr/contribution/${c.id ?? externalId}`,
-            raw_metadata: {
-              cdtn_id: c.id, sha: it.sha, content_hash: hash,
-              cc_count: c.answers?.conventions?.length ?? 0,
-            },
-          });
-          ing++; ok.push(it);
-        } catch (err) {
-          fl.push(it);
-          console.error(`[cdtn-contributions-full] ${it.name}:`, (err as Error).message);
-        }
+          while (Date.now() - start < TIME_BUDGET_MS) {
+            const items = await getNextItems<BatchItem>(db, batchId, 15);
+            if (!items.length) break;
+            const ok: BatchItem[] = [], fl: BatchItem[] = [];
+            let ing = 0, sk = 0;
+
+            for (const it of items) {
+              if (Date.now() - start > TIME_BUDGET_MS) break;
+              try {
+                const r = await fetch(it.download_url ?? `${RAW_BASE}/${it.name}`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const c = await r.json() as Contribution;
+                const content = extractContent(c);
+                if (content.length < 100) { ok.push(it); continue; }
+
+                const externalId = c.id ?? it.sha;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "cdtn-contributions-full", externalId, hash);
+                if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+
+                await ingestSource(db, apiKey, "cdtn-contributions", {
+                  external_id: externalId,
+                  source_type: "cdtn_question",
+                  title: c.title.slice(0, 500),
+                  content: `**Source officielle** : Code du travail numérique (DGT)\n\n${content}`,
+                  reference_code: c.index ?? null,
+                  official_url: `https://code.travail.gouv.fr/contribution/${c.id ?? externalId}`,
+                  raw_metadata: {
+                    cdtn_id: c.id, sha: it.sha, content_hash: hash,
+                    cc_count: c.answers?.conventions?.length ?? 0,
+                  },
+                });
+                ing++; ok.push(it);
+              } catch (err) {
+                fl.push(it);
+                console.error(`[cdtn-contributions-full] ${it.name}:`, (err as Error).message);
+              }
+            }
+
+            if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
+            if (fl.length) await markFailed(db, batchId, fl, "see logs");
+            ingested += ing; skipped += sk; failed += fl.length;
+          }
+
+          const fin = await finalizeBatch(db, batchId);
+          console.log(`[connector-cdtn-contributions-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
+
+      } catch (err) {
+
+        console.error(`[connector-cdtn-contributions-full] background error:`, (err as Error).message);
+
       }
 
-      if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
-      if (fl.length) await markFailed(db, batchId, fl, "see logs");
-      ingested += ing; skipped += sk; failed += fl.length;
-    }
+    })());
 
-    const fin = await finalizeBatch(db, batchId);
-    return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });
+    return json({
+
+      status: "started",
+
+      message: "Ingestion lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+
+      batch_id: batchId,
+
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);

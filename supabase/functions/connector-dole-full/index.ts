@@ -93,58 +93,82 @@ Deno.serve(async (req) => {
       batchId = await startBatch(db, "dole-full", "dossiers", items, { months: body.months ?? 24 });
     }
 
-    const start = Date.now();
-    let ingested = 0, skipped = 0, failed = 0;
+    // @ts-ignore EdgeRuntime injecté par Supabase
 
-    while (Date.now() - start < TIME_BUDGET_MS) {
-      const items = await getNextItems<BatchItem>(db, batchId, 8);
-      if (!items.length) break;
-      const ok: BatchItem[] = [], fl: BatchItem[] = [];
-      let ing = 0, sk = 0;
+    EdgeRuntime.waitUntil((async () => {
 
-      for (const it of items) {
-        if (Date.now() - start > TIME_BUDGET_MS) break;
-        try {
-          const d = await fetchDossier(token, it.id);
-          let body = "";
-          if (d) {
-            if (d.resume) body += `## Résumé\n\n${d.resume}\n\n`;
-            if (d.exposeMotifs) body += `## Exposé des motifs\n\n${d.exposeMotifs}\n\n`;
-            if (d.evenements?.length) {
-              body += `## Étapes\n\n` + d.evenements.map((e) => `- ${e.date ?? ""} — ${e.titre ?? ""} ${e.description ?? ""}`).join("\n");
+      try {
+
+          const start = Date.now();
+          let ingested = 0, skipped = 0, failed = 0;
+
+          while (Date.now() - start < TIME_BUDGET_MS) {
+            const items = await getNextItems<BatchItem>(db, batchId, 8);
+            if (!items.length) break;
+            const ok: BatchItem[] = [], fl: BatchItem[] = [];
+            let ing = 0, sk = 0;
+
+            for (const it of items) {
+              if (Date.now() - start > TIME_BUDGET_MS) break;
+              try {
+                const d = await fetchDossier(token, it.id);
+                let body = "";
+                if (d) {
+                  if (d.resume) body += `## Résumé\n\n${d.resume}\n\n`;
+                  if (d.exposeMotifs) body += `## Exposé des motifs\n\n${d.exposeMotifs}\n\n`;
+                  if (d.evenements?.length) {
+                    body += `## Étapes\n\n` + d.evenements.map((e) => `- ${e.date ?? ""} — ${e.titre ?? ""} ${e.description ?? ""}`).join("\n");
+                  }
+                }
+                body = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+                if (body.length < 50) body = `Dossier législatif ${it.title} (${it.nature ?? "loi"}, ${it.date ?? ""})`;
+
+                const content = `**Source officielle** : Légifrance — Dossier législatif\n\n# ${it.title}\n\n${body}`;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "dole-full", it.id, hash);
+                if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+
+                await ingestSource(db, apiKey, "dole", {
+                  external_id: it.id,
+                  source_type: "dossier_legislatif",
+                  title: it.title.slice(0, 500),
+                  content,
+                  official_url: `https://www.legifrance.gouv.fr/dossierlegislatif/${it.id}`,
+                  legal_date: it.date ? it.date.slice(0, 10) : null,
+                  raw_metadata: { nature: it.nature, content_hash: hash },
+                });
+                ing++; ok.push(it);
+              } catch (err) {
+                fl.push(it);
+                console.error(`[dole-full] ${it.id}:`, (err as Error).message);
+              }
             }
+
+            if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
+            if (fl.length) await markFailed(db, batchId, fl, "see logs");
+            ingested += ing; skipped += sk; failed += fl.length;
           }
-          body = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-          if (body.length < 50) body = `Dossier législatif ${it.title} (${it.nature ?? "loi"}, ${it.date ?? ""})`;
 
-          const content = `**Source officielle** : Légifrance — Dossier législatif\n\n# ${it.title}\n\n${body}`;
-          const hash = await sha256(content);
-          const dec = await shouldIngest(db, "dole-full", it.id, hash);
-          if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
+          const fin = await finalizeBatch(db, batchId);
+          console.log(`[connector-dole-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
 
-          await ingestSource(db, apiKey, "dole", {
-            external_id: it.id,
-            source_type: "dossier_legislatif",
-            title: it.title.slice(0, 500),
-            content,
-            official_url: `https://www.legifrance.gouv.fr/dossierlegislatif/${it.id}`,
-            legal_date: it.date ? it.date.slice(0, 10) : null,
-            raw_metadata: { nature: it.nature, content_hash: hash },
-          });
-          ing++; ok.push(it);
-        } catch (err) {
-          fl.push(it);
-          console.error(`[dole-full] ${it.id}:`, (err as Error).message);
-        }
+      } catch (err) {
+
+        console.error(`[connector-dole-full] background error:`, (err as Error).message);
+
       }
 
-      if (ok.length) await markProcessed(db, batchId, ok, ing, sk);
-      if (fl.length) await markFailed(db, batchId, fl, "see logs");
-      ingested += ing; skipped += sk; failed += fl.length;
-    }
+    })());
 
-    const fin = await finalizeBatch(db, batchId);
-    return json({ batch_id: batchId, status: fin.status, processed: fin.processed, total: fin.total, ingested, skipped_unchanged: skipped, failed });
+    return json({
+
+      status: "started",
+
+      message: "Ingestion lancée en arrière-plan. Le batch apparaîtra dans Jobs récents sous ~10s.",
+
+      batch_id: batchId,
+
+    }, 202);
   } catch (err) {
     if (err instanceof AuthError) return err.toResponse(corsHeaders);
     return json({ error: (err as Error).message }, 500);
