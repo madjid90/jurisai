@@ -746,7 +746,26 @@ function RunDetail({
           ) : null}
 
           {status !== "archived" ? (
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportAnswerToPdf({
+                    title: (run.title as string) || (run.message as string).slice(0, 80),
+                    question: run.message as string,
+                    answer: answerText,
+                    procedure,
+                    sources,
+                    confidence: confidence ?? null,
+                    createdAt: run.created_at as string | undefined,
+                  })
+                }
+                className="gap-1.5"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Exporter en PDF
+              </Button>
               <Button variant="ghost" size="sm" onClick={doArchive} disabled={busy}>
                 Classer cette demande
               </Button>
