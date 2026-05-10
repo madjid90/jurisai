@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
 import {
   CONTRACT_RISKS,
@@ -166,9 +167,7 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
   const apiKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY manquante");
 
-  const truncated = text.length > MAX_TEXT_CHARS
-    ? text.slice(0, MAX_TEXT_CHARS) + "\n\n[...document tronqué...]"
-    : text;
+  const safeUserBlock = sanitizePromptInput(text, { maxLength: MAX_TEXT_CHARS, label: "DOCUMENT" });
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -177,10 +176,11 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      // Décision sensible (détection de risques juridiques) → Pro obligatoire
+      model: "google/gemini-2.5-pro",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Analyse ce document juridique :\n\n${truncated}` },
+        { role: "system", content: `${SYSTEM_PROMPT}\n\n${PROMPT_INJECTION_GUARD.replace(/USER_INPUT/g, "DOCUMENT")}` },
+        { role: "user", content: `Analyse ce document juridique :\n\n${safeUserBlock}` },
       ],
       response_format: { type: "json_object" },
     }),

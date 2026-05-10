@@ -249,7 +249,8 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
+              // Polish d'un document juridique → Pro (qualité + cohérence des clauses)
+              model: "google/gemini-2.5-pro",
               messages: [
                 {
                   role: "system",
