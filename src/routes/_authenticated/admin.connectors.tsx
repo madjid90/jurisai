@@ -12,6 +12,9 @@ import {
   Clock,
   AlertTriangle,
   Key,
+  Eye,
+  EyeOff,
+  Copy,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
