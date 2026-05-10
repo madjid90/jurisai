@@ -100,6 +100,10 @@ export function GenerationWizard({ template, dossierId, uploadedAnalysisId, onCl
     template.can_create_reminder && template.reminder_days_default ? String(template.reminder_days_default) : "",
   );
   const [busy, setBusy] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
 
   // Crée la session au montage (ou à choix de scénario)
   useEffect(() => {
