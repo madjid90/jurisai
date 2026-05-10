@@ -29,8 +29,9 @@ import {
 } from "./_shared/agent-tools.server";
 import { llmFetch } from "./_shared/llm-fetch.server";
 
+import { resolveChatModel } from "./_shared/llm-models.server";
+
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const CHAT_MODEL = "google/gemini-3-flash-preview";
 const MAX_ROUNDS = 6;
 
 const SYSTEM_PROMPT = `Tu es **JurisAI**, copilote juridique transverse pour cabinets et entreprises (RH, commercial, sociétés, RGPD, fiscal, contentieux, administratif).
@@ -473,12 +474,13 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     let refused = false;
     let refusalReason: string | null = null;
 
+    const chatModel = await resolveChatModel(tenantId);
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: chatModel,
           messages,
           tools: TOOLS,
           tool_choice: "auto",

@@ -6,10 +6,10 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
 import { llmFetch } from "./llm-fetch.server";
+import { resolveChatModel, DEFAULT_EMBED_MODEL } from "./llm-models.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const CHAT_MODEL = "google/gemini-3-flash-preview";
-const EMBED_MODEL = "openai/text-embedding-3-small";
+const EMBED_MODEL = DEFAULT_EMBED_MODEL;
 
 export type AgentCtx = {
   userId: string;
@@ -60,7 +60,7 @@ export async function classifyIntent(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: CHAT_MODEL,
+      model: await resolveChatModel(ctx.tenantId),
       response_format: { type: "json_object" },
       messages: [
         {
@@ -674,7 +674,7 @@ export async function analyzeDocumentTool(
     method: "POST",
     headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: CHAT_MODEL,
+      model: await resolveChatModel(ctx.tenantId),
       response_format: { type: "json_object" },
       messages: [
         {
