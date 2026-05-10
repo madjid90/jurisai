@@ -58,7 +58,7 @@ export async function logApiAudit(
   metadata: Record<string, unknown> = {},
 ) {
   try {
-    await supabaseAdmin.from("audit_logs").insert({
+    await (supabaseAdmin as any).from("audit_logs").insert({
       tenant_id: ctx.tenantId,
       api_key_id: ctx.apiKeyId,
       action,

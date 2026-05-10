@@ -210,7 +210,7 @@ export const updateRiskStatus = createServerFn({ method: "POST" })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from("identified_risks")
       .update(patch)
       .eq("id", data.riskId)

@@ -158,7 +158,7 @@ export const updateLegalUpdateActionStatus = createServerFn({ method: "POST" })
     const update: Record<string, unknown> = { status: data.status, updated_at: new Date().toISOString() };
     if (data.status === "completed") update.completed_at = new Date().toISOString();
 
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from("legal_update_actions")
       .update(update)
       .eq("id", data.actionId)

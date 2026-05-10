@@ -134,7 +134,7 @@ export const startWorkflow = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
-    const { data: inserted, error } = await supabaseAdmin
+    const { data: inserted, error } = await (supabaseAdmin as any)
       .from("workflow_instances")
       .insert({
         tenant_id: tenantId,
@@ -237,7 +237,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
     const currentStep = steps[data.stepIndex];
 
     // Insert step run
-    await supabaseAdmin.from("workflow_step_runs").insert({
+    await (supabaseAdmin as any).from("workflow_step_runs").insert({
       instance_id: data.instanceId,
       step_index: data.stepIndex,
       step_key: data.stepKey,

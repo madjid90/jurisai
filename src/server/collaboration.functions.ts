@@ -212,7 +212,7 @@ export const updateTask = createServerFn({ method: "POST" })
     if (data.assignedTo !== undefined) patch.assigned_to = data.assignedTo;
     if (data.dueDate !== undefined) patch.due_date = data.dueDate;
 
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from("dossier_tasks").update(patch).eq("id", data.taskId);
     if (error) throw new Error(error.message);
     return { ok: true };

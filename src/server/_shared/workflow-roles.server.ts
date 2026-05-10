@@ -18,7 +18,7 @@ export type WorkflowValidatorRole = (typeof WORKFLOW_VALIDATOR_ROLES)[number];
 /** Renvoie la liste (déduite) des user_id ayant un rôle validateur sur le tenant. */
 export async function listTenantValidators(tenantId: string): Promise<string[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await supabaseAdmin
+  const { data } = await (supabaseAdmin as any)
     .from("user_roles")
     .select("user_id")
     .eq("tenant_id", tenantId)
@@ -30,7 +30,7 @@ export async function listTenantValidators(tenantId: string): Promise<string[]> 
 /** True si l'utilisateur a un rôle validateur sur le tenant. */
 export async function userIsValidator(userId: string, tenantId: string): Promise<boolean> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await supabaseAdmin
+  const { data } = await (supabaseAdmin as any)
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
