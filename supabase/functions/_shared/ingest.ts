@@ -7,17 +7,26 @@ import { smartChunk } from "./smart-chunk.ts";
 
 export type ConnectorName =
   | "legifrance"
+  | "legifrance-full"
   | "judilibre"
+  | "judilibre-full"
   | "kali"
+  | "kali-full"
   | "bofip"
+  | "bofip-full"
   | "cdtn-modeles"
+  | "cdtn-modeles-full"
   | "cdtn-contributions"
+  | "cdtn-contributions-full"
   | "cdtn-fiches"
   | "acco"
   | "dole"
+  | "dole-full"
   | "service-public"
   | "cnil"
+  | "cnil-full"
   | "jade"
+  | "jade-full"
   | "manual";
 
 export interface SourceInput {
