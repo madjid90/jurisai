@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useConfirm } from "@/components/shared/ConfirmProvider";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
@@ -10,12 +10,13 @@ import {
   Loader2,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/utils";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import { VirtualList } from "@/components/shared/VirtualList";
 import {
   analyzeDocument,
   deleteAnalysis,
@@ -45,27 +46,27 @@ function AnalysesPage() {
   const deleteFn = useServerFn(deleteAnalysis);
   const analyzeFn = useServerFn(analyzeDocument);
 
-  const [items, setItems] = useState<AnalysisRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const refresh = async () => {
-    try {
-      const res = await listFn();
-      setItems((res.analyses ?? []) as AnalysisRow[]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetcher = useCallback(
+    async ({ limit, offset }: { limit: number; offset: number }) => {
+      const res = await listFn({ data: { limit, offset } });
+      return {
+        items: (res.analyses ?? []) as AnalysisRow[],
+        hasMore: res.hasMore ?? false,
+        total: res.total,
+      };
+    },
+    [listFn],
+  );
 
-  useEffect(() => {
-    if (user) void refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const list = useInfiniteList<AnalysisRow>(fetcher, {
+    pageSize: 30,
+    enabled: !!user,
+    deps: [user?.id],
+  });
 
   const handleFile = async (file: File) => {
     const ext = file.name.toLowerCase().split(".").pop();
