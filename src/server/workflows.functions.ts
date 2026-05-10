@@ -224,7 +224,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
       .from("workflow_instances")
       .update({
         current_step_index: isComplete ? steps.length : nextIndex,
-        status: isComplete ? "completed" : "active",
+        status: isComplete ? "completed" : "in_progress",
         completed_at: isComplete ? new Date().toISOString() : null,
       })
       .eq("id", data.instanceId);
