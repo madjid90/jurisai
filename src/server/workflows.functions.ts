@@ -29,12 +29,16 @@ export const listWorkflowDefinitions = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
+    // BUG-W1 : on filtre les workflows non finalisés (draft_ai, rejected, pending_human_review).
+    // Seuls les workflows publiés ou validés (auto/humain) apparaissent dans le catalogue utilisateur.
     const { data, error } = await supabaseAdmin
       .from("workflow_definitions")
-      .select("id, slug, title, description, category, status, version, steps, legal_refs, estimated_duration_days, tenant_id")
+      .select("id, slug, title, description, category, status, lifecycle_status, version, steps, legal_refs, estimated_duration_days, tenant_id")
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
+      .in("lifecycle_status", ["published", "ai_validated_auto", "human_validated"])
       .order("title", { ascending: true });
     if (error) throw new Error(error.message);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data ?? []) as any[];
   });
 
