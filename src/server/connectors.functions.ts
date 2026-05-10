@@ -33,21 +33,58 @@ export const listConnectorJobs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertSuperAdmin(context.userId);
-    const { data, error } = await (supabaseAdmin as unknown as {
+    // Read batches from ingestion_batch_state (used by *-full connectors)
+    // and map to the ConnectorJobRow shape expected by the UI.
+    const client = supabaseAdmin as unknown as {
       from: (t: string) => {
         select: (s: string) => {
           order: (c: string, o: { ascending: boolean }) => {
-            limit: (n: number) => Promise<{ data: ConnectorJobRow[] | null; error: { message: string } | null }>;
+            limit: (n: number) => Promise<{
+              data: Array<{
+                id: string;
+                connector: string | null;
+                batch_type: string | null;
+                status: string;
+                total_count: number | null;
+                processed_count: number | null;
+                failed_count: number | null;
+                articles_ingested: number | null;
+                articles_skipped_unchanged: number | null;
+                completed_at: string | null;
+                metadata: Record<string, unknown> | null;
+                started_at: string;
+                last_tick_at: string | null;
+              }> | null;
+              error: { message: string } | null;
+            }>;
           };
         };
       };
-    })
-      .from("ingestion_jobs")
-      .select("id, connector, status, job_type, items_total, items_processed, items_failed, completed_at, params, created_at")
-      .order("created_at", { ascending: false })
+    };
+    const { data, error } = await client
+      .from("ingestion_batch_state")
+      .select("id, connector, batch_type, status, total_count, processed_count, failed_count, articles_ingested, articles_skipped_unchanged, completed_at, metadata, started_at, last_tick_at")
+      .order("started_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return { jobs: (data ?? []) as ConnectorJobRow[] };
+    const jobs: ConnectorJobRow[] = (data ?? []).map((b) => ({
+      id: b.id,
+      connector: b.connector,
+      status: b.status,
+      job_type: b.batch_type,
+      items_total: b.total_count,
+      items_processed: b.processed_count,
+      items_failed: b.failed_count,
+      completed_at: b.completed_at,
+      params: {
+        ...(b.metadata ?? {}),
+        articles_ingested: b.articles_ingested ?? 0,
+        articles_skipped: b.articles_skipped_unchanged ?? 0,
+        last_tick_at: b.last_tick_at,
+      },
+      created_at: b.started_at,
+    }));
+    return { jobs };
   });
 
 export const listConnectorErrors = createServerFn({ method: "POST" })
