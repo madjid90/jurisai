@@ -24,6 +24,7 @@ import {
   startWorkflowTool,
   analyzeDocumentTool,
   generateReportTool,
+  generateWorkflowTool,
 } from "./_shared/agent-tools.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
