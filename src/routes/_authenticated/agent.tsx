@@ -305,6 +305,78 @@ function AssistantPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Empty state — accueil engageant avec exemples couvrant les domaines clés
+// (RH, commercial, sociétés, RGPD, fiscalité, contentieux). Pas de jargon.
+// ---------------------------------------------------------------------------
+function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
+  const examples: Array<{ domain: string; prompt: string; emoji: string }> = [
+    {
+      domain: "Ressources humaines",
+      emoji: "👥",
+      prompt: "Je veux licencier un salarié pour faute grave — quelle procédure suivre ?",
+    },
+    {
+      domain: "Commercial",
+      emoji: "🤝",
+      prompt: "Vérifier mon contrat fournisseur et identifier les clauses à risque.",
+    },
+    {
+      domain: "Sociétés",
+      emoji: "🏢",
+      prompt: "Préparer une AGE pour modifier l'objet social de ma SAS.",
+    },
+    {
+      domain: "RGPD",
+      emoji: "🔒",
+      prompt: "Rédiger une politique de confidentialité conforme RGPD pour mon site.",
+    },
+    {
+      domain: "Contentieux",
+      emoji: "⚖️",
+      prompt: "Préparer une mise en demeure pour facture impayée depuis 60 jours.",
+    },
+    {
+      domain: "Fiscalité",
+      emoji: "📊",
+      prompt: "Quelles obligations fiscales pour une auto-entreprise dépassant 35 000 € ?",
+    },
+  ];
+
+  return (
+    <div className="py-8 space-y-6">
+      <div className="text-center space-y-1.5">
+        <p className="text-sm font-medium">Par où commencer ?</p>
+        <p className="text-xs text-muted-foreground">
+          Choisissez un exemple ou décrivez votre situation dans vos propres mots.
+        </p>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2.5">
+        {examples.map((ex, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPick(ex.prompt)}
+            className="group text-left rounded-lg border border-border/60 bg-background hover:border-primary/40 hover:bg-accent/30 transition p-3 space-y-1"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base leading-none">{ex.emoji}</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground group-hover:text-primary transition">
+                {ex.domain}
+              </span>
+            </div>
+            <p className="text-sm text-foreground/90 leading-snug">{ex.prompt}</p>
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground text-center">
+        Toutes les réponses sont sourcées sur la base juridique officielle. L'agent vous
+        demande des précisions si besoin et votre validation pour les actions sensibles.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Carte d'une demande — affiche l'état naturellement et déroule le détail
 // ---------------------------------------------------------------------------
 function RunCard({
