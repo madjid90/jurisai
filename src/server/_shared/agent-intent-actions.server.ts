@@ -10,6 +10,7 @@ import { logTimelineEvent } from "./timeline.server";
 import { extractEntities } from "./entity-extraction.server";
 import { prefillSession } from "./prefill.server";
 import type { PrefillSource, TemplateField } from "@/lib/templates/template-config";
+import { fillTemplate } from "./template";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabaseAdmin as any;
