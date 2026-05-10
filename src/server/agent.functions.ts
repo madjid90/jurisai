@@ -9,26 +9,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
 import {
   type AgentCtx,
-  type ToolOutcome,
   classifyIntent,
-  searchLaw,
-  dossierContext,
-  identifyRisk,
-  proposeDocument,
-  requestValidation,
-  scheduleReminder,
-  createTask,
-  createDeadline,
-  searchDossier,
-  createDossierTool,
-  startWorkflowTool,
-  analyzeDocumentTool,
-  generateReportTool,
-  generateWorkflowTool,
-  runWorkflowStepTool,
 } from "./_shared/agent-tools.server";
+import { routeTool } from "./_shared/agent-tool-router.server";
+import { recallMemory, memoryPreamble } from "./_shared/agent-memory.server";
+import { runPostResponsePipeline } from "./_shared/agent-post-response.server";
 import { llmFetch } from "./_shared/llm-fetch.server";
-
 import { resolveChatModel } from "./_shared/llm-models.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
@@ -48,292 +34,23 @@ RÈGLES STRICTES :
 Date courante : 2026.`;
 
 const TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "search_law",
-      description: "RAG dans les sources juridiques officielles. À appeler avant toute affirmation.",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string" } },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "dossier_context",
-      description: "Récupère le contexte d'un dossier (timeline, tâches, risques, échéances).",
-      parameters: {
-        type: "object",
-        properties: { dossier_id: { type: "string" } },
-        required: ["dossier_id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "identify_risk",
-      description: "Enregistre un risque juridique sur un dossier.",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          title: { type: "string" },
-          severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
-          legal_basis: { type: "string" },
-          description: { type: "string" },
-        },
-        required: ["dossier_id", "title", "severity"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "propose_document",
-      description: "Initie une session de génération de document. Pour docs sensibles → demande de validation auto.",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          doc_type: { type: "string" },
-          domain: { type: "string" },
-          params: { type: "object" },
-        },
-        required: ["dossier_id", "doc_type"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "request_validation",
-      description: "Crée une demande de validation hiérarchique avant exécution d'une action engageante.",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          action_type: { type: "string" },
-          reason: { type: "string" },
-          payload: { type: "object" },
-        },
-        required: ["dossier_id", "action_type"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "schedule_reminder",
-      description: "Programme un rappel.",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          title: { type: "string" },
-          remind_at: { type: "string" },
-          channel: { type: "string", enum: ["in_app", "email"] },
-        },
-        required: ["title", "remind_at"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_task",
-      description: "Crée une tâche dans un dossier.",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          title: { type: "string" },
-          priority: { type: "string", enum: ["low", "normal", "high", "urgent"] },
-          due_date: { type: "string" },
-        },
-        required: ["dossier_id", "title"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_deadline",
-      description: "Crée une échéance.",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          title: { type: "string" },
-          due_date: { type: "string" },
-        },
-        required: ["dossier_id", "title", "due_date"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_dossier",
-      description: "Recherche dans les dossiers du tenant par titre ou description.",
-      parameters: {
-        type: "object",
-        properties: { query: { type: "string" }, limit: { type: "number" } },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_dossier",
-      description: "Crée un nouveau dossier juridique pour le tenant.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          category: { type: "string", description: "rh|commercial|societes|rgpd|fiscal|contentieux|administratif|general" },
-          description: { type: "string" },
-          client_id: { type: "string" },
-          risk_level: { type: "string", enum: ["low", "medium", "high", "critical"] },
-        },
-        required: ["title"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "start_workflow",
-      description: "Instancie une procédure (workflow) depuis sa définition. Fournir definition_slug OU definition_id.",
-      parameters: {
-        type: "object",
-        properties: {
-          definition_id: { type: "string" },
-          definition_slug: { type: "string" },
-          title: { type: "string" },
-          dossier_id: { type: "string" },
-          client_id: { type: "string" },
-          context: { type: "object" },
-        },
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "analyze_document",
-      description: "Analyse un document (résumé, type, risques, clauses manquantes). Si dossier_id fourni, persiste les risques détectés.",
-      parameters: {
-        type: "object",
-        properties: {
-          document_id: { type: "string" },
-          dossier_id: { type: "string" },
-        },
-        required: ["document_id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "generate_report",
-      description: "Génère un rapport markdown synthétisant un dossier (timeline, risques, tâches, échéances).",
-      parameters: {
-        type: "object",
-        properties: {
-          dossier_id: { type: "string" },
-          report_type: { type: "string", description: "synthese|complet|risques" },
-        },
-        required: ["dossier_id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "generate_workflow",
-      description: "Génère une nouvelle procédure (workflow) juridique à partir d'une demande en langage naturel, avec validation RAG + consensus + safety. Retourne un workflow_definition_id et un score de confiance. Utiliser uniquement si aucun workflow existant ne correspond.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt: { type: "string", description: "Description en langage naturel de la procédure souhaitée" },
-          domain: { type: "string", description: "rh|commercial|societes|rgpd|fiscal|contentieux|administratif" },
-          dossier_id: { type: "string" },
-        },
-        required: ["prompt"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "run_workflow_step",
-      description: "Exécute l'étape courante d'un workflow déjà instancié. Si l'étape est sensible, crée automatiquement une demande de validation et bloque. Sinon avance le workflow et calcule l'échéance légale (jours ouvrés/calendaires/mois, art. 642 CPC).",
-      parameters: {
-        type: "object",
-        properties: {
-          instance_id: { type: "string", description: "UUID workflow_instances" },
-          step_index: { type: "number", description: "Index de l'étape courante (0-based)" },
-          notes: { type: "string" },
-        },
-        required: ["instance_id", "step_index"],
-      },
-    },
-  },
+  { type: "function", function: { name: "search_law", description: "RAG dans les sources juridiques officielles. À appeler avant toute affirmation.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
+  { type: "function", function: { name: "dossier_context", description: "Récupère le contexte d'un dossier (timeline, tâches, risques, échéances).", parameters: { type: "object", properties: { dossier_id: { type: "string" } }, required: ["dossier_id"] } } },
+  { type: "function", function: { name: "identify_risk", description: "Enregistre un risque juridique sur un dossier.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, title: { type: "string" }, severity: { type: "string", enum: ["low", "medium", "high", "critical"] }, legal_basis: { type: "string" }, description: { type: "string" } }, required: ["dossier_id", "title", "severity"] } } },
+  { type: "function", function: { name: "propose_document", description: "Initie une session de génération de document. Pour docs sensibles → demande de validation auto.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, doc_type: { type: "string" }, domain: { type: "string" }, params: { type: "object" } }, required: ["dossier_id", "doc_type"] } } },
+  { type: "function", function: { name: "request_validation", description: "Crée une demande de validation hiérarchique avant exécution d'une action engageante.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, action_type: { type: "string" }, reason: { type: "string" }, payload: { type: "object" } }, required: ["dossier_id", "action_type"] } } },
+  { type: "function", function: { name: "schedule_reminder", description: "Programme un rappel.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, title: { type: "string" }, remind_at: { type: "string" }, channel: { type: "string", enum: ["in_app", "email"] } }, required: ["title", "remind_at"] } } },
+  { type: "function", function: { name: "create_task", description: "Crée une tâche dans un dossier.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, title: { type: "string" }, priority: { type: "string", enum: ["low", "normal", "high", "urgent"] }, due_date: { type: "string" } }, required: ["dossier_id", "title"] } } },
+  { type: "function", function: { name: "create_deadline", description: "Crée une échéance.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, title: { type: "string" }, due_date: { type: "string" } }, required: ["dossier_id", "title", "due_date"] } } },
+  { type: "function", function: { name: "search_dossier", description: "Recherche dans les dossiers du tenant par titre ou description.", parameters: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"] } } },
+  { type: "function", function: { name: "create_dossier", description: "Crée un nouveau dossier juridique pour le tenant.", parameters: { type: "object", properties: { title: { type: "string" }, category: { type: "string" }, description: { type: "string" }, client_id: { type: "string" }, risk_level: { type: "string", enum: ["low", "medium", "high", "critical"] } }, required: ["title"] } } },
+  { type: "function", function: { name: "start_workflow", description: "Instancie une procédure (workflow) depuis sa définition.", parameters: { type: "object", properties: { definition_id: { type: "string" }, definition_slug: { type: "string" }, title: { type: "string" }, dossier_id: { type: "string" }, client_id: { type: "string" }, context: { type: "object" } } } } },
+  { type: "function", function: { name: "analyze_document", description: "Analyse un document (résumé, type, risques, clauses manquantes).", parameters: { type: "object", properties: { document_id: { type: "string" }, dossier_id: { type: "string" } }, required: ["document_id"] } } },
+  { type: "function", function: { name: "generate_report", description: "Génère un rapport markdown synthétisant un dossier.", parameters: { type: "object", properties: { dossier_id: { type: "string" }, report_type: { type: "string" } }, required: ["dossier_id"] } } },
+  { type: "function", function: { name: "generate_workflow", description: "Génère une nouvelle procédure (workflow) juridique à partir d'une demande en langage naturel.", parameters: { type: "object", properties: { prompt: { type: "string" }, domain: { type: "string" }, dossier_id: { type: "string" } }, required: ["prompt"] } } },
+  { type: "function", function: { name: "run_workflow_step", description: "Exécute l'étape courante d'un workflow déjà instancié.", parameters: { type: "object", properties: { instance_id: { type: "string" }, step_index: { type: "number" }, notes: { type: "string" } }, required: ["instance_id", "step_index"] } } },
 ];
 
-async function runTool(
-  name: string,
-  args: Record<string, unknown>,
-  ctx: AgentCtx,
-): Promise<ToolOutcome> {
-  try {
-    switch (name) {
-      case "search_law":
-        return await searchLaw(String(args.query ?? ""), ctx);
-      case "dossier_context":
-        return await dossierContext(String(args.dossier_id ?? ""), ctx);
-      case "identify_risk":
-        return await identifyRisk(args as never, ctx);
-      case "propose_document":
-        return await proposeDocument(args as never, ctx);
-      case "request_validation":
-        return await requestValidation(args as never, ctx);
-      case "schedule_reminder":
-        return await scheduleReminder(args as never, ctx);
-      case "create_task":
-        return await createTask(args as never, ctx);
-      case "create_deadline":
-        return await createDeadline(args as never, ctx);
-      case "search_dossier":
-        return await searchDossier(args as never, ctx);
-      case "create_dossier":
-        return await createDossierTool(args as never, ctx);
-      case "start_workflow":
-        return await startWorkflowTool(args as never, ctx);
-      case "analyze_document":
-        return await analyzeDocumentTool(args as never, ctx);
-      case "generate_report":
-        return await generateReportTool(args as never, ctx);
-      case "generate_workflow":
-        return await generateWorkflowTool(args as never, ctx);
-      case "run_workflow_step":
-        return await runWorkflowStepTool(args as never, ctx);
-      default:
-        return { result: { error: "Unknown tool" }, succeeded: false };
-    }
-  } catch (e) {
-    return {
-      result: { error: (e as Error).message },
-      succeeded: false,
-      errorMessage: (e as Error).message,
-    };
-  }
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AgentSuggestedAction = { kind: string; label: string; payload?: any };
