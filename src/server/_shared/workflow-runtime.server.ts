@@ -23,7 +23,7 @@ export type StepDef = {
   title?: string;
   description?: string;
   type?: string;
-  legal_refs?: unknown;
+  legal_refs?: unknown[];
   delay_amount?: number;
   delay_unit?: string;
   delay_days?: number;
