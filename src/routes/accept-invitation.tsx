@@ -77,19 +77,25 @@ function AcceptInvitationPage() {
   // 2. Auto-accept once logged in
   useEffect(() => {
     if (status !== "accepting" || !token) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     void (async () => {
       try {
         await acceptFn({ data: { token } });
+        if (cancelled) return;
         await refreshProfile();
+        if (cancelled) return;
         setStatus("success");
         toast.success("Bienvenue dans l'équipe !");
-        setTimeout(() => void navigate({ to: "/dashboard" }), 1500);
+        timer = setTimeout(() => { if (!cancelled) void navigate({ to: "/dashboard" }); }, 1500);
       } catch (err) {
+        if (cancelled) return;
         setStatus("error");
         const msg = err instanceof Error ? err.message : "Erreur inconnue";
         setError(msg);
       }
     })();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, token]);
 
