@@ -177,7 +177,8 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      // Décision sensible (détection de risques juridiques) → Pro obligatoire
+      model: "google/gemini-2.5-pro",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: `Analyse ce document juridique :\n\n${truncated}` },
