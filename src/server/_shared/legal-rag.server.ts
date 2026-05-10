@@ -66,7 +66,7 @@ export async function searchLegalSources(
 
   // Cas nominal : hybrid_search RPC (vecteur + FTS + boost autorité)
   if (embedding) {
-    const { data, error } = await supabaseAdmin.rpc("hybrid_search", {
+    const { data, error } = await (supabaseAdmin as any).rpc("hybrid_search", {
       query_embedding: embedding,
       query_text: trimmed,
       match_count: limit,

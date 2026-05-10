@@ -34,7 +34,7 @@ export async function notifyUser(params: {
   if (!allowed) return { skipped: true };
 
   if (!p || p.app_enabled) {
-    await supabaseAdmin.from("notifications").insert({
+    await (supabaseAdmin as any).from("notifications").insert({
       user_id: userId,
       tenant_id: tenantId,
       kind,
