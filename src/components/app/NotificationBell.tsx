@@ -90,13 +90,6 @@ export function NotificationBell() {
     [markFn, navigate],
   );
 
-  const handleClick = async (n: Notif) => {
-    if (!n.read_at) await markFn({ data: { notificationId: n.id } });
-    setOpen(false);
-    if (n.link) void navigate({ to: n.link });
-    void refresh();
-  };
-
   const markAll = async () => {
     await markFn({ data: { all: true } });
     void refresh();
