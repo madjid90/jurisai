@@ -294,7 +294,7 @@ function WorkflowsPage() {
                         </span>
                       </div>
                     </div>
-                    {i.status === "active" && (
+                    {ACTIVE_STATUSES.has(i.status) && (
                       <button
                         type="button"
                         onClick={(e) => {
