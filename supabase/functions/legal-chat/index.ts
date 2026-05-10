@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
             messages: [
               { role: "system", content: systemPrompt },
               ...(history ?? []),
-              { role: "user", content: message },
+              { role: "user", content: safeQuery },
             ],
             stream: true,
           }),
