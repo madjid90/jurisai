@@ -149,23 +149,30 @@ export const processAgentRun = createServerFn({ method: "POST" })
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
-    // 1. Lock optimiste : pending|waiting_info → running
-    const { data: run, error: loadErr } = await supabaseAdmin
-      .from("agent_runs")
-      .select("*")
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (loadErr) throw new Error(loadErr.message);
-    if (!run) throw new Error("Demande introuvable");
-    if (!["pending", "waiting_info"].includes((run as { status: string }).status)) {
-      return { status: (run as { status: string }).status, skipped: true };
-    }
-
-    await supabaseAdmin
+    // 1. Lock atomique : update conditionnel sur status pending|waiting_info → running.
+    // Le RETURNING garantit qu'un seul appel concurrent obtient la run.
+    const { data: locked, error: lockErr } = await supabaseAdmin
       .from("agent_runs")
       .update({ status: "running" } as never)
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .eq("tenant_id", tenantId)
+      .in("status", ["pending", "waiting_info"])
+      .select("*")
+      .maybeSingle();
+    if (lockErr) throw new Error(lockErr.message);
+
+    // Pas de lock obtenu → soit run inexistant, soit déjà en cours.
+    if (!locked) {
+      const { data: existing } = await supabaseAdmin
+        .from("agent_runs")
+        .select("status")
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (!existing) throw new Error("Demande introuvable");
+      return { status: (existing as { status: string }).status, skipped: true };
+    }
+    const run = locked;
 
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) {
