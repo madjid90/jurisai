@@ -416,16 +416,16 @@ function ClientsList({
   clients: ClientRow[];
   onDelete: (id: string) => void;
 }) {
-  if (clients.length === 0) {
-    return <EmptyState icon={Users} title="Aucun client" hint="Créez votre premier client salarié pour démarrer." />;
-  }
   return (
-    <div className="space-y-2">
-      {clients.map((c) => (
-        <div
-          key={c.id}
-          className="group flex items-center gap-4 rounded-xl border border-border/60 bg-card p-4 transition hover:border-accent/40"
-        >
+    <VirtualList<ClientRow>
+      items={clients}
+      estimateSize={72}
+      gap={8}
+      getKey={(c) => c.id}
+      maxHeight="100%"
+      emptyState={<EmptyState icon={Users} title="Aucun client" hint="Créez votre premier client salarié pour démarrer." />}
+      renderItem={(c) => (
+        <div className="group flex items-center gap-4 rounded-xl border border-border/60 bg-card p-4 transition hover:border-accent/40">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent text-[13px] font-semibold text-primary-foreground">
             {c.full_name
               .split(" ")
@@ -448,8 +448,8 @@ function ClientsList({
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
-      ))}
-    </div>
+      )}
+    />
   );
 }
 
@@ -462,16 +462,16 @@ function DossiersList({
   onDelete: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
-  if (dossiers.length === 0) {
-    return <EmptyState icon={Briefcase} title="Aucun dossier" hint="Créez un dossier pour commencer le suivi." />;
-  }
   return (
-    <div className="space-y-2">
-      {dossiers.map((d) => (
-        <div
-          key={d.id}
-          className="group flex items-center gap-4 rounded-xl border border-border/60 bg-card p-4 transition hover:border-accent/40"
-        >
+    <VirtualList<DossierRow>
+      items={dossiers}
+      estimateSize={84}
+      gap={8}
+      getKey={(d) => d.id}
+      maxHeight="100%"
+      emptyState={<EmptyState icon={Briefcase} title="Aucun dossier" hint="Créez un dossier pour commencer le suivi." />}
+      renderItem={(d) => (
+        <div className="group flex items-center gap-4 rounded-xl border border-border/60 bg-card p-4 transition hover:border-accent/40">
           <button onClick={() => onOpen(d.id)} className="flex min-w-0 flex-1 items-center gap-4 text-left">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -502,8 +502,8 @@ function DossiersList({
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
-      ))}
-    </div>
+      )}
+    />
   );
 }
 
@@ -516,18 +516,20 @@ function DeadlinesList({
   onToggle: (d: DeadlineRow) => void;
   onOpen: (dossierId: string) => void;
 }) {
-  if (deadlines.length === 0) {
-    return <EmptyState icon={CalendarDays} title="Aucune échéance" hint="Ajoutez une échéance à un dossier ouvert." />;
-  }
   const now = new Date();
   return (
-    <div className="space-y-2">
-      {deadlines.map((d) => {
+    <VirtualList<DeadlineRow>
+      items={deadlines}
+      estimateSize={76}
+      gap={8}
+      getKey={(d) => d.id}
+      maxHeight="100%"
+      emptyState={<EmptyState icon={CalendarDays} title="Aucune échéance" hint="Ajoutez une échéance à un dossier ouvert." />}
+      renderItem={(d) => {
         const due = new Date(d.due_date);
         const overdue = !d.completed && due < now;
         return (
           <div
-            key={d.id}
             className={cn(
               "flex items-center gap-4 rounded-xl border bg-card p-4 transition",
               overdue ? "border-destructive/40" : "border-border/60 hover:border-accent/40",
@@ -574,8 +576,8 @@ function DeadlinesList({
             </div>
           </div>
         );
-      })}
-    </div>
+      }}
+    />
   );
 }
 
