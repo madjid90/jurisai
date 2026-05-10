@@ -1,5 +1,5 @@
 // LOT 8 — Tests RAG multi-query (RRF fusion + déduplication).
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../embeddings.server", () => ({
   embedText: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
