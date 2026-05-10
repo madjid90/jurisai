@@ -146,6 +146,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
       .from("documents")
       .delete()
       .eq("id", data.id)
+      .eq("tenant_id", tenantId)
       .eq("user_id", ctx.userId);
     if (error) throw new Error(`Suppression impossible : ${error.message}`);
 
