@@ -17,6 +17,7 @@ import { logTimelineEvent } from "./timeline.server";
 import { logWorkflowAudit } from "./workflow-audit.server";
 import { computeLegalDeadline, extractStepDelay, type DelayResult } from "./legal-delays.server";
 import { detectSensitiveActions } from "./sensitive-actions.server";
+import { WORKFLOW_VALIDATOR_ROLES } from "./workflow-roles.server";
 
 // JSON-serializable types (TanStack server-fn impose des champs définis)
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -170,7 +171,7 @@ export async function executeStep(
       .from("user_roles")
       .select("user_id")
       .eq("tenant_id", ctx.tenantId)
-      .in("role", ["admin", "admin_tenant", "super_admin"])
+      .in("role", [...WORKFLOW_VALIDATOR_ROLES])
       .limit(1);
     const assignedTo =
       (admins?.[0] as { user_id: string } | undefined)?.user_id ?? ctx.userId;

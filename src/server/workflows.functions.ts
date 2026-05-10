@@ -29,12 +29,16 @@ export const listWorkflowDefinitions = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
+    // BUG-W1 : on filtre les workflows non finalisés (draft_ai, rejected, pending_human_review).
+    // Seuls les workflows publiés ou validés (auto/humain) apparaissent dans le catalogue utilisateur.
     const { data, error } = await supabaseAdmin
       .from("workflow_definitions")
-      .select("id, slug, title, description, category, status, version, steps, legal_refs, estimated_duration_days, tenant_id")
+      .select("id, slug, title, description, category, status, lifecycle_status, version, steps, legal_refs, estimated_duration_days, tenant_id")
       .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
+      .in("lifecycle_status", ["ai_validated_auto", "human_validated"])
       .order("title", { ascending: true });
     if (error) throw new Error(error.message);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (data ?? []) as any[];
   });
 
@@ -43,7 +47,7 @@ export const listWorkflowDefinitions = createServerFn({ method: "GET" })
 export const listWorkflowInstances = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ status: z.enum(["active", "completed", "cancelled", "all"]).optional() }).parse(i ?? {}),
+    z.object({ status: z.enum(["in_progress", "completed", "cancelled", "all"]).optional() }).parse(i ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
@@ -220,7 +224,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
       .from("workflow_instances")
       .update({
         current_step_index: isComplete ? steps.length : nextIndex,
-        status: isComplete ? "completed" : "active",
+        status: isComplete ? "completed" : "in_progress",
         completed_at: isComplete ? new Date().toISOString() : null,
       })
       .eq("id", data.instanceId);
@@ -500,6 +504,18 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
     if (data.autoComplete) {
       const steps = ((def?.steps ?? []) as WorkflowStep[]);
 
+      // BUG-W3 : éviter d'insérer un second step_run "done" pour le même step_index.
+      const { data: existingDone } = await (supabaseAdmin as any)
+        .from("workflow_step_runs")
+        .select("id")
+        .eq("instance_id", data.instanceId)
+        .eq("step_index", data.stepIndex)
+        .eq("status", "done")
+        .maybeSingle();
+      if (existingDone) {
+        return { ok: true, documentId: doc.id as string, advanced: false, completed: false, sources_used: sources.length, alreadyAdvanced: true };
+      }
+
       await (supabaseAdmin as any).from("workflow_step_runs").insert({
         instance_id: data.instanceId,
         step_index: data.stepIndex,
@@ -519,7 +535,7 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
         .from("workflow_instances")
         .update({
           current_step_index: isComplete ? steps.length : nextIndex,
-          status: isComplete ? "completed" : "active",
+          status: isComplete ? "completed" : "in_progress",
           completed_at: isComplete ? new Date().toISOString() : null,
         })
         .eq("id", data.instanceId);

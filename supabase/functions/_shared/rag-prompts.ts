@@ -23,7 +23,7 @@ Termine TOUJOURS par un bloc \`\`\`json caché entre balises HTML <!--META--> et
 <!--/META-->
 
 ## Date
-Nous sommes en 2026. Base-toi sur le droit en vigueur actuellement.`;
+Nous sommes en ${new Date().getFullYear()}. Base-toi sur le droit en vigueur actuellement.`;
 
 export const PROMPTS_BY_MODE: Record<RagMode, string> = {
   strict: `Tu es **JurisAI**, assistant juridique professionnel en droit du travail français.

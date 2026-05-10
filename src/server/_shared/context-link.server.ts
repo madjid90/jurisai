@@ -58,7 +58,7 @@ export async function findRelatedContext(opts: {
         signals: {},
       };
       cur.signals.semantic = row.best_score;
-      cur.score = Math.max(cur.score, row.best_score * 0.7);
+      cur.score = Math.max(cur.score, row.best_score * 0.9);
       matches.set(row.dossier_id, cur);
     }
   }

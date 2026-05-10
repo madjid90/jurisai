@@ -4220,6 +4220,10 @@ export type Database = {
           source_type: string
         }[]
       }
+      increment_embedding_cache_hit: {
+        Args: { _query_hash: string }
+        Returns: undefined
+      }
       increment_questions_used: {
         Args: { _tenant_id: string }
         Returns: boolean

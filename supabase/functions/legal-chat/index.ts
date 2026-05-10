@@ -187,11 +187,16 @@ Deno.serve(async (req) => {
           embedding = parsed;
           cacheHit = true;
           embedMs = Date.now() - tEmbStart;
-          // Bump hit counter (fire & forget)
-          void supabaseAdmin
-            .from("embedding_cache")
-            .update({ hit_count: 1, last_hit_at: new Date().toISOString() })
-            .eq("query_hash", queryHash);
+          // BUG-R4 : on incrémente le compteur via RPC au lieu de l'écraser à 1.
+          void supabaseAdmin.rpc("increment_embedding_cache_hit", { _query_hash: queryHash }).then((r: { error: unknown }) => {
+            if (r.error) {
+              // fallback : best-effort, on ne touche que last_hit_at sans toucher hit_count
+              void supabaseAdmin
+                .from("embedding_cache")
+                .update({ last_hit_at: new Date().toISOString() })
+                .eq("query_hash", queryHash);
+            }
+          });
         }
       }
 

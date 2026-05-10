@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
+import { WORKFLOW_VALIDATOR_ROLES } from "@/server/_shared/workflow-roles.server";
 
 export type ExtendedWorkflowStep = {
   key: string;
@@ -97,15 +98,16 @@ export const validateWorkflowStep = createServerFn({ method: "POST" })
     }
 
     // 3) Validation requise → vérifier rôle
+    // BUG-W4 : on s'appuie sur la liste centralisée de rôles validateurs.
     if (step.validation_required) {
       const { data: roles } = await supabaseAdmin
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .eq("tenant_id", tenantId)
-        .in("role", ["admin", "manager"]);
+        .in("role", [...WORKFLOW_VALIDATOR_ROLES]);
       if (!roles || roles.length === 0) {
-        blockers.push("Cette étape nécessite la validation d'un admin ou manager");
+        blockers.push("Cette étape nécessite la validation d'un admin, manager ou super_admin");
       }
     }
 

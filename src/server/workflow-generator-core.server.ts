@@ -58,6 +58,30 @@ export const GenerateInput = z.object({
   dryRun: z.boolean().optional(),
 });
 
+// BUG-W5 : schéma Zod du draft IA pour valider avant insertion en base.
+const WorkflowDraftSchema = z.object({
+  title: z.string().min(1).max(300),
+  description: z.string().optional(),
+  category: z.string().min(1),
+  estimated_duration_days: z.number().int().nonnegative().optional(),
+  legal_refs: z.array(z.object({
+    code: z.string().optional(),
+    source: z.string().optional(),
+    reference: z.string().optional(),
+  })).optional(),
+  steps: z.array(z.object({
+    key: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string().optional(),
+    kind: z.string().optional(),
+    type: z.string().optional(),
+    template_slug: z.string().nullable().optional(),
+    legal_refs: z.array(z.string()).optional(),
+    requires_sourcing: z.boolean().optional(),
+    delay_days: z.number().int().nonnegative().optional(),
+  })).min(1),
+});
+
 export type GenerateWorkflowResult = {
   run_id: string;
   cache_hit: boolean;
@@ -221,11 +245,14 @@ export async function runGenerateWorkflow(
     const rawContent = genJson.choices?.[0]?.message?.content ?? "{}";
     let draft: WorkflowDraft;
     try {
-      draft = JSON.parse(rawContent) as WorkflowDraft;
+      // BUG-W5 : on valide le draft avec Zod avant d'insérer en base, sinon
+      // une réponse IA mal formée crée des steps cassés.
+      const parsed = JSON.parse(rawContent);
+      draft = WorkflowDraftSchema.parse(parsed) as WorkflowDraft;
     } catch (e) {
-      throw new Error(`Parsing JSON échoué : ${(e as Error).message}`);
+      throw new Error(`Draft IA invalide : ${(e as Error).message}`);
     }
-    if (!draft || !Array.isArray(draft.steps) || draft.steps.length === 0) {
+    if (!Array.isArray(draft.steps) || draft.steps.length === 0) {
       throw new Error("Draft invalide (steps manquants).");
     }
     const genDuration = Date.now() - t0;
