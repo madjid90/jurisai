@@ -865,3 +865,46 @@ export async function generateReportTool(
     succeeded: true,
   };
 }
+
+// ------------------------------------------------------------------ run_workflow_step
+// Exécute l'étape courante d'un workflow déjà instancié.
+// - si l'étape est sensible : crée une demande de validation et bloque
+// - sinon : marque l'étape comme done, calcule due_at via legal-delays, avance l'instance
+export async function runWorkflowStepTool(
+  args: { instance_id: string; step_index: number; notes?: string },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  try {
+    const { executeStep } = await import("./workflow-runtime.server");
+    const res = await executeStep(
+      {
+        instanceId: args.instance_id,
+        stepIndex: args.step_index,
+        notes: args.notes,
+      },
+      { userId: ctx.userId, tenantId: ctx.tenantId },
+    );
+    return {
+      result: {
+        instance_id: args.instance_id,
+        step_index: res.step_run.step_index,
+        status: res.step_run.status,
+        due_at: res.step_run.due_at,
+        delay: res.delay,
+        blocked_for_validation: res.blocked_for_validation,
+        validation_request_id: res.validation_request_id,
+        workflow_completed: res.workflow_completed,
+        next_step: res.next_step,
+      },
+      isSensitive: res.blocked_for_validation,
+      validationRequestId: res.validation_request_id,
+      succeeded: true,
+    };
+  } catch (e) {
+    return {
+      result: { error: (e as Error).message },
+      succeeded: false,
+      errorMessage: (e as Error).message,
+    };
+  }
+}
