@@ -105,7 +105,7 @@ function AnalysesPage() {
       void navigate({ to: "/analyses/$id", params: { id: res.id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur d'analyse", { id: toastId });
-      void refresh();
+      void list.reload();
     } finally {
       setUploading(false);
     }
