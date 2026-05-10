@@ -27,6 +27,15 @@ export const exportMyData = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const ctx = context as { userId: string; userEmail: string | null };
     const { userId, userEmail } = ctx;
+    let requestId: string | null = null;
+    try {
+      const { data: req } = await db
+        .from("rgpd_requests")
+        .insert({ user_id: userId, kind: "export" })
+        .select("id")
+        .single();
+      requestId = (req as { id?: string } | null)?.id ?? null;
+    } catch { /* noop */ }
 
     const safe = async (table: string, query: (q: any) => any) => {
       try {
