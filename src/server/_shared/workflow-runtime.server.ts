@@ -128,6 +128,9 @@ export type ExecuteStepInput = {
   output?: Record<string, unknown>;
   /** Si true, force l'exécution malgré les actions sensibles (validation déjà obtenue) */
   validationOverrideId?: string;
+  /** W8 — clé d'idempotence (UUID côté client). Une seconde tentative
+   *  avec la même clé renvoie le step_run existant sans réexécuter. */
+  idempotencyKey?: string;
 };
 
 export type ExecuteStepResult = {
