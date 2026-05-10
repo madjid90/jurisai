@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
 import {
   CONTRACT_RISKS,
