@@ -22,7 +22,7 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const unread = items.filter((n) => !n.read_at).length;
+  const unread = useMemo(() => items.filter((n) => !n.read_at).length, [items]);
 
   const refresh = async () => {
     if (!user) return;
