@@ -21,6 +21,9 @@ import {
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
+import { getWorkflowInstance } from "@/server/workflow-runtime.functions";
+import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
+import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
