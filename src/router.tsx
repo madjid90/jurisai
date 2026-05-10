@@ -88,13 +88,49 @@ function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => vo
   );
 }
 
+function DefaultPendingComponent() {
+  return (
+    <div
+      className="flex min-h-[40vh] items-center justify-center"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="sr-only">Chargement…</span>
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
+function DefaultNotFoundComponent() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center px-4">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold">404</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Cette ressource est introuvable.
+        </p>
+        <a
+          href="/"
+          className="mt-4 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Retour à l'accueil
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export const getRouter = () => {
   const router = createRouter({
     routeTree,
     context: {},
     scrollRestoration: true,
+    defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: DefaultErrorComponent,
+    defaultPendingComponent: DefaultPendingComponent,
+    defaultNotFoundComponent: DefaultNotFoundComponent,
   });
 
   return router;
