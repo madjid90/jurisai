@@ -143,7 +143,7 @@ export const createRisk = createServerFn({ method: "POST" })
     const legal_basis = data.legalBasis ? [{ source: data.legalBasis }] : [];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("identified_risks")
       .insert({
         tenant_id: tenantId,
@@ -263,7 +263,7 @@ export const requestValidation = createServerFn({ method: "POST" })
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("validation_requests")
       .insert({
         tenant_id: tenantId,
@@ -360,7 +360,7 @@ export const decideValidation = createServerFn({ method: "POST" })
     // W11 — UPDATE conditionnel sur status='pending' : bloque une seconde
     // décision concurrente (deux validateurs cliquent en même temps).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error } = await (supabaseAdmin as any)
+    const { data: updated, error } = await supabaseAdmin
       .from("validation_requests")
       .update({
         status: data.decision,
@@ -408,7 +408,7 @@ export const createReminder = createServerFn({ method: "POST" })
     const tenantId = await ensureDossierAccess(userId, data.dossierId);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("reminders")
       .insert({
         tenant_id: tenantId,
@@ -445,7 +445,7 @@ export const dismissReminder = createServerFn({ method: "POST" })
     const tenantId = await getTenantId(userId);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("reminders")
       .update({ dismissed_at: new Date().toISOString() })
       .eq("id", data.reminderId)

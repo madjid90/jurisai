@@ -66,7 +66,7 @@ export const completeOnboarding = createServerFn({ method: "POST" })
       idcc: data.idcc ?? null,
       plan: "starter" as const,
     };
-    const { data: tenant, error: tenantErr } = await (supabaseAdmin as any)
+    const { data: tenant, error: tenantErr } = await supabaseAdmin
       .from("tenants")
       .insert(tenantInsert)
       .select()
@@ -80,7 +80,7 @@ export const completeOnboarding = createServerFn({ method: "POST" })
     const tenantSlug = (tenant as { id: string; slug: string }).slug;
 
     // 3. Assign admin role
-    const { error: roleErr } = await (supabaseAdmin as any).from("user_roles").insert({
+    const { error: roleErr } = await supabaseAdmin.from("user_roles").insert({
       user_id: userId,
       tenant_id: tenantId,
       role: "admin",
@@ -90,7 +90,7 @@ export const completeOnboarding = createServerFn({ method: "POST" })
     }
 
     // 4. Update profile (link tenant + mark onboarded)
-    const { error: profileErr } = await (supabaseAdmin as any)
+    const { error: profileErr } = await supabaseAdmin
       .from("profiles")
       .update({
         tenant_id: tenantId,

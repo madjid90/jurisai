@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
         const sinceIso = new Date(Date.now() - sinceDays * 86400_000).toISOString();
 
         // 1. Cibler les users
-        const { data: prefs, error: prefsErr } = await (supabaseAdmin as any)
+        const { data: prefs, error: prefsErr } = await supabaseAdmin
           .from("notification_preferences")
           .select("user_id, tenant_id, email_enabled, digest_frequency")
           .eq("digest_frequency", frequency)
@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
 
           const items = (notifs as Notif[]) ?? [];
           if (items.length === 0) {
-            await (supabaseAdmin as any).from("digest_runs").insert({
+            await supabaseAdmin.from("digest_runs").insert({
               user_id: t.user_id,
               tenant_id: t.tenant_id,
               frequency,
@@ -118,7 +118,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
           const html = renderDigestHtml(prof.full_name ?? prof.email, items, frequency);
           const text = renderDigestText(items);
 
-          const { error: queueErr } = await (supabaseAdmin as any).from("email_queue").insert({
+          const { error: queueErr } = await supabaseAdmin.from("email_queue").insert({
             tenant_id: t.tenant_id,
             recipient_user_id: t.user_id,
             recipient_email: prof.email,
@@ -131,7 +131,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
 
           if (queueErr) {
             errors.push(`${t.user_id}: ${queueErr.message}`);
-            await (supabaseAdmin as any).from("digest_runs").insert({
+            await supabaseAdmin.from("digest_runs").insert({
               user_id: t.user_id,
               tenant_id: t.tenant_id,
               frequency,
@@ -141,7 +141,7 @@ export const Route = createFileRoute("/api/public/hooks/digest")({
             });
           } else {
             queued++;
-            await (supabaseAdmin as any).from("digest_runs").insert({
+            await supabaseAdmin.from("digest_runs").insert({
               user_id: t.user_id,
               tenant_id: t.tenant_id,
               frequency,

@@ -76,7 +76,7 @@ export const updateNotificationPreferences = createServerFn({ method: "POST" })
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
 
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("notification_preferences")
       .upsert(
         { user_id: userId, tenant_id: tenantId, ...data, updated_at: new Date().toISOString() },
@@ -119,7 +119,7 @@ export const markNotificationRead = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const now = new Date().toISOString();
-    let q = (supabaseAdmin as any).from("notifications").update({ read_at: now }).eq("user_id", userId);
+    let q = supabaseAdmin.from("notifications").update({ read_at: now }).eq("user_id", userId);
     if (data.notificationId) q = q.eq("id", data.notificationId);
     else if (data.all) q = q.is("read_at", null);
     else throw new Error("Provide notificationId or all=true");
@@ -133,7 +133,7 @@ export const markAllNotificationsRead = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", userId)

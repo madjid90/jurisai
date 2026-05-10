@@ -255,7 +255,7 @@ export const exportDocument = createServerFn({ method: "POST" })
     const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id;
     if (!tenantId) throw new Error("No tenant");
 
-    const { data: doc, error } = await (supabaseAdmin as any)
+    const { data: doc, error } = await supabaseAdmin
       .from("documents")
       .select("id, title, content, status, updated_at, dossier_id")
       .eq("id", data.documentId)

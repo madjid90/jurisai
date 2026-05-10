@@ -20,7 +20,37 @@ export type WorkflowStep = {
   template_slug?: string;
   legal_refs?: string[];
   delay_days?: number;
+  reminder_days?: number;
   requires_sourcing?: boolean;
+};
+
+type WorkflowInstanceRow = {
+  id: string;
+  tenant_id: string;
+  current_step_index: number | null;
+  definition_id: string;
+  dossier_id: string | null;
+  client_id?: string | null;
+  title: string;
+  status?: string;
+  context: Record<string, unknown> | null;
+  workflow_definitions?: WorkflowDefinitionRow | null;
+};
+
+type WorkflowDefinitionRow = {
+  id: string;
+  title: string;
+  steps: WorkflowStep[];
+  requires_sourcing?: boolean | null;
+};
+
+type DocumentTemplateRow = {
+  id: string;
+  name: string;
+  body: string | null;
+  variables: unknown;
+  is_public: boolean | null;
+  tenant_id: string | null;
 };
 
 // ─── List workflow definitions (public + tenant) ───────────────────────────
@@ -155,7 +185,7 @@ async function maybeCreateStepReminder(opts: {
   if (days == null) return;
   const remindAt = new Date(Date.now() + days * 86400_000).toISOString();
   try {
-    await (supabaseAdmin as any).from("reminders").insert({
+    await supabaseAdmin.from("reminders").insert({
       tenant_id: opts.tenantId,
       user_id: opts.userId,
       created_by: opts.userId,
@@ -221,7 +251,7 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
     // Advance instance
     const nextIndex = data.stepIndex + 1;
     const isComplete = nextIndex >= steps.length;
-    await (supabaseAdmin as any)
+    await supabaseAdmin
       .from("workflow_instances")
       .update({
         current_step_index: isComplete ? steps.length : nextIndex,
@@ -280,7 +310,7 @@ export const cancelWorkflow = createServerFn({ method: "POST" })
       .eq("id", data.instanceId)
       .eq("tenant_id", tenantId)
       .maybeSingle();
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("workflow_instances")
       .update({ status: "cancelled", completed_at: new Date().toISOString() })
       .eq("id", data.instanceId)
@@ -463,7 +493,7 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
     const title = `${(tpl as any).name} – ${(inst as any).title ?? "Procédure"}`;
 
     // Create document
-    const { data: doc, error: docErr } = await (supabaseAdmin as any)
+    const { data: doc, error: docErr } = await supabaseAdmin
       .from("documents")
       .insert({
         tenant_id: tenantId,
@@ -505,7 +535,7 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
       const steps = ((def?.steps ?? []) as WorkflowStep[]);
 
       // BUG-W3 : éviter d'insérer un second step_run "done" pour le même step_index.
-      const { data: existingDone } = await (supabaseAdmin as any)
+      const { data: existingDone } = await supabaseAdmin
         .from("workflow_step_runs")
         .select("id")
         .eq("instance_id", data.instanceId)
@@ -516,7 +546,7 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
         return { ok: true, documentId: doc.id as string, advanced: false, completed: false, sources_used: sources.length, alreadyAdvanced: true };
       }
 
-      await (supabaseAdmin as any).from("workflow_step_runs").insert({
+      await supabaseAdmin.from("workflow_step_runs").insert({
         instance_id: data.instanceId,
         step_index: data.stepIndex,
         step_key: data.stepKey,
@@ -531,7 +561,7 @@ export const generateDocFromWorkflowStep = createServerFn({ method: "POST" })
 
       const nextIndex = data.stepIndex + 1;
       const isComplete = nextIndex >= steps.length;
-      await (supabaseAdmin as any)
+      await supabaseAdmin
         .from("workflow_instances")
         .update({
           current_step_index: isComplete ? steps.length : nextIndex,

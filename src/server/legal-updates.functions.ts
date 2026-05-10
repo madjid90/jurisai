@@ -83,7 +83,7 @@ export const createLegalUpdateAction = createServerFn({ method: "POST" })
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
 
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("legal_update_actions")
       .insert({
         tenant_id: tenantId,

@@ -89,7 +89,7 @@ export const listGenerationRuns = createServerFn({ method: "GET" })
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await (supabaseAdmin as any)
+    const { data: rows } = await supabaseAdmin
       .from("workflow_generation_runs")
       .select("id, prompt, domain, category, status, llm_model, cache_hit, tokens_used, duration_ms, scores, error_message, generated_definition_id, duplicate_of_definition_id, created_at")
       .eq("tenant_id", tenantId)

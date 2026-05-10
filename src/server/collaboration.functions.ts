@@ -49,7 +49,7 @@ export const addComment = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const { tenantId, dossier } = await getTenantAndDossier(userId, data.dossierId);
-    const { data: inserted, error } = await (supabaseAdmin as any)
+    const { data: inserted, error } = await supabaseAdmin
       .from("dossier_comments")
       .insert({ dossier_id: data.dossierId, tenant_id: tenantId, user_id: userId, body: data.body })
       .select("id").single();
@@ -62,7 +62,7 @@ export const addComment = createServerFn({ method: "POST" })
       .map((m) => m.user_id).filter((id) => id !== userId);
     await Promise.all(
       recipients.map((rid) =>
-        (supabaseAdmin as any).rpc("create_notification", {
+        supabaseAdmin.rpc("create_notification", {
           _user_id: rid, _tenant_id: tenantId, _kind: "comment",
           _title: `Nouveau commentaire sur « ${dossier.title} »`,
           _body: data.body.slice(0, 160),
@@ -156,7 +156,7 @@ export const createTask = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const { tenantId, dossier } = await getTenantAndDossier(userId, data.dossierId);
-    const { data: inserted, error } = await (supabaseAdmin as any)
+    const { data: inserted, error } = await supabaseAdmin
       .from("dossier_tasks")
       .insert({
         dossier_id: data.dossierId, tenant_id: tenantId, created_by: userId,
@@ -168,7 +168,7 @@ export const createTask = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     if (data.assignedTo && data.assignedTo !== userId) {
-      await (supabaseAdmin as any).rpc("create_notification", {
+      await supabaseAdmin.rpc("create_notification", {
         _user_id: data.assignedTo, _tenant_id: tenantId, _kind: "task_assigned",
         _title: `Tâche assignée : ${data.title}`,
         _body: `Dossier : ${dossier.title}`,

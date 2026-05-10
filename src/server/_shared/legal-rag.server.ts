@@ -88,7 +88,7 @@ export async function searchLegalSources(
     return { sources: [], query: trimmed, ok: false, reason: "Aucun mot indexable" };
   }
 
-  const { data: rows } = await (supabaseAdmin as any)
+  const { data: rows } = await supabaseAdmin
     .from("legal_chunks")
     .select("id, source_id, content, heading, legal_sources!inner(title, source_type, reference_code, official_url, is_active, idcc)")
     .eq("legal_sources.is_active", true)

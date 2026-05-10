@@ -14,12 +14,12 @@ export const getIntegrations = createServerFn({ method: "GET" })
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
 
-    let { data } = await (supabaseAdmin as any)
+    let { data } = await supabaseAdmin
       .from("tenant_integrations").select("*").eq("tenant_id", tenantId).maybeSingle();
 
     if (!data) {
       // Lazy-create the row via service role
-      const { data: created } = await (supabaseAdmin as any)
+      const { data: created } = await supabaseAdmin
         .from("tenant_integrations").insert({ tenant_id: tenantId }).select("*").single();
       data = created;
     }
@@ -40,7 +40,7 @@ export const updateIntegrations = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("tenant_integrations")
       .upsert({ tenant_id: tenantId, ...data }, { onConflict: "tenant_id" });
     if (error) throw new Error(error.message);
@@ -52,7 +52,7 @@ export const rotateCalendarToken = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { data, error } = await (supabaseAdmin as any)
+    const { data, error } = await supabaseAdmin
       .from("tenant_integrations")
       .update({ calendar_token: crypto.randomUUID() })
       .eq("tenant_id", tenantId)
@@ -68,7 +68,7 @@ export const listApiKeys = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { data, error } = await (supabaseAdmin as any)
+    const { data, error } = await supabaseAdmin
       .from("tenant_api_keys")
       .select("id, label, prefix, scopes, last_used_at, revoked_at, created_at")
       .eq("tenant_id", tenantId)
@@ -99,7 +99,7 @@ export const createApiKey = createServerFn({ method: "POST" })
     const fullKey = `${prefix}_${raw}`;
     const keyHash = createHash("sha256").update(fullKey).digest("hex");
 
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("tenant_api_keys")
       .insert({
         tenant_id: tenantId, created_by: userId, label: data.label,
@@ -118,7 +118,7 @@ export const revokeApiKey = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("tenant_api_keys")
       .update({ revoked_at: new Date().toISOString() })
       .eq("id", data.id).eq("tenant_id", tenantId);
@@ -133,7 +133,7 @@ export const listWebhooks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { data, error } = await (supabaseAdmin as any)
+    const { data, error } = await supabaseAdmin
       .from("tenant_webhooks")
       .select("id, target_url, events, active, created_at")
       .eq("tenant_id", tenantId)
@@ -163,7 +163,7 @@ export const createWebhook = createServerFn({ method: "POST" })
     const tenantId = await requireAdmin(userId);
     const secret = `whsec_${randomBytes(24).toString("base64url")}`;
 
-    const { data: row, error } = await (supabaseAdmin as any)
+    const { data: row, error } = await supabaseAdmin
       .from("tenant_webhooks")
       .insert({
         tenant_id: tenantId, created_by: userId,
@@ -182,7 +182,7 @@ export const toggleWebhook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("tenant_webhooks").update({ active: data.active })
       .eq("id", data.id).eq("tenant_id", tenantId);
     if (error) throw new Error(error.message);
@@ -195,7 +195,7 @@ export const deleteWebhook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await supabaseAdmin
       .from("tenant_webhooks").delete().eq("id", data.id).eq("tenant_id", tenantId);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -209,7 +209,7 @@ export const sendSlackTest = createServerFn({ method: "POST" })
     const { userId } = context as { userId: string };
     const tenantId = await requireAdmin(userId);
 
-    const { data: integ } = await (supabaseAdmin as any)
+    const { data: integ } = await supabaseAdmin
       .from("tenant_integrations").select("slack_channel, slack_enabled")
       .eq("tenant_id", tenantId).maybeSingle();
     const channel = integ?.slack_channel as string | null;

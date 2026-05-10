@@ -42,7 +42,7 @@ export async function findRelatedContext(opts: {
   const embedding = await embedText(text.slice(0, 4000));
   if (embedding) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabaseAdmin as any).rpc("match_dossier_context", {
+    const { data } = await supabaseAdmin.rpc("match_dossier_context", {
       p_tenant_id: tenantId,
       p_embedding: toPgVector(embedding),
       p_match_count: topK,
@@ -71,7 +71,7 @@ export async function findRelatedContext(opts: {
       .filter(Boolean);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: mentions } = await (supabaseAdmin as any)
+    const { data: mentions } = await supabaseAdmin
       .from("entity_mentions")
       .select("document_id, normalized_value, entity_type")
       .eq("tenant_id", tenantId)
@@ -87,7 +87,7 @@ export async function findRelatedContext(opts: {
       );
       if (docIds.length) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: links } = await (supabaseAdmin as any)
+        const { data: links } = await supabaseAdmin
           .from("document_links")
           .select("document_id, dossier_id, status")
           .eq("tenant_id", tenantId)
@@ -126,7 +126,7 @@ export async function findRelatedContext(opts: {
   const refs = entities.filter((e) => e.type === "dossier_ref").map((e) => e.raw);
   if (refs.length) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: dossiers } = await (supabaseAdmin as any)
+    const { data: dossiers } = await supabaseAdmin
       .from("dossiers")
       .select("id, title, description")
       .eq("tenant_id", tenantId);
