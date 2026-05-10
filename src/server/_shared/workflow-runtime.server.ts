@@ -140,9 +140,21 @@ export async function executeStep(
   const stepDef = inst.steps[input.stepIndex];
   if (!stepDef) throw new Error("Étape introuvable dans la définition");
 
-  // 1) Détection action sensible
-  const stepText = `${stepDef.title ?? ""} ${stepDef.description ?? ""} ${stepDef.type ?? ""}`;
-  const sensitive = await detectSensitiveAction(stepText);
+  // 1) Détection action sensible (catalogue)
+  const detection = await detectSensitiveActions([
+    {
+      key: stepDef.key,
+      title: stepDef.title,
+      description: stepDef.description,
+      kind: stepDef.type,
+    },
+  ]);
+  const sensitive = {
+    is_sensitive: detection.contains_sensitive,
+    matched_patterns: detection.detected.map((d) => d.action_label),
+    blocking: detection.blocking,
+    detected: detection.detected,
+  };
   const requiresValidation =
     sensitive.is_sensitive || stepDef.requires_human_review === true;
 
