@@ -26,6 +26,8 @@ import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -583,8 +585,8 @@ function RunDetail({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Réponse
             </p>
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm">
-              {answerText}
+            <div className="prose prose-sm max-w-none dark:prose-invert text-sm">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{answerText}</ReactMarkdown>
             </div>
           </div>
 
