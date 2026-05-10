@@ -7,8 +7,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
 
 // Map connector → edge function name
 const CONNECTOR_FN: Record<string, string> = {
