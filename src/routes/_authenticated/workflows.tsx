@@ -53,6 +53,8 @@ function WorkflowsPage() {
   const [tab, setTab] = useState<"actives" | "catalogue" | "completed">("actives");
   const [domain, setDomain] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [cancelTarget, setCancelTarget] = useState<{ id: string; title: string } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const reload = async () => {
     try {
