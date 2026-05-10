@@ -2940,6 +2940,51 @@ export type Database = {
           },
         ]
       }
+      sensitive_actions_catalog: {
+        Row: {
+          action_key: string
+          action_label: string
+          created_at: string
+          description: string | null
+          domain: string
+          id: string
+          keywords: string[]
+          legal_refs: Json
+          requires_human_validation: boolean
+          requires_lawyer: boolean
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          action_key: string
+          action_label: string
+          created_at?: string
+          description?: string | null
+          domain: string
+          id?: string
+          keywords?: string[]
+          legal_refs?: Json
+          requires_human_validation?: boolean
+          requires_lawyer?: boolean
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          action_key?: string
+          action_label?: string
+          created_at?: string
+          description?: string | null
+          domain?: string
+          id?: string
+          keywords?: string[]
+          legal_refs?: Json
+          requires_human_validation?: boolean
+          requires_lawyer?: boolean
+          severity?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       server_function_errors: {
         Row: {
           context: Json
@@ -3444,61 +3489,251 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_audit_log: {
+        Row: {
+          action: string
+          actor_role: string | null
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          retention_until: string
+          tenant_id: string
+          user_agent: string | null
+          user_id: string | null
+          workflow_definition_id: string | null
+          workflow_instance_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_role?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          retention_until?: string
+          tenant_id: string
+          user_agent?: string | null
+          user_id?: string | null
+          workflow_definition_id?: string | null
+          workflow_instance_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_role?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          retention_until?: string
+          tenant_id?: string
+          user_agent?: string | null
+          user_id?: string | null
+          workflow_definition_id?: string | null
+          workflow_instance_id?: string | null
+        }
+        Relationships: []
+      }
       workflow_definitions: {
         Row: {
           category: string
+          contains_sensitive_actions: boolean
           created_at: string
           description: string | null
           estimated_duration_days: number | null
+          generated_by_ai: boolean
+          generation_run_id: string | null
           id: string
           legal_refs: Json
+          lifecycle_status: Database["public"]["Enums"]["workflow_lifecycle_status"]
+          llm_model: string | null
+          rejected_reason: string | null
+          requires_human_review: boolean
           requires_sourcing: boolean
+          score_completeness: number | null
+          score_documents: number | null
+          score_legal_refs: number | null
+          score_logic: number | null
+          score_overall: number | null
+          score_safety: number | null
+          sensitive_actions_detected: Json
           slug: string
+          source_chunk_ids: Json
           status: Database["public"]["Enums"]["template_status"]
           steps: Json
           tenant_id: string | null
           title: string
+          topic_embedding: string | null
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
           version: number
         }
         Insert: {
           category: string
+          contains_sensitive_actions?: boolean
           created_at?: string
           description?: string | null
           estimated_duration_days?: number | null
+          generated_by_ai?: boolean
+          generation_run_id?: string | null
           id?: string
           legal_refs?: Json
+          lifecycle_status?: Database["public"]["Enums"]["workflow_lifecycle_status"]
+          llm_model?: string | null
+          rejected_reason?: string | null
+          requires_human_review?: boolean
           requires_sourcing?: boolean
+          score_completeness?: number | null
+          score_documents?: number | null
+          score_legal_refs?: number | null
+          score_logic?: number | null
+          score_overall?: number | null
+          score_safety?: number | null
+          sensitive_actions_detected?: Json
           slug: string
+          source_chunk_ids?: Json
           status?: Database["public"]["Enums"]["template_status"]
           steps?: Json
           tenant_id?: string | null
           title: string
+          topic_embedding?: string | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
           version?: number
         }
         Update: {
           category?: string
+          contains_sensitive_actions?: boolean
           created_at?: string
           description?: string | null
           estimated_duration_days?: number | null
+          generated_by_ai?: boolean
+          generation_run_id?: string | null
           id?: string
           legal_refs?: Json
+          lifecycle_status?: Database["public"]["Enums"]["workflow_lifecycle_status"]
+          llm_model?: string | null
+          rejected_reason?: string | null
+          requires_human_review?: boolean
           requires_sourcing?: boolean
+          score_completeness?: number | null
+          score_documents?: number | null
+          score_legal_refs?: number | null
+          score_logic?: number | null
+          score_overall?: number | null
+          score_safety?: number | null
+          sensitive_actions_detected?: Json
           slug?: string
+          source_chunk_ids?: Json
           status?: Database["public"]["Enums"]["template_status"]
           steps?: Json
           tenant_id?: string | null
           title?: string
+          topic_embedding?: string | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "workflow_definitions_generation_run_fk"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_generation_runs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workflow_definitions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_generation_runs: {
+        Row: {
+          cache_hit: boolean
+          category: string | null
+          completed_at: string | null
+          created_at: string
+          domain: string | null
+          duplicate_of_definition_id: string | null
+          duration_ms: number | null
+          error_message: string | null
+          generated_definition_id: string | null
+          id: string
+          llm_model: string | null
+          prompt: string
+          scores: Json
+          sources_used: Json
+          status: string
+          tenant_id: string
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          cache_hit?: boolean
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          domain?: string | null
+          duplicate_of_definition_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          generated_definition_id?: string | null
+          id?: string
+          llm_model?: string | null
+          prompt: string
+          scores?: Json
+          sources_used?: Json
+          status?: string
+          tenant_id: string
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          cache_hit?: boolean
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string
+          domain?: string | null
+          duplicate_of_definition_id?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          generated_definition_id?: string | null
+          id?: string
+          llm_model?: string | null
+          prompt?: string
+          scores?: Json
+          sources_used?: Json
+          status?: string
+          tenant_id?: string
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_generation_runs_duplicate_of_definition_id_fkey"
+            columns: ["duplicate_of_definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_generation_runs_generated_definition_id_fkey"
+            columns: ["generated_definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
             referencedColumns: ["id"]
           },
         ]
@@ -3569,6 +3804,54 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_quality_checks: {
+        Row: {
+          check_type: string
+          created_at: string
+          details: Json
+          generation_run_id: string
+          id: string
+          passed: boolean
+          score: number | null
+          workflow_definition_id: string | null
+        }
+        Insert: {
+          check_type: string
+          created_at?: string
+          details?: Json
+          generation_run_id: string
+          id?: string
+          passed: boolean
+          score?: number | null
+          workflow_definition_id?: string | null
+        }
+        Update: {
+          check_type?: string
+          created_at?: string
+          details?: Json
+          generation_run_id?: string
+          id?: string
+          passed?: boolean
+          score?: number | null
+          workflow_definition_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_quality_checks_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_generation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_quality_checks_workflow_definition_id_fkey"
+            columns: ["workflow_definition_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_definitions"
             referencedColumns: ["id"]
           },
         ]
@@ -3898,6 +4181,12 @@ export type Database = {
         | "juriste"
         | "expert_comptable"
         | "manager_multi_sites"
+      workflow_lifecycle_status:
+        | "draft_ai"
+        | "ai_validated_auto"
+        | "pending_human_review"
+        | "human_validated"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4049,6 +4338,13 @@ export const Constants = {
         "juriste",
         "expert_comptable",
         "manager_multi_sites",
+      ],
+      workflow_lifecycle_status: [
+        "draft_ai",
+        "ai_validated_auto",
+        "pending_human_review",
+        "human_validated",
+        "rejected",
       ],
     },
   },
