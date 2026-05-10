@@ -21,6 +21,9 @@ import {
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
+import { getWorkflowInstance } from "@/server/workflow-runtime.functions";
+import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
+import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -440,6 +443,7 @@ function RunDetail({
   const handlePrint = () => window.print();
 
   const dossierId = (run.dossier_id as string | null) ?? null;
+  const workflowInstanceId = (run.workflow_instance_id as string | null) ?? null;
 
   return (
     <div className="border-t border-border/60 px-4 py-4 space-y-4 bg-muted/20">
@@ -458,6 +462,11 @@ function RunDetail({
           📁 Suivi dans le dossier — ouvrir
         </Link>
       )}
+
+      {/* Procédure pas-à-pas (si workflow lié) */}
+      {workflowInstanceId ? (
+        <WorkflowRuntimeBlock instanceId={workflowInstanceId} onAdvanced={reload} />
+      ) : null}
 
       {/* L'agent travaille */}
       {(status === "pending" || status === "running" || status === "ready") && !answerText ? (
@@ -680,6 +689,91 @@ function GeneratedDocRow({ docId }: { docId: string }) {
       <Button variant="ghost" size="sm" className="h-7 px-2" disabled>
         <Mail className="h-3.5 w-3.5" />
       </Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bloc runtime workflow — affiche le banner de fiabilité + l'étape courante
+// quand l'agent a démarré une procédure pas-à-pas.
+// ---------------------------------------------------------------------------
+function WorkflowRuntimeBlock({
+  instanceId,
+  onAdvanced,
+}: {
+  instanceId: string;
+  onAdvanced: () => Promise<void> | void;
+}) {
+  const getInstance = useServerFn(getWorkflowInstance);
+  const [instance, setInstance] = useState<Record<string, unknown> | null>(null);
+
+  const load = async () => {
+    try {
+      const r = (await getInstance({ data: { instance_id: instanceId } })) as Record<
+        string,
+        unknown
+      >;
+      setInstance(r);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId]);
+
+  if (!instance) return null;
+
+  const status = instance.status as string;
+  const currentStep = instance.current_step as
+    | { title?: string; description?: string; legal_refs?: unknown[]; requires_human_review?: boolean }
+    | null;
+  const stepIndex = (instance.current_step_index as number) ?? 0;
+  const totalSteps = (instance.total_steps as number) ?? 0;
+  const stepRuns = (instance.step_runs as Array<{ requires_validation: boolean; status: string }>) ?? [];
+  const blocked = stepRuns.some(
+    (r) => r.requires_validation && r.status === "pending",
+  );
+  const sensitive = currentStep?.requires_human_review === true;
+
+  const bannerStatus =
+    status === "completed"
+      ? "human_validated"
+      : blocked
+        ? "pending_human_review"
+        : sensitive
+          ? "draft_ai"
+          : "ai_validated_auto";
+
+  return (
+    <div className="space-y-3">
+      <WorkflowStatusBanner
+        status={bannerStatus}
+        validationRequired={blocked || sensitive}
+        executionBlocked={blocked}
+      />
+      <div className="text-xs text-muted-foreground">
+        Procédure : <span className="font-medium text-foreground">{instance.definition_title as string}</span>
+        {" · "}
+        Étape {Math.min(stepIndex + 1, totalSteps)} / {totalSteps}
+      </div>
+      {status !== "completed" && currentStep ? (
+        <WorkflowStepInline
+          instanceId={instanceId}
+          stepIndex={stepIndex}
+          title={currentStep.title ?? `Étape ${stepIndex + 1}`}
+          description={currentStep.description ?? null}
+          legalRefs={
+            (currentStep.legal_refs as Array<{ code?: string; article?: string; label?: string }>) ?? []
+          }
+          onAdvanced={async () => {
+            await load();
+            await onAdvanced();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
