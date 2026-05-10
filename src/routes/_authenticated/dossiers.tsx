@@ -117,7 +117,7 @@ function DossiersPage() {
     try {
       const [c, d, dl] = await Promise.all([
         listClientsFn(),
-        listDossiersFn(),
+        listDossiersFn({ data: { limit: 100, offset: 0 } }),
         listDeadlinesFn(),
       ]);
       setClients((c.clients ?? []) as ClientRow[]);
