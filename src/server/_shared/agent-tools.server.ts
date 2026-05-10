@@ -5,6 +5,7 @@
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
+import { llmFetch } from "./llm-fetch.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const CHAT_MODEL = "google/gemini-3-flash-preview";

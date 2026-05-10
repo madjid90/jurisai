@@ -27,6 +27,7 @@ import {
   generateWorkflowTool,
   runWorkflowStepTool,
 } from "./_shared/agent-tools.server";
+import { llmFetch } from "./_shared/llm-fetch.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const CHAT_MODEL = "google/gemini-3-flash-preview";

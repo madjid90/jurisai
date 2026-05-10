@@ -11,6 +11,7 @@ import { classifyIntent, type AgentCtx } from "./_shared/agent-tools.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
 import { runIntentActions } from "./_shared/agent-intent-actions.server";
+import { llmFetch } from "./_shared/llm-fetch.server";
 
 const STATUSES = [
   "pending",
