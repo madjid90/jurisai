@@ -17,6 +17,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
+import { multiQueryRag } from "./_shared/multi-query-rag.server";
 import { embedText, toPgVector } from "./_shared/embeddings.server";
 import {
   validateWorkflowDraft,
@@ -182,10 +183,33 @@ export const generateWorkflow = createServerFn({ method: "POST" })
         };
       }
 
-      // 2. RAG juridique pour ancrer la génération
-      const rag = await searchLegalSources(data.prompt, { idcc: null, limit: 6 });
-      const ragBlock = rag.ok
-        ? rag.sources.map((s) => `[source:${s.n}] ${s.title}${s.reference ? ` (${s.reference})` : ""} — ${s.excerpt}`).join("\n")
+      // 2. Multi-Query RAG juridique pour ancrer la génération
+      const idccEarly = await fetchTenantIdcc(tenantId);
+      const mqRag = await multiQueryRag(data.prompt, { idcc: idccEarly, apiKey, topN: 18 });
+      let ragSources = mqRag.sources;
+      if (ragSources.length === 0) {
+        const fallback = await searchLegalSources(data.prompt, { idcc: idccEarly, limit: 6 });
+        if (fallback.ok) {
+          ragSources = fallback.sources.map((s) => ({
+            source_id: String(s.n),
+            chunk_id: String(s.n),
+            title: s.title,
+            reference: s.reference ?? null,
+            url: s.url ?? null,
+            source_type: "autre",
+            excerpt: s.excerpt,
+            authority: 50,
+          }));
+        }
+      }
+      const ragBlock = ragSources.length
+        ? ragSources
+            .slice(0, 12)
+            .map(
+              (s, i) =>
+                `[source:${i + 1}] ${s.title}${s.reference ? ` (${s.reference})` : ""} — ${s.excerpt.slice(0, 400)}`,
+            )
+            .join("\n")
         : "(Aucune source RAG pertinente trouvée — génère prudemment et marque requires_sourcing=true partout.)";
 
       const userPrompt = `Demande :\n${data.prompt}\n\nContexte légal RAG (à utiliser comme appui) :\n${ragBlock}`;
@@ -223,8 +247,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
       const genDuration = Date.now() - t0;
 
       // 4. Validation 3 couches
-      const idcc = await fetchTenantIdcc(tenantId);
-      const quality = await validateWorkflowDraft(draft, { tenantId, idcc, apiKey });
+      const quality = await validateWorkflowDraft(draft, { tenantId, idcc: idccEarly, apiKey });
 
       // 5. Persistance — si dryRun, on s'arrête là
       if (data.dryRun) {
@@ -233,7 +256,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
           tokens_used: tokensUsed,
           duration_ms: Date.now() - startedAt,
           completed_at: new Date().toISOString(),
-          sources_used: rag.sources,
+          sources_used: ragSources,
           scores: quality.scores,
         }).eq("id", runId);
         await persistQualityChecks(runId, null, quality);
@@ -277,7 +300,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
           contains_sensitive_actions: quality.sensitive.contains_sensitive,
           sensitive_actions_detected: quality.sensitive.detected,
           llm_model: GEN_MODEL,
-          source_chunk_ids: rag.sources.map((s) => s.chunk_id),
+          source_chunk_ids: ragSources.map((s) => s.chunk_id),
           requires_sourcing: true,
         })
         .select("id")
@@ -291,7 +314,7 @@ export const generateWorkflow = createServerFn({ method: "POST" })
         tokens_used: tokensUsed,
         duration_ms: Date.now() - startedAt,
         completed_at: new Date().toISOString(),
-        sources_used: rag.sources,
+        sources_used: ragSources,
         scores: quality.scores,
       }).eq("id", runId);
 

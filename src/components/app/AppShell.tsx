@@ -233,6 +233,7 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
                 <NavItem label="Sources légales" icon={BookMarked} to="/admin/legal-sources" active={currentPath === "/admin/legal-sources"} collapsed={collapsed} />
                 <NavItem label="Tenants" icon={Users} to="/admin/tenants" active={currentPath === "/admin/tenants"} collapsed={collapsed} />
                 <NavItem label="Usage" icon={Sparkles} to="/admin/usage" active={currentPath === "/admin/usage"} collapsed={collapsed} />
+                <NavItem label="Workflow Generator" icon={Sparkles} to="/admin/workflow-generator" active={currentPath === "/admin/workflow-generator"} collapsed={collapsed} />
               </>
             )}
             {hasPermission(access, "data_quality.view") && (

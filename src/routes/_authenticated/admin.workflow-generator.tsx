@@ -15,6 +15,7 @@ import {
   listGenerationRuns,
   setWorkflowLifecycleStatus,
 } from "@/server/workflow-generator.functions";
+import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 
 export const Route = createFileRoute("/_authenticated/admin/workflow-generator")({
   component: WorkflowGeneratorPage,
@@ -102,7 +103,14 @@ function WorkflowGeneratorPage() {
               </div>
 
               {genM.data && !genM.data.error && (
-                <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 text-sm space-y-2">
+                <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4 text-sm space-y-3">
+                  <WorkflowStatusBanner
+                    status={genM.data.cache_hit ? "human_validated" : (genM.data.quality?.auto_status ?? "draft_ai")}
+                    riskLevel={genM.data.quality?.sensitive?.max_severity}
+                    validationRequired={genM.data.quality?.sensitive?.contains_sensitive}
+                    sources_count={genM.data.quality?.scores ? undefined : undefined}
+                    quality_score={genM.data.quality?.scores?.overall ? Math.round(genM.data.quality.scores.overall) : undefined}
+                  />
                   <div className="flex items-center gap-2">
                     <strong>Résultat :</strong>
                     {genM.data.cache_hit ? (
