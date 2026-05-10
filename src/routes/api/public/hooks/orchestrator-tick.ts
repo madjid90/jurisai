@@ -57,7 +57,7 @@ export const Route = createFileRoute("/api/public/hooks/orchestrator-tick")({
 
         const STALE_MS = 5 * 60 * 1000;
         const now = Date.now();
-        const toResume = (pending ?? []).filter((b) => {
+        const toResume = pending.filter((b) => {
           if (b.status === "paused") return true;
           // running but stale (no progress for >5min) → consider abandoned, retry
           return now - new Date(b.updated_at).getTime() > STALE_MS;
