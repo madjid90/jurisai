@@ -303,6 +303,69 @@ Deno.serve(async (req) => {
       systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée.)\n</SOURCES>`;
     }
 
+    // 9b. LOT 5 — Fenêtre glissante : si l'historique > 10 messages, on résume
+    // les anciens via un appel LLM léger et on conserve les 10 derniers tels quels.
+    // Évite l'explosion du contexte tout en préservant la mémoire conversationnelle.
+    const MAX_FULL_TURNS = 10;
+    const fullHistory = history ?? [];
+    let condensedHistory = fullHistory;
+    if (fullHistory.length > MAX_FULL_TURNS) {
+      const toSummarize = fullHistory.slice(0, fullHistory.length - MAX_FULL_TURNS);
+      const recent = fullHistory.slice(-MAX_FULL_TURNS);
+      try {
+        const sumCtrl = new AbortController();
+        const sumTimeout = setTimeout(() => sumCtrl.abort("timeout"), 15_000);
+        const sumRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "Résume en 5-8 puces factuelles l'échange suivant entre un utilisateur et un assistant juridique. Conserve : questions posées, points juridiques évoqués, références citées, décisions prises. Pas de fioritures.",
+              },
+              {
+                role: "user",
+                content: toSummarize
+                  .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+                  .join("\n\n"),
+              },
+            ],
+            stream: false,
+          }),
+          signal: sumCtrl.signal,
+        }).finally(() => clearTimeout(sumTimeout));
+        if (sumRes.ok) {
+          const sumJson = await sumRes.json();
+          const summary = sumJson?.choices?.[0]?.message?.content?.trim();
+          if (summary) {
+            condensedHistory = [
+              {
+                role: "assistant",
+                content: `[Résumé de la conversation antérieure]\n${summary}`,
+              },
+              ...recent,
+            ];
+            logEvent("rag.history_condensed", {
+              tenant_id: convo.tenant_id,
+              conversation_id: conversationId,
+              original_turns: fullHistory.length,
+              summarized_turns: toSummarize.length,
+              kept_turns: recent.length,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[legal-chat] history summary failed, fallback to last turns", e);
+        condensedHistory = recent;
+      }
+    }
+
     // 10. Call AI Gateway streaming with timeout (60s) + 1 retry on transient errors
     const callGateway = async (): Promise<Response> => {
       const ctrl = new AbortController();
