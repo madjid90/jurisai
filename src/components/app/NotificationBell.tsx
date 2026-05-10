@@ -68,9 +68,27 @@ export function NotificationBell() {
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
+
+  const handleClick = useCallback(
+    async (n: Notif) => {
+      if (!n.read_at) await markFn({ data: { notificationId: n.id } });
+      setOpen(false);
+      if (n.link) void navigate({ to: n.link });
+      void refresh();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [markFn, navigate],
+  );
 
   const handleClick = async (n: Notif) => {
     if (!n.read_at) await markFn({ data: { notificationId: n.id } });
