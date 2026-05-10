@@ -12,6 +12,16 @@ import {
   type WorkflowStep,
 } from "@/server/workflows.functions";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/workflows")({
   head: () => ({ meta: [{ title: "Procédures · JurisAI" }] }),
