@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieBanner } from "@/components/public/CookieBanner";
 import { ConfirmProvider } from "@/components/shared/ConfirmProvider";
+import { AppErrorBoundary } from "@/components/shared/AppErrorBoundary";
 
 import appCss from "../styles.css?url";
 
