@@ -14,10 +14,8 @@ import {
 import { routeTool } from "./_shared/agent-tool-router.server";
 import { recallMemory, memoryPreamble } from "./_shared/agent-memory.server";
 import { runPostResponsePipeline } from "./_shared/agent-post-response.server";
-import { llmFetch } from "./_shared/llm-fetch.server";
 import { resolveChatModel } from "./_shared/llm-models.server";
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MAX_ROUNDS = 6;
 
 const SYSTEM_PROMPT = `Tu es **JurisAI**, copilote juridique transverse pour cabinets et entreprises (RH, commercial, sociétés, RGPD, fiscal, contentieux, administratif).
