@@ -13,16 +13,54 @@ import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 import { stripHtml } from "../_shared/unist-extract.ts";
 
 const TIME_BUDGET_MS = 135_000;
-const DEFAULT_CODES = ["LEGITEXT000006072050"]; // Code du travail
+// Codes prioritaires PME (transverse : RH + commercial + sociétés + fiscal + administratif)
+const DEFAULT_CODES = [
+  "LEGITEXT000006072050", // Code du travail
+  "LEGITEXT000006070721", // Code civil
+  "LEGITEXT000005634379", // Code de commerce
+  "LEGITEXT000006069577", // Code général des impôts (CGI)
+  "LEGITEXT000006073189", // Code de la sécurité sociale
+  "LEGITEXT000006069565", // Code de la consommation
+  "LEGITEXT000006069414", // Code de la propriété intellectuelle
+  "LEGITEXT000006073984", // Code des assurances
+  "LEGITEXT000006074068", // Code rural et de la pêche maritime
+  "LEGITEXT000006069576", // Livre des procédures fiscales
+  "LEGITEXT000006074075", // Code de l'urbanisme
+  "LEGITEXT000006074069", // Code de l'environnement
+  "LEGITEXT000006074073", // Code de la santé publique
+  "LEGITEXT000006070716", // Code de procédure civile
+  "LEGITEXT000006070719", // Code pénal
+  "LEGITEXT000006071154", // Code de procédure pénale
+  "LEGITEXT000006074093", // Code de l'action sociale et des familles
+];
 
 const KNOWN_CODES: Record<string, string> = {
   "LEGITEXT000006072050": "Code du travail",
-  "LEGITEXT000006073189": "Code de la sécurité sociale",
-  "LEGITEXT000005634379": "Code de commerce",
   "LEGITEXT000006070721": "Code civil",
+  "LEGITEXT000005634379": "Code de commerce",
   "LEGITEXT000006069577": "Code général des impôts",
+  "LEGITEXT000006073189": "Code de la sécurité sociale",
   "LEGITEXT000006069565": "Code de la consommation",
+  "LEGITEXT000006069414": "Code de la propriété intellectuelle",
+  "LEGITEXT000006073984": "Code des assurances",
+  "LEGITEXT000006074068": "Code rural et de la pêche maritime",
+  "LEGITEXT000006069576": "Livre des procédures fiscales",
+  "LEGITEXT000006074075": "Code de l'urbanisme",
+  "LEGITEXT000006074069": "Code de l'environnement",
+  "LEGITEXT000006074073": "Code de la santé publique",
+  "LEGITEXT000006070716": "Code de procédure civile",
+  "LEGITEXT000006070719": "Code pénal",
+  "LEGITEXT000006071154": "Code de procédure pénale",
+  "LEGITEXT000006074093": "Code de l'action sociale et des familles",
 };
+
+const LEGI_INDEX_URL = "https://unpkg.com/@socialgouv/legi-data/data/index.json";
+async function fetchAllCodes(): Promise<string[]> {
+  const res = await fetch(LEGI_INDEX_URL);
+  if (!res.ok) throw new Error(`legi-data index HTTP ${res.status}`);
+  const idx = await res.json() as Array<{ id: string }>;
+  return idx.map((c) => c.id).filter(Boolean);
+}
 
 interface SectionNode {
   id?: string;
@@ -80,7 +118,9 @@ Deno.serve(async (req) => {
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
-      const codes: string[] = Array.isArray(body.codes) && body.codes.length ? body.codes : DEFAULT_CODES;
+      const codes: string[] = body.mode === "all"
+        ? await fetchAllCodes()
+        : (Array.isArray(body.codes) && body.codes.length ? body.codes : DEFAULT_CODES);
       const items: BatchItem[] = [];
       for (const codeId of codes) {
         const tree = await legifranceFetch<{ sections?: SectionNode[]; articles?: SectionNode["articles"]; title?: string }>(

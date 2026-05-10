@@ -38,10 +38,9 @@ import {
 } from "../_shared/unist-extract.ts";
 
 const TIME_BUDGET_MS = 135_000;
-const KALI_INDEX_URL =
-  "https://raw.githubusercontent.com/SocialGouv/kali-data/master/data/index.json";
-const KALI_RAW_BASE =
-  "https://raw.githubusercontent.com/SocialGouv/kali-data/master/data";
+// CDN unpkg : pas de rate-limit (vs raw.githubusercontent.com)
+const KALI_INDEX_URL = "https://unpkg.com/@socialgouv/kali-data/data/index.json";
+const KALI_RAW_BASE = "https://unpkg.com/@socialgouv/kali-data/data";
 
 // Top IDCC to seed first (employee coverage rank).
 const TOP_IDCC = [
