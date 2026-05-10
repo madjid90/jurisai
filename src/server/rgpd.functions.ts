@@ -113,6 +113,7 @@ const HARD_DELETE_TABLES = [
   "document_analyses",
   "dossier_comments",
   "agent_runs",
+  "agent_memory",
   "user_roles",
 ] as const;
 
