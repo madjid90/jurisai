@@ -67,6 +67,38 @@ const CONNECTORS = [
     defaultPayload: { chamber: ["soc", "comm"], max_decisions: 50, dry_run: false },
     badge: "KeyId PISTE",
   },
+  {
+    id: "cdtn-contributions" as const,
+    name: "CDTN — Q/R officielles",
+    description: "~2000 questions/réponses rédigées par les juristes du Ministère du travail (GitHub SocialGouv).",
+    auth: false,
+    defaultPayload: { mode: "all" },
+    badge: "Sans auth",
+  },
+  {
+    id: "acco" as const,
+    name: "ACCO — Accords d'entreprise",
+    description: "Accords d'entreprise déposés (PISTE Légifrance). Recherche par mot-clé + plage de dates.",
+    auth: true,
+    defaultPayload: { mode: "search", query: "télétravail", limit: 50, dateRange: "1y" },
+    badge: "OAuth PISTE",
+  },
+  {
+    id: "dole" as const,
+    name: "DOLE — Dossiers législatifs",
+    description: "Lois en préparation (veille proactive). Récupère les dossiers récents.",
+    auth: true,
+    defaultPayload: { mode: "recent", limit: 50, dateRange: "1y" },
+    badge: "OAuth PISTE",
+  },
+  {
+    id: "cnil" as const,
+    name: "CNIL — Délibérations & sanctions",
+    description: "Doctrine RGPD officielle (délibérations publiques de la CNIL).",
+    auth: false,
+    defaultPayload: { mode: "deliberations", limit: 100 },
+    badge: "Sans auth",
+  },
 ];
 
 function ConnectorsAdminPage() {
