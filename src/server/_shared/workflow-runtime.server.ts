@@ -291,6 +291,7 @@ export async function executeStep(
       validation_request_id: validationId,
       step_definition: stepDef as Record<string, unknown>,
       legal_sources: Array.isArray(stepDef.legal_refs) ? stepDef.legal_refs : [],
+      idempotency_key: input.idempotencyKey ?? null,
     })
     .select("id, step_index, status, due_at, requires_validation, validation_request_id")
     .single();
