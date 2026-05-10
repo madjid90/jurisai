@@ -389,8 +389,9 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
 // s'appuyant sur templates / generation.functions existants.)
 // ---------------------------------------------------------------------------
 
+import { resolveChatModel } from "./_shared/llm-models.server";
+
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const CHAT_MODEL = "google/gemini-3-flash-preview";
 
 const EXEC_SYSTEM = `Tu es JurisAI, copilote juridique transverse.
 Tu reçois une demande utilisateur, sa classification, les infos collectées et des extraits juridiques sourcés.
@@ -483,7 +484,7 @@ ${sourcesBlock || "(aucune)"}`;
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: CHAT_MODEL,
+          model: await resolveChatModel(run.tenant_id as string),
           messages: [
             { role: "system", content: EXEC_SYSTEM },
             { role: "user", content: userMsg },
