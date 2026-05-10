@@ -221,11 +221,14 @@ export async function runGenerateWorkflow(
     const rawContent = genJson.choices?.[0]?.message?.content ?? "{}";
     let draft: WorkflowDraft;
     try {
-      draft = JSON.parse(rawContent) as WorkflowDraft;
+      // BUG-W5 : on valide le draft avec Zod avant d'insérer en base, sinon
+      // une réponse IA mal formée crée des steps cassés.
+      const parsed = JSON.parse(rawContent);
+      draft = WorkflowDraftSchema.parse(parsed) as WorkflowDraft;
     } catch (e) {
-      throw new Error(`Parsing JSON échoué : ${(e as Error).message}`);
+      throw new Error(`Draft IA invalide : ${(e as Error).message}`);
     }
-    if (!draft || !Array.isArray(draft.steps) || draft.steps.length === 0) {
+    if (!Array.isArray(draft.steps) || draft.steps.length === 0) {
       throw new Error("Draft invalide (steps manquants).");
     }
     const genDuration = Date.now() - t0;
