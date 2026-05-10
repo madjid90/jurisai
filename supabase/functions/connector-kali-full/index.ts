@@ -21,7 +21,6 @@ import {
   getAdminClient,
   getLovableApiKey,
   ingestSource,
-  logError,
 } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import {
