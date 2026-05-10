@@ -13,7 +13,10 @@ import {
 } from "./_shared/workflow-runtime.server";
 import { computeLegalDeadline, type DelayUnit } from "./_shared/legal-delays.server";
 
-export const getWorkflowInstance = createServerFn({ method: "GET" })
+// R69 (BUG-W11) — `getWorkflowInstance` (camelCase, riche) est défini dans
+// workflows.functions.ts. Ici on expose la version "lite" basée sur
+// loadInstance() pour l'agent runtime, sous un nom non ambigu.
+export const loadWorkflowInstanceState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
     z.object({ instance_id: z.string().uuid() }).parse(i),

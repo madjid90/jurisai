@@ -307,7 +307,7 @@ function WorkflowsPage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          void handleCancel(i.id);
+                          void handleCancel(i.id, i.title);
                         }}
                         className="rounded-lg p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                         aria-label="Annuler"
