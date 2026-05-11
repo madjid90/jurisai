@@ -37,7 +37,10 @@ import {
   type UnistNode,
 } from "../_shared/unist-extract.ts";
 
-const TIME_BUDGET_MS = 135_000;
+// Budget conservateur : Supabase coupe sur "CPU Time exceeded" bien avant
+// la limite wall-clock quand on parse de gros JSON KALI. 60s laisse de la
+// marge pour finaliser proprement le batch et auto-relancer le tick suivant.
+const TIME_BUDGET_MS = 60_000;
 // Sources de données KALI (avec fallback automatique).
 // unpkg renvoyait 500 (package > 150 MB) ; on bascule sur raw.githubusercontent
 // en primaire (stable, pas de quota CDN), avec esm.sh en secours.
@@ -153,61 +156,87 @@ async function runIngestion(
 
   const start = Date.now();
   let totalIngested = 0, totalSkipped = 0, totalFailed = 0;
-  const BATCH_PER_TICK = 5;
 
+  // Une convention par itération + commit immédiat (markProcessed) → progression
+  // visible en temps réel et batch reprenable même si le runtime nous coupe.
   while (Date.now() - start < TIME_BUDGET_MS) {
-    const items = await getNextItems<BatchItem>(db, batchId, BATCH_PER_TICK);
+    const items = await getNextItems<BatchItem>(db, batchId, 1);
     if (items.length === 0) break;
+    const item = items[0];
 
-    const processed: BatchItem[] = [];
-    const failed: BatchItem[] = [];
-    let perTickIngested = 0;
-    let perTickSkipped = 0;
+    let perItemIngested = 0;
+    let perItemSkipped = 0;
+    let failed = false;
 
-    for (const item of items) {
-      if (Date.now() - start > TIME_BUDGET_MS) break;
-      try {
-        const detRes = await fetchKaliDetail(item.kali_id);
-        if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
-        const detail = await detRes.json() as UnistNode;
-        const articles = extractAllArticles(detail, { keepAbrogated: false });
+    try {
+      const detRes = await fetchKaliDetail(item.kali_id);
+      if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
+      const detail = await detRes.json() as UnistNode;
+      const articles = extractAllArticles(detail, { keepAbrogated: false });
 
-        for (const art of articles) {
-          const content = buildArticleContent(art, item.title);
-          const hash = await sha256(content);
-          const externalId = `kali:${item.idcc}:${art.externalId}`;
-          const decision = await shouldIngest(db, "kali", externalId, hash);
-          if (!decision.shouldIngest) { perTickSkipped++; continue; }
+      for (const art of articles) {
+        const content = buildArticleContent(art, item.title);
+        const hash = await sha256(content);
+        const externalId = `kali:${item.idcc}:${art.externalId}`;
+        const decision = await shouldIngest(db, "kali", externalId, hash);
+        if (!decision.shouldIngest) { perItemSkipped++; continue; }
 
-          await ingestSource(db, apiKey, "kali", {
-            external_id: externalId,
-            source_type: "convention_article",
-            title: `${item.title} (IDCC ${item.idcc}) — ${art.num ? `Article ${art.num}` : (art.title ?? "Disposition")}`,
-            content,
-            reference_code: art.num ? `IDCC ${item.idcc} Art. ${art.num}` : `IDCC ${item.idcc}`,
-            official_url: item.url ?? null,
-            legal_date: art.dateDebut,
-            idcc: item.idcc,
-            raw_metadata: { kali_id: item.kali_id, section_path: art.sectionPath, etat: art.etat, content_hash: hash, cid: art.cid },
-          });
-          perTickIngested++;
-        }
-        processed.push(item);
-      } catch (err) {
-        failed.push(item);
-        console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc}) failed:`, (err as Error).message);
+        await ingestSource(db, apiKey, "kali", {
+          external_id: externalId,
+          source_type: "convention_article",
+          title: `${item.title} (IDCC ${item.idcc}) — ${art.num ? `Article ${art.num}` : (art.title ?? "Disposition")}`,
+          content,
+          reference_code: art.num ? `IDCC ${item.idcc} Art. ${art.num}` : `IDCC ${item.idcc}`,
+          official_url: item.url ?? null,
+          legal_date: art.dateDebut,
+          idcc: item.idcc,
+          raw_metadata: { kali_id: item.kali_id, section_path: art.sectionPath, etat: art.etat, content_hash: hash, cid: art.cid },
+        });
+        perItemIngested++;
       }
+    } catch (err) {
+      failed = true;
+      console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc}) failed:`, (err as Error).message);
     }
 
-    if (processed.length) await markProcessed(db, batchId, processed, perTickIngested, perTickSkipped);
-    if (failed.length) await markFailed(db, batchId, failed, "see ingestion_errors");
-    totalIngested += perTickIngested;
-    totalSkipped += perTickSkipped;
-    totalFailed += failed.length;
+    // Commit ATOMIQUE par convention : si le runtime nous coupe au prochain tour,
+    // on ne perd pas la progression et on n'aura pas non plus de batch "fantôme".
+    if (failed) {
+      await markFailed(db, batchId, [item], "see ingestion_errors");
+      totalFailed++;
+    } else {
+      await markProcessed(db, batchId, [item], perItemIngested, perItemSkipped);
+      totalIngested += perItemIngested;
+      totalSkipped += perItemSkipped;
+    }
   }
 
   const finalState = await finalizeBatch(db, batchId);
   console.log(`[kali-full] tick done batch=${batchId} status=${finalState.status} ingested=${totalIngested} skipped=${totalSkipped} failed=${totalFailed} processed=${finalState.processed}/${finalState.total}`);
+
+  // Auto-relance : si le batch est seulement en pause (CPU/temps épuisé mais
+  // items restants), on chaîne un nouveau tick via fetch interne authentifié
+  // par CRON_SECRET pour ne pas dépendre d'un re-clic utilisateur.
+  if (finalState.status === "paused") {
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const supaUrl = Deno.env.get("SUPABASE_URL");
+    if (cronSecret && supaUrl) {
+      try {
+        await fetch(`${supaUrl}/functions/v1/connector-kali-full`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-cron": cronSecret,
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`,
+          },
+          body: JSON.stringify({ resume_batch_id: batchId }),
+        });
+        console.log(`[kali-full] auto-resume scheduled for batch ${batchId}`);
+      } catch (e) {
+        console.warn(`[kali-full] auto-resume failed:`, (e as Error).message);
+      }
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -220,7 +249,14 @@ Deno.serve(async (req) => {
     });
 
   try {
-    await requireSuperAdmin(req);
+    // Auto-relance interne (chaînage de ticks) : on accepte un secret partagé
+    // au lieu d'un JWT super_admin pour ne pas dépendre d'un re-clic UI.
+    const internalToken = req.headers.get("x-internal-cron");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isInternal = !!internalToken && !!cronSecret && internalToken === cronSecret;
+    if (!isInternal) {
+      await requireSuperAdmin(req);
+    }
     const body = await req.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
     const db = getAdminClient();
