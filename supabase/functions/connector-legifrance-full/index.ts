@@ -165,6 +165,7 @@ async function runIngestion(
     const it = items[0];
 
     let ing = 0, skip = 0, failed = false;
+    let handled = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const art = await legifranceFetch<{ article?: { id: string; num?: string; texte?: string; texteHtml?: string; dateDebut?: number; etat?: string; cid?: string } }>(
@@ -173,9 +174,8 @@ async function runIngestion(
         const raw = art.article?.texte ?? art.article?.texteHtml ?? "";
         const text = stripHtml(raw);
         if (!text || text.length < 30) {
-          await markProcessed(db, batchId, [it], 0, 0);
-          await new Promise((r) => setTimeout(r, 80));
-          continue;
+          handled = true;
+          break;
         }
 
         const locline = it.section_path.length ? `**Localisation** : ${it.code_title} > ${it.section_path.join(" > ")}\n\n` : `**Localisation** : ${it.code_title}\n\n`;
@@ -196,6 +196,7 @@ async function runIngestion(
           });
           ing = 1;
         }
+        handled = true;
         break;
       } catch (err) {
         const message = (err as Error).message;
@@ -210,7 +211,7 @@ async function runIngestion(
     }
 
     if (failed) { await markFailed(db, batchId, [it], "see logs"); totalFailed++; }
-    else { await markProcessed(db, batchId, [it], ing, skip); totalIngested += ing; totalSkipped += skip; }
+    else if (handled) { await markProcessed(db, batchId, [it], ing, skip); totalIngested += ing; totalSkipped += skip; }
     await new Promise((r) => setTimeout(r, 80));
   }
 
