@@ -34,6 +34,19 @@ export async function getNextItems<T = unknown>(
   return (data as T[]) ?? [];
 }
 
+export async function appendBatchItems(
+  db: SupabaseClient,
+  batchId: string,
+  items: unknown[],
+): Promise<void> {
+  if (items.length === 0) return;
+  const { error } = await db.rpc("append_batch_items", {
+    p_batch_id: batchId,
+    p_items: items,
+  });
+  if (error) throw new Error(`appendBatchItems failed: ${error.message}`);
+}
+
 export async function heartbeat(
   db: SupabaseClient,
   batchId: string,
