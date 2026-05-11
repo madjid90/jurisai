@@ -1,0 +1,1 @@
+UPDATE public.ingestion_batch_state SET status='paused', last_tick_at=now() WHERE id='b023cb1e-a780-462a-821d-9bdc6064f1f3' AND status='running';
