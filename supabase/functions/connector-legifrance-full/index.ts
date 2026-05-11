@@ -161,6 +161,7 @@ async function runIngestion(
   while (Date.now() - start < TIME_BUDGET_MS) {
     const items = await getNextItems<BatchItem>(db, batchId, 1);
     if (items.length === 0) break;
+    await heartbeat(db, batchId);
     const it = items[0];
 
     let ing = 0, skip = 0, failed = false;
