@@ -128,6 +128,7 @@ export const listMyRuns = createServerFn({ method: "GET" })
         "id, title, message, status, intent, domain, dossier_id, created_at, updated_at, executed_at, archived_at"
       )
       .eq("tenant_id", tenantId)
+      .is("parent_run_id", null) // ne lister que les conversations racine
       .order("updated_at", { ascending: false })
       .limit(data.limit);
 
@@ -135,6 +136,28 @@ export const listMyRuns = createServerFn({ method: "GET" })
     if (data.status) q = q.eq("status", data.status);
 
     const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+/**
+ * Liste les questions de suivi (children) d'une run racine, ordonnées chronologiquement.
+ * Utilisé par l'UI pour afficher le fil conversationnel.
+ */
+export const listChildRuns = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ parent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
+    const tenantId = await getTenantId(userId);
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("agent_runs")
+      .select("id, title, message, status, answer, sources, draft, created_at, updated_at, error_message, refused, refusal_reason, confidence, dossier_id, workflow_instance_id, final_document_ids")
+      .eq("tenant_id", tenantId)
+      .eq("parent_run_id", data.parent_id)
+      .order("created_at", { ascending: true });
+
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
