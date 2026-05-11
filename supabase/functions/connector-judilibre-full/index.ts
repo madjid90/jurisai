@@ -63,6 +63,7 @@ Deno.serve(async (req) => {
     const apiKey = getLovableApiKey();
 
     let batchId: string;
+    let planning: { chambers: string[]; dStart: string; dEnd: string; query: string; max: number } | null = null;
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
@@ -74,10 +75,14 @@ Deno.serve(async (req) => {
       // max_decisions = 0 (ou absent) => totalité disponible (pagination jusqu'à épuisement)
       const max = body.max_decisions === undefined ? 0 : Number(body.max_decisions);
 
-      const hits = await searchPaginated(query, chambers, dStart, dEnd, max);
-      const items: BatchItem[] = hits.map((h) => ({ id: h.id, chamber: h.chamber, date: h.decision_date, number: h.number }));
-      if (dryRun) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
-      batchId = await startBatch(db, "judilibre-full", "decisions", items, { chambers, query, dStart, dEnd });
+      if (dryRun) {
+        // Dry-run: échantillon rapide, page unique première chambre
+        const sample = await searchPaginated(query, chambers.slice(0, 1), dStart, dEnd, 50);
+        return json({ dry_run: true, found_sample: sample.length, sample: sample.slice(0, 5).map((h) => ({ id: h.id, chamber: h.chamber, date: h.decision_date })) });
+      }
+      // Crée un batch vide immédiatement, planning en arrière-plan
+      batchId = await startBatch(db, "judilibre-full", "decisions", [], { chambers, query, dStart, dEnd, planning: "in_progress" });
+      planning = { chambers, dStart, dEnd, query, max };
     }
 
     // @ts-ignore EdgeRuntime injecté par Supabase
