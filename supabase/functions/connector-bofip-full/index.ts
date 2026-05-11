@@ -44,24 +44,35 @@ Deno.serve(async (req) => {
         if (dryRun) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
         batchId = await startBatch(db, "bofip-full", "documents", items, {});
       } else {
-        const max = Math.min(Number(body.max_docs) || 1000, 5000);
+        const max = Number.isFinite(Number(body.max_docs)) && Number(body.max_docs) > 0
+          ? Number(body.max_docs)
+          : Number.POSITIVE_INFINITY; // pas de limite par défaut
         if (dryRun) {
-          // Échantillon rapide page 1
-          const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string }> }>(
-            "/search",
-            {
-              recherche: {
-                champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
-                filtres: [{ facette: "FONDS", valeurs: ["BOFIP"] }],
-                pageNumber: 1, pageSize: 10, sort: "PERTINENCE", typePagination: "DEFAUT",
-              },
-              fond: "BOFIP",
-            },
-          ).catch(() => ({ results: [] as Array<{ id?: string; titre?: string }> }));
-          return json({ dry_run: true, sample: (data.results ?? []).slice(0, 5) });
+          // Échantillon rapide page 1 — essaie plusieurs fonds connus
+          const fondsToTry = ["BOFIP", "BOFIP_IMPOTS"];
+          let sample: Array<{ id?: string; titre?: string }> = [];
+          let lastErr = "";
+          for (const fond of fondsToTry) {
+            try {
+              const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string }> }>(
+                "/search",
+                {
+                  recherche: {
+                    champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
+                    filtres: [{ facette: "FONDS", valeurs: [fond] }],
+                    pageNumber: 1, pageSize: 10, sort: "PERTINENCE", typePagination: "DEFAUT",
+                  },
+                  fond,
+                },
+              );
+              sample = data.results ?? [];
+              if (sample.length) return json({ dry_run: true, fond, sample: sample.slice(0, 5) });
+            } catch (e) { lastErr = (e as Error).message; }
+          }
+          return json({ dry_run: true, sample, warning: lastErr || "aucun résultat sur les fonds essayés" });
         }
         // Crée le batch vide, planning en arrière-plan
-        batchId = await startBatch(db, "bofip-full", "documents", [], { planning: "in_progress", max });
+        batchId = await startBatch(db, "bofip-full", "documents", [], { planning: "in_progress", max: Number.isFinite(max) ? max : null });
         planningMax = max;
       }
     }
