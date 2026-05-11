@@ -37,6 +37,17 @@ Deno.serve(async (req) => {
     }
     const body = await req.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
+    // Note: l'API REST « JADE » sur PISTE n'expose plus d'endpoint /search public.
+    // Les décisions du Conseil d'État sont distribuées en archives mensuelles via
+    // https://opendata.justice-administrative.fr (pas de recherche temps réel).
+    // On renvoie une erreur explicite tant qu'un connecteur d'archives n'est pas en place.
+    if (!body.resume_batch_id) {
+      return json({
+        error: "JADE PISTE indisponible",
+        detail: "L'API REST JADE de PISTE a été décommissionnée. Les décisions du Conseil d'État sont désormais publiées en archives mensuelles sur opendata.justice-administrative.fr. Un connecteur dédié 'jade-archives' sera nécessaire pour les ingérer (à implémenter).",
+        action_required: "implement_jade_archives_connector",
+      }, 501);
+    }
     const db = getAdminClient();
     const apiKey = getLovableApiKey();
     const key = getKey();
