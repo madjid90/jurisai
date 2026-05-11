@@ -5,16 +5,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Loader2, Send, Sparkles, BookMarked, ExternalLink, Trash2 } from "lucide-react";
+import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { runLegalAgent } from "@/server/agent.functions";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Chat juridique · JurisAI" }] }),
