@@ -1672,3 +1672,55 @@ function FollowUpThread({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// SourcesList — affiche les sources de manière visible (3 premières) avec
+// possibilité de tout déplier. Renforce la confiance utilisateur.
+// ---------------------------------------------------------------------------
+function SourcesList({
+  sources,
+}: {
+  sources: Array<{ title: string; reference?: string; url?: string }>;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? sources : sources.slice(0, 3);
+  return (
+    <>
+      <ul className="space-y-1.5">
+        {visible.map((s, i) => (
+          <li key={i} className="flex gap-2 text-xs text-muted-foreground">
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-muted font-semibold text-foreground/70 text-[10px]">
+              {i + 1}
+            </span>
+            <span className="flex-1 leading-relaxed">
+              {s.url ? (
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-foreground/90 underline-offset-2 hover:underline hover:text-primary"
+                >
+                  {s.title}
+                </a>
+              ) : (
+                <span className="text-foreground/90">{s.title}</span>
+              )}
+              {s.reference ? (
+                <span className="text-muted-foreground"> — {s.reference}</span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {sources.length > 3 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-2 text-[11px] font-medium text-primary hover:underline"
+        >
+          {showAll ? "Réduire" : `Voir les ${sources.length - 3} autres sources`}
+        </button>
+      ) : null}
+    </>
+  );
+}
