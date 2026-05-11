@@ -12,7 +12,9 @@ import { finalizeBatch, getNextItems, markFailed, markProcessed, startBatch } fr
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 import { stripHtml } from "../_shared/unist-extract.ts";
 
-const TIME_BUDGET_MS = 135_000;
+// Budget conservateur : Supabase coupe sur "CPU Time exceeded" bien avant
+// la limite wall-clock. 60s laisse la marge pour finalizeBatch + auto-resume.
+const TIME_BUDGET_MS = 60_000;
 // Codes prioritaires PME (transverse : RH + commercial + sociétés + fiscal + administratif)
 const DEFAULT_CODES = [
   "LEGITEXT000006072050", // Code du travail
@@ -54,12 +56,25 @@ const KNOWN_CODES: Record<string, string> = {
   "LEGITEXT000006074093": "Code de l'action sociale et des familles",
 };
 
-const LEGI_INDEX_URL = "https://unpkg.com/@socialgouv/legi-data/data/index.json";
+// `unpkg.com/@socialgouv/legi-data` renvoie HTTP 500 (package > 150 MB CDN limit).
+// On bascule sur raw.githubusercontent (stable, pas de quota CDN) avec esm.sh en secours.
+const LEGI_INDEX_URLS = [
+  "https://raw.githubusercontent.com/SocialGouv/legi-data/master/data/index.json",
+  "https://esm.sh/@socialgouv/legi-data/data/index.json",
+];
 async function fetchAllCodes(): Promise<string[]> {
-  const res = await fetch(LEGI_INDEX_URL);
-  if (!res.ok) throw new Error(`legi-data index HTTP ${res.status}`);
-  const idx = await res.json() as Array<{ id: string }>;
-  return idx.map((c) => c.id).filter(Boolean);
+  let lastErr: unknown = null;
+  for (const url of LEGI_INDEX_URLS) {
+    try {
+      const res = await fetch(url, { redirect: "follow" });
+      if (res.ok) {
+        const idx = await res.json() as Array<{ id: string }>;
+        return idx.map((c) => c.id).filter(Boolean);
+      }
+      lastErr = new Error(`${url} HTTP ${res.status}`);
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("legi-data index: all sources failed");
 }
 
 interface SectionNode {
@@ -141,28 +156,32 @@ async function runIngestion(
   const start = Date.now();
   let totalIngested = 0, totalSkipped = 0, totalFailed = 0;
 
+  // Un article par itération + commit immédiat → progression visible et batch
+  // toujours reprenable même si le runtime nous coupe au prochain tour.
   while (Date.now() - start < TIME_BUDGET_MS) {
-    const items = await getNextItems<BatchItem>(db, batchId, 20);
+    const items = await getNextItems<BatchItem>(db, batchId, 1);
     if (items.length === 0) break;
-    const ok: BatchItem[] = [], failed: BatchItem[] = [];
-    let ing = 0, skip = 0;
+    const it = items[0];
 
-    for (const it of items) {
-      if (Date.now() - start > TIME_BUDGET_MS) break;
-      try {
-        const art = await legifranceFetch<{ article?: { id: string; num?: string; texte?: string; texteHtml?: string; dateDebut?: number; etat?: string; cid?: string } }>(
-          "/consult/getArticle", { id: it.article_id },
-        );
-        const raw = art.article?.texte ?? art.article?.texteHtml ?? "";
-        const text = stripHtml(raw);
-        if (!text || text.length < 30) { ok.push(it); continue; }
+    let ing = 0, skip = 0, failed = false;
+    try {
+      const art = await legifranceFetch<{ article?: { id: string; num?: string; texte?: string; texteHtml?: string; dateDebut?: number; etat?: string; cid?: string } }>(
+        "/consult/getArticle", { id: it.article_id },
+      );
+      const raw = art.article?.texte ?? art.article?.texteHtml ?? "";
+      const text = stripHtml(raw);
+      if (!text || text.length < 30) {
+        await markProcessed(db, batchId, [it], 0, 0);
+        await new Promise((r) => setTimeout(r, 80));
+        continue;
+      }
 
-        const locline = it.section_path.length ? `**Localisation** : ${it.code_title} > ${it.section_path.join(" > ")}\n\n` : `**Localisation** : ${it.code_title}\n\n`;
-        const content = `${locline}# Article ${it.num ?? art.article?.num ?? it.article_id}\n\n${text}`;
-        const hash = await sha256(content);
-        const dec = await shouldIngest(db, "legifrance", it.article_id, hash);
-        if (!dec.shouldIngest) { skip++; ok.push(it); continue; }
-
+      const locline = it.section_path.length ? `**Localisation** : ${it.code_title} > ${it.section_path.join(" > ")}\n\n` : `**Localisation** : ${it.code_title}\n\n`;
+      const content = `${locline}# Article ${it.num ?? art.article?.num ?? it.article_id}\n\n${text}`;
+      const hash = await sha256(content);
+      const dec = await shouldIngest(db, "legifrance", it.article_id, hash);
+      if (!dec.shouldIngest) { skip = 1; }
+      else {
         await ingestSource(db, apiKey, "legifrance", {
           external_id: it.article_id,
           source_type: "code_article",
@@ -173,21 +192,43 @@ async function runIngestion(
           legal_date: art.article?.dateDebut ? new Date(art.article.dateDebut).toISOString().slice(0, 10) : null,
           raw_metadata: { code_id: it.code_id, cid: art.article?.cid, etat: art.article?.etat, section_path: it.section_path, content_hash: hash },
         });
-        ing++; ok.push(it);
-      } catch (err) {
-        failed.push(it);
-        console.error(`[legifrance-full] ${it.article_id}:`, (err as Error).message);
+        ing = 1;
       }
-      await new Promise((r) => setTimeout(r, 80));
+    } catch (err) {
+      failed = true;
+      console.error(`[legifrance-full] ${it.article_id}:`, (err as Error).message);
     }
 
-    if (ok.length) await markProcessed(db, batchId, ok, ing, skip);
-    if (failed.length) await markFailed(db, batchId, failed, "see logs");
-    totalIngested += ing; totalSkipped += skip; totalFailed += failed.length;
+    if (failed) { await markFailed(db, batchId, [it], "see logs"); totalFailed++; }
+    else { await markProcessed(db, batchId, [it], ing, skip); totalIngested += ing; totalSkipped += skip; }
+    await new Promise((r) => setTimeout(r, 80));
   }
 
   const fin = await finalizeBatch(db, batchId);
   console.log(`[legifrance-full] tick done batch=${batchId} status=${fin.status} ingested=${totalIngested} skipped=${totalSkipped} failed=${totalFailed} processed=${fin.processed}/${fin.total}`);
+
+  // Auto-relance interne si batch en pause (même pattern que KALI).
+  if (fin.status === "paused") {
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const supaUrl = Deno.env.get("SUPABASE_URL");
+    const srvKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (cronSecret && supaUrl && srvKey) {
+      try {
+        await fetch(`${supaUrl}/functions/v1/connector-legifrance-full`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-internal-cron": cronSecret,
+            "Authorization": `Bearer ${srvKey}`,
+          },
+          body: JSON.stringify({ resume_batch_id: batchId }),
+        });
+        console.log(`[legifrance-full] auto-resume scheduled for batch ${batchId}`);
+      } catch (e) {
+        console.warn(`[legifrance-full] auto-resume failed:`, (e as Error).message);
+      }
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -196,7 +237,13 @@ Deno.serve(async (req) => {
   const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    await requireSuperAdmin(req);
+    // Auto-relance interne (chaînage de ticks) : secret partagé au lieu d'un JWT super_admin.
+    const internalToken = req.headers.get("x-internal-cron");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isInternal = !!internalToken && !!cronSecret && internalToken === cronSecret;
+    if (!isInternal) {
+      await requireSuperAdmin(req);
+    }
     const body = await req.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
     const db = getAdminClient();
