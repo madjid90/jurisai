@@ -183,6 +183,8 @@ function AssistantPage() {
       }
       const created = (await create({ data: { message: text, attachments } })) as { id: string };
       setActiveId(created.id);
+      // Bascule en mode focus : la conversation prend toute la page
+      void navigate({ search: { run: created.id }, replace: false });
       await refresh();
       try {
         const r1 = (await process({ data: { id: created.id } })) as { status: string };
