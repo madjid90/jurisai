@@ -92,6 +92,10 @@ function humanLabel(status: string): { label: string; tone: "work" | "ask" | "ok
 }
 
 function AssistantPage() {
+  const search = useSearch({ from: "/_authenticated/agent" });
+  const navigate = useNavigate({ from: "/_authenticated/agent" });
+  const focusRunId = search.run ?? null;
+
   const create = useServerFn(createAgentRun);
   const process = useServerFn(processAgentRun);
   const execute = useServerFn(executeAgentRun);
