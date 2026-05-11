@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
             ingested += ing; skipped += sk; failed += fl.length;
           }
 
+          await planTask.catch(() => {});
           const fin = await finalizeBatch(db, batchId);
           console.log(`[connector-bofip-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
 
