@@ -115,7 +115,7 @@ async function runIngestion(
     const mode: "top" | "all" | "idcc" = body.mode ?? "top";
     const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
 
-    const idxRes = await fetch(KALI_INDEX_URL);
+    const idxRes = await fetchKaliIndex();
     if (!idxRes.ok) throw new Error(`KALI index HTTP ${idxRes.status}`);
     const index: KaliIndexEntry[] = await idxRes.json();
 
