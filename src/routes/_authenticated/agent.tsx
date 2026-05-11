@@ -251,6 +251,10 @@ function AssistantPage() {
               Nouvelle question
             </Button>
           </div>
+          <ModeBanner mode={search.mode} />
+          {search.mode === "dossier_selection" ? (
+            <DossierSelectionPanel runId={focusRunId} onAttached={() => void refresh()} />
+          ) : null}
           <RunCard
             key={focusRunId}
             summary={focusSummary as Run}
