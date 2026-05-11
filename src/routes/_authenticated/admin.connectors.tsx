@@ -25,12 +25,15 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   checkConnectorSecrets,
+  deleteConnectorJob,
+  deleteFailedConnectorJobs,
   getConnectorStats,
   listConnectorErrors,
   listConnectorJobs,
   triggerConnector,
   type ConnectorErrorRow,
 } from "@/server/connectors.functions";
+import { Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/connectors")({
   head: () => ({ meta: [{ title: "Connecteurs data · JurisAI" }] }),
