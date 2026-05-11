@@ -198,6 +198,7 @@ async function runIngestion(
     let perItemSkipped = 0;
     let failed = false;
     let timeExceeded = false;
+    let artIdx = 0;
 
     try {
       const detRes = await fetchKaliDetail(item.kali_id);
@@ -227,7 +228,7 @@ async function runIngestion(
       }
 
       const resumeIdx = item.resume_article_idx ?? 0;
-      let artIdx = 0;
+      artIdx = 0;
       for (const art of walkArticles(detail)) {
         if (art.etat === "ABROGE" || art.content.length < 30) continue;
         if (artIdx < resumeIdx) {
