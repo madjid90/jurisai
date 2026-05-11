@@ -94,10 +94,54 @@ Deno.serve(async (req) => {
           const start = Date.now();
           let ingested = 0, skipped = 0, failed = 0;
           const key = getKey();
+          let planningDone = planning === null;
+
+          // Planification asynchrone: paginate par chambre, append items au fur et à mesure
+          const planTask = planning ? (async () => {
+            const { chambers, dStart, dEnd, query, max } = planning!;
+            const pageSize = 50;
+            const unlimited = max <= 0;
+            let totalSoFar = 0;
+            try {
+              for (const ch of chambers) {
+                let page = 0;
+                while (unlimited || totalSoFar < max) {
+                  const url = `${baseUrl()}/search?` +
+                    new URLSearchParams({ query, page: String(page), page_size: String(pageSize), date_start: dStart, date_end: dEnd }).toString() +
+                    `&chamber=${ch}`;
+                  const res = await fetch(url, { headers: { KeyId: key, apikey: key, Accept: "application/json" } });
+                  if (!res.ok) { console.error(`[judilibre-full] plan ${ch} p${page} ${res.status}`); break; }
+                  const data = await res.json() as { results?: Hit[]; result?: Hit[] };
+                  const hits = data.results ?? data.result ?? [];
+                  if (!hits.length) break;
+                  const slice = unlimited ? hits : hits.slice(0, Math.max(0, max - totalSoFar));
+                  const items: BatchItem[] = slice.map((h) => ({ id: h.id, chamber: h.chamber, date: h.decision_date, number: h.number }));
+                  if (items.length) {
+                    // Append en SQL: total_items = total_items || items, total_count++
+                    const { error } = await db.rpc("append_batch_items", { p_batch_id: batchId, p_items: items });
+                    if (error) console.error(`[judilibre-full] append err: ${error.message}`);
+                    totalSoFar += items.length;
+                  }
+                  if (hits.length < pageSize) break;
+                  page++;
+                  if (!unlimited && totalSoFar >= max) break;
+                }
+                if (!unlimited && totalSoFar >= max) break;
+              }
+            } finally {
+              planningDone = true;
+              console.log(`[judilibre-full] planning fini: ${totalSoFar} items`);
+            }
+          })() : Promise.resolve();
 
           while (Date.now() - start < TIME_BUDGET_MS) {
             const items = await getNextItems<BatchItem>(db, batchId, 15);
-            if (!items.length) break;
+            if (!items.length) {
+              if (planningDone) break;
+              await heartbeat(db, batchId);
+              await new Promise((r) => setTimeout(r, 2000));
+              continue;
+            }
             await heartbeat(db, batchId);
             const ok: BatchItem[] = [], fl: BatchItem[] = [];
             let ing = 0, sk = 0;
@@ -139,6 +183,7 @@ Deno.serve(async (req) => {
             ingested += ing; skipped += sk; failed += fl.length;
           }
 
+          await planTask.catch(() => {});
           const fin = await finalizeBatch(db, batchId);
           console.log(`[connector-judilibre-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
 
