@@ -189,32 +189,55 @@ async function runIngestion(
     try {
       const detRes = await fetchKaliDetail(item.kali_id);
       if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
-      const detail = await detRes.json() as UnistNode;
+      const detail = await detRes.json() as UnistNode & {
+        data?: { id?: string; num?: string | number; title?: string; shortTitle?: string; url?: string; active?: boolean; effectif?: number };
+      };
+
+      // Mode "all" : IDCC/titre absents au planning, on les déduit du détail
+      // (data.num = IDCC, data.title = libellé) puis on upsert la convention.
+      const meta = detail.data ?? {};
+      const idcc = item.idcc ?? (meta.num != null ? String(meta.num).padStart(4, "0") : item.kali_id);
+      const title = item.title ?? meta.title ?? `Convention ${idcc}`;
+      const url = item.url ?? meta.url ?? `https://www.legifrance.gouv.fr/conv_coll/id/${item.kali_id}`;
+
+      if (!item.idcc && idcc) {
+        await db.from("conventions_collectives").upsert({
+          idcc,
+          title,
+          short_title: meta.shortTitle ?? null,
+          is_active: meta.active !== false,
+          effectif: meta.effectif ?? null,
+          source_url: url,
+          raw_metadata: { kali_id: item.kali_id, ...meta },
+          last_synced_at: new Date().toISOString(),
+        }, { onConflict: "idcc" });
+      }
+
       const articles = extractAllArticles(detail, { keepAbrogated: false });
 
       for (const art of articles) {
-        const content = buildArticleContent(art, item.title);
+        const content = buildArticleContent(art, title);
         const hash = await sha256(content);
-        const externalId = `kali:${item.idcc}:${art.externalId}`;
+        const externalId = `kali:${idcc}:${art.externalId}`;
         const decision = await shouldIngest(db, "kali", externalId, hash);
         if (!decision.shouldIngest) { perItemSkipped++; continue; }
 
         await ingestSource(db, apiKey, "kali", {
           external_id: externalId,
           source_type: "convention_article",
-          title: `${item.title} (IDCC ${item.idcc}) — ${art.num ? `Article ${art.num}` : (art.title ?? "Disposition")}`,
+          title: `${title} (IDCC ${idcc}) — ${art.num ? `Article ${art.num}` : (art.title ?? "Disposition")}`,
           content,
-          reference_code: art.num ? `IDCC ${item.idcc} Art. ${art.num}` : `IDCC ${item.idcc}`,
-          official_url: item.url ?? null,
+          reference_code: art.num ? `IDCC ${idcc} Art. ${art.num}` : `IDCC ${idcc}`,
+          official_url: url,
           legal_date: art.dateDebut,
-          idcc: item.idcc,
+          idcc,
           raw_metadata: { kali_id: item.kali_id, section_path: art.sectionPath, etat: art.etat, content_hash: hash, cid: art.cid },
         });
         perItemIngested++;
       }
     } catch (err) {
       failed = true;
-      console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc}) failed:`, (err as Error).message);
+      console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc ?? "?"}) failed:`, (err as Error).message);
     }
 
     // Commit ATOMIQUE par convention : si le runtime nous coupe au prochain tour,
