@@ -167,7 +167,7 @@ async function runIngestion(
     for (const item of items) {
       if (Date.now() - start > TIME_BUDGET_MS) break;
       try {
-        const detRes = await fetch(`${KALI_RAW_BASE}/${item.kali_id}.json`);
+        const detRes = await fetchKaliDetail(item.kali_id);
         if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
         const detail = await detRes.json() as UnistNode;
         const articles = extractAllArticles(detail, { keepAbrogated: false });
