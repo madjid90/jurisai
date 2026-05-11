@@ -90,6 +90,7 @@ interface BatchItem {
   article_id: string;
   num: string | null;
   section_path: string[];
+  retries?: number;
 }
 
 function flattenCode(codeId: string, codeTitle: string, root: { sections?: SectionNode[]; articles?: SectionNode["articles"] }): BatchItem[] {
@@ -196,8 +197,16 @@ async function runIngestion(
         ing = 1;
       }
     } catch (err) {
+      const message = (err as Error).message;
+      const retries = (it.retries ?? 0) + 1;
+      if (retries < 3) {
+        await markProcessed(db, batchId, [{ ...it, retries }], 0, 0);
+        console.warn(`[legifrance-full] ${it.article_id}: transient error (${message}), retry ${retries}/2`);
+        await new Promise((r) => setTimeout(r, 250));
+        continue;
+      }
       failed = true;
-      console.error(`[legifrance-full] ${it.article_id}:`, (err as Error).message);
+      console.error(`[legifrance-full] ${it.article_id}:`, message);
     }
 
     if (failed) { await markFailed(db, batchId, [it], "see logs"); totalFailed++; }
