@@ -250,11 +250,17 @@ async function runIngestion(
       console.error(`[kali-full] item ${item.kali_id} (IDCC ${item.idcc ?? "?"}) failed:`, (err as Error).message);
     }
 
-    // Commit ATOMIQUE par convention : si le runtime nous coupe au prochain tour,
-    // on ne perd pas la progression et on n'aura pas non plus de batch "fantôme".
+    // Commit ATOMIQUE par convention. Si on a coupé en plein milieu (timeExceeded),
+    // on NE marque PAS l'item comme processed → il sera repris au prochain tick,
+    // et shouldIngest skippera les articles déjà ingérés (idempotence par hash).
     if (failed) {
       await markFailed(db, batchId, [item], "see ingestion_errors");
       totalFailed++;
+    } else if (timeExceeded) {
+      totalIngested += perItemIngested;
+      totalSkipped += perItemSkipped;
+      console.log(`[kali-full] item ${item.kali_id} partial (${perItemIngested} ingested, ${perItemSkipped} skipped) — will resume`);
+      break;
     } else {
       await markProcessed(db, batchId, [item], perItemIngested, perItemSkipped);
       totalIngested += perItemIngested;
