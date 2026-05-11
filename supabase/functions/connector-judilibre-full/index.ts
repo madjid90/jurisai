@@ -32,7 +32,9 @@ async function searchPaginated(query: string, chambers: string[], dStart: string
   const out: Hit[] = [];
   let page = 0;
   const pageSize = 50;
-  while (out.length < max) {
+  // max <= 0 => pas de plafond (totalité disponible via pagination API)
+  const unlimited = max <= 0;
+  while (unlimited || out.length < max) {
     const url = `${baseUrl()}/search?` +
       new URLSearchParams({ query, page: String(page), page_size: String(pageSize), date_start: dStart, date_end: dEnd }).toString() +
       chambers.map((c) => `&chamber=${c}`).join("");
@@ -45,7 +47,7 @@ async function searchPaginated(query: string, chambers: string[], dStart: string
     if (hits.length < pageSize) break;
     page++;
   }
-  return out.slice(0, max);
+  return unlimited ? out : out.slice(0, max);
 }
 
 Deno.serve(async (req) => {
