@@ -228,7 +228,7 @@ async function runIngestion(
       }
 
       const resumeIdx = item.resume_article_idx ?? 0;
-      let artIdx = 0;
+      artIdx = 0;
       for (const art of walkArticles(detail)) {
         if (art.etat === "ABROGE" || art.content.length < 30) continue;
         if (artIdx < resumeIdx) {
