@@ -305,13 +305,24 @@ function ConnectorsAdminPage() {
               <CardTitle className="text-base">Jobs récents</CardTitle>
               <CardDescription>Auto-refresh toutes les 5 secondes</CardDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] })}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => deleteFailedMut.mutate()}
+                disabled={deleteFailedMut.isPending || !jobsQuery.data?.jobs.some((j) => j.status === "failed")}
+                title="Supprimer tous les jobs en échec"
+              >
+                <Trash2 className="mr-1 h-4 w-4" /> Échecs
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] })}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {jobsQuery.isLoading ? (
@@ -322,7 +333,16 @@ function ConnectorsAdminPage() {
               <div className="py-6 text-center text-sm text-muted-foreground">Aucun job</div>
             ) : (
               <div className="space-y-2">
-                {jobsQuery.data?.jobs.map((j) => <JobRow key={j.id} job={j} />)}
+                {jobsQuery.data?.jobs.map((j) => (
+                  <JobRow
+                    key={j.id}
+                    job={j}
+                    onRelaunch={() => j.connector && relaunchConnector(j.connector)}
+                    onDelete={() => deleteJobMut.mutate(j.id)}
+                    relaunching={triggerMut.isPending && triggerMut.variables?.connector === j.connector}
+                    deleting={deleteJobMut.isPending && deleteJobMut.variables === j.id}
+                  />
+                ))}
               </div>
             )}
           </CardContent>
