@@ -84,7 +84,7 @@ function DemandeDetailPage() {
             Chargement de la demande…
           </div>
         ) : (
-          <ResultRenderer run={run ?? null} />
+          <ResultRenderer run={run ?? null} onSuggestedAction={handleAction} />
         )}
       </div>
     </AppShell>
