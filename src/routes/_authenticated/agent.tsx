@@ -20,6 +20,7 @@ import {
   listMyRuns,
   getAgentRun,
   listChildRuns,
+  attachRunToDossier,
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
