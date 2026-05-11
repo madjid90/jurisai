@@ -204,6 +204,42 @@ export const triggerConnector = createServerFn({ method: "POST" })
     }
   });
 
+export const deleteConnectorJob = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { jobId: string }) => input)
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    const client = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        delete: () => { eq: (col: string, val: string) => Promise<{ error: { message: string } | null }> };
+      };
+    };
+    const { error } = await client.from("ingestion_batch_state").delete().eq("id", data.jobId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteFailedConnectorJobs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { connector?: string }) => input ?? {})
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    const client = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        delete: () => {
+          eq: (col: string, val: string) => Promise<{ error: { message: string } | null; count?: number | null }> & {
+            eq: (col: string, val: string) => Promise<{ error: { message: string } | null; count?: number | null }>;
+          };
+        };
+      };
+    };
+    let q = client.from("ingestion_batch_state").delete().eq("status", "failed");
+    if (data.connector) q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq("connector", data.connector);
+    const { error } = await (q as unknown as Promise<{ error: { message: string } | null }>);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const checkConnectorSecrets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

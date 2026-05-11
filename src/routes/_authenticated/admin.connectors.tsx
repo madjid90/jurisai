@@ -25,12 +25,15 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   checkConnectorSecrets,
+  deleteConnectorJob,
+  deleteFailedConnectorJobs,
   getConnectorStats,
   listConnectorErrors,
   listConnectorJobs,
   triggerConnector,
   type ConnectorErrorRow,
 } from "@/server/connectors.functions";
+import { Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/connectors")({
   head: () => ({ meta: [{ title: "Connecteurs data · JurisAI" }] }),
@@ -197,6 +200,33 @@ function ConnectorsAdminPage() {
     },
   });
 
+  const deleteJobMut = useMutation({
+    mutationFn: (jobId: string) => deleteConnectorJob({ data: { jobId } }),
+    onSuccess: () => {
+      toast.success("Job supprimé");
+      qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] });
+    },
+    onError: (err: Error) => toast.error("Suppression impossible", { description: err.message.slice(0, 200) }),
+  });
+
+  const deleteFailedMut = useMutation({
+    mutationFn: () => deleteFailedConnectorJobs({ data: {} }),
+    onSuccess: () => {
+      toast.success("Jobs en échec supprimés");
+      qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] });
+    },
+    onError: (err: Error) => toast.error("Suppression impossible", { description: err.message.slice(0, 200) }),
+  });
+
+  const relaunchConnector = (connectorId: string) => {
+    const cfg = CONNECTORS.find((c) => c.id === connectorId);
+    if (!cfg) {
+      toast.error(`Connecteur ${connectorId} inconnu`);
+      return;
+    }
+    triggerMut.mutate({ connector: cfg.id, payload: cfg.defaultPayload as Record<string, unknown> });
+  };
+
   if (errorDenied) {
     return (
       <AppShell>
@@ -275,13 +305,24 @@ function ConnectorsAdminPage() {
               <CardTitle className="text-base">Jobs récents</CardTitle>
               <CardDescription>Auto-refresh toutes les 5 secondes</CardDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] })}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => deleteFailedMut.mutate()}
+                disabled={deleteFailedMut.isPending || !jobsQuery.data?.jobs.some((j) => j.status === "failed")}
+                title="Supprimer tous les jobs en échec"
+              >
+                <Trash2 className="mr-1 h-4 w-4" /> Échecs
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] })}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {jobsQuery.isLoading ? (
@@ -292,7 +333,16 @@ function ConnectorsAdminPage() {
               <div className="py-6 text-center text-sm text-muted-foreground">Aucun job</div>
             ) : (
               <div className="space-y-2">
-                {jobsQuery.data?.jobs.map((j) => <JobRow key={j.id} job={j} />)}
+                {jobsQuery.data?.jobs.map((j) => (
+                  <JobRow
+                    key={j.id}
+                    job={j}
+                    onRelaunch={() => j.connector && relaunchConnector(j.connector)}
+                    onDelete={() => deleteJobMut.mutate(j.id)}
+                    relaunching={triggerMut.isPending && triggerMut.variables?.connector === j.connector}
+                    deleting={deleteJobMut.isPending && deleteJobMut.variables === j.id}
+                  />
+                ))}
               </div>
             )}
           </CardContent>
@@ -468,7 +518,19 @@ type Job = {
   created_at: string;
 };
 
-function JobRow({ job }: { job: Job }) {
+function JobRow({
+  job,
+  onRelaunch,
+  onDelete,
+  relaunching,
+  deleting,
+}: {
+  job: Job;
+  onRelaunch: () => void;
+  onDelete: () => void;
+  relaunching: boolean;
+  deleting: boolean;
+}) {
   const icon = job.status === "completed" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> :
     job.status === "failed" ? <XCircle className="h-4 w-4 text-destructive" /> :
     job.status === "running" ? <Loader2 className="h-4 w-4 animate-spin text-accent" /> :
@@ -476,18 +538,41 @@ function JobRow({ job }: { job: Job }) {
   const total = job.items_total ?? 0;
   const done = job.items_processed ?? 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const canRelaunch = !!job.connector && job.status !== "running";
 
   return (
     <div className="rounded-lg border border-border/30 px-3 py-2">
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <div className="flex min-w-0 items-center gap-2">
           {icon}
-          <span className="font-medium">{job.connector ?? job.job_type}</span>
+          <span className="truncate font-medium">{job.connector ?? job.job_type}</span>
           <Badge variant="outline" className="text-[10px]">{job.status}</Badge>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {new Date(job.created_at).toLocaleString("fr-FR")}
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="text-xs text-muted-foreground">
+            {new Date(job.created_at).toLocaleString("fr-FR")}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={onRelaunch}
+            disabled={!canRelaunch || relaunching}
+            title="Relancer maintenant"
+          >
+            {relaunching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive"
+            onClick={onDelete}
+            disabled={deleting}
+            title="Supprimer ce job"
+          >
+            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       </div>
       {total > 0 && (
         <div className="mt-2">
