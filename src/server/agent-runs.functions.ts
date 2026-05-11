@@ -47,8 +47,22 @@ export type AgentRouting =
       route: string;
     }
   | { target: "analysis"; route: string; analysis_id: string }
-  | { target: "agent"; route: string; mode: "document" | "procedure" | "chat" };
+  | { target: "agent"; route: string; mode: "document" | "procedure" | "chat" }
+  | { target: "chat"; route: string; run_id: string }
+  | { target: "requests"; route: string; run_id: string };
 
+/**
+ * Implémente `resolveAgentDestination()` (spec produit § 7).
+ * Décide où afficher l'utilisateur après création d'une demande.
+ *
+ * Règles :
+ *  - Document joint            → /analyses/:id
+ *  - question_juridique         → /chat (Assistant juridique sourcé)
+ *  - redaction_document         → /agent?mode=document
+ *  - conformite / procédure     → /agent?mode=procedure
+ *  - gestion_dossier            → /dossiers/:id (1 fiable) ou choix inline
+ *  - suivi_echeance / autre     → /mes-demandes (boîte de réception)
+ */
 async function decideRouting(
   ctx: AgentCtx,
   runId: string,
@@ -71,11 +85,11 @@ async function decideRouting(
     const c = await classifyIntent(message, ctx);
     intent = c.intent;
   } catch {
-    /* fallback: agent chat */
+    /* fallback */
   }
 
-  // 3. Recherche de dossier.
-  if (intent === "gestion_dossier" || /dossier|client/i.test(message)) {
+  // 3. Recherche de dossier (intent explicite ou mots-clés).
+  if (intent === "gestion_dossier" || /\bdossier\b|\bclient\b/i.test(message)) {
     try {
       const r = await searchDossier({ query: message, limit: 5 }, ctx);
       const dossiers = ((r.result as { dossiers?: Array<{ id: string; title: string; category: string | null }> })
@@ -95,21 +109,29 @@ async function decideRouting(
           route: `/agent?run=${runId}&mode=dossier_selection`,
         };
       }
+      // Aucun dossier trouvé → tomber dans /mes-demandes (pas /agent).
     } catch {
       /* ignore */
     }
   }
 
-  // 4. Documents à rédiger / procédures.
+  // 4. Question juridique pure → Assistant /chat (RAG sourcé).
+  if (intent === "question_juridique" || intent === "recherche_jurisprudence" || intent === "veille") {
+    return { target: "chat", route: `/chat?run=${runId}`, run_id: runId };
+  }
+
+  // 5. Génération de document.
   if (intent === "redaction_document") {
     return { target: "agent", route: `/agent?run=${runId}&mode=document`, mode: "document" };
   }
+
+  // 6. Procédure / conformité.
   if (intent === "conformite" || /procédure|procedure|workflow/i.test(message)) {
     return { target: "agent", route: `/agent?run=${runId}&mode=procedure`, mode: "procedure" };
   }
 
-  // 5. Par défaut : vue chat focalisée sur la run.
-  return { target: "agent", route: `/agent?run=${runId}`, mode: "chat" };
+  // 7. Par défaut (suivi, réclamation, autre…) → boîte de réception.
+  return { target: "requests", route: `/mes-demandes?run=${runId}`, run_id: runId };
 }
 
 /**
