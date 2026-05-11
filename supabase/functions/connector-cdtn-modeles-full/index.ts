@@ -8,18 +8,31 @@ import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, star
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
 const TIME_BUDGET_MS = 60_000;
-const CDTN_API = "https://www.code.travail.gouv.fr/api/items.json";
+const CDTN_SITEMAP = "https://code.travail.gouv.fr/sitemap.xml";
+const CDTN_BASE = "https://code.travail.gouv.fr";
 
 interface BatchItem { slug: string; title: string; url?: string; }
 
+function slugToTitle(slug: string): string {
+  return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 async function loadIndex(): Promise<BatchItem[]> {
-  const r = await fetch(CDTN_API);
-  if (!r.ok) throw new Error(`CDTN items.json ${r.status}`);
-  const data = await r.json() as Array<{ source?: string; slug?: string; title?: string; url?: string }>;
-  return data
-    .filter((d) => d.source === "modeles-courriers-types" || d.source === "modeles_de_courriers")
-    .filter((d) => d.slug && d.title)
-    .map((d) => ({ slug: d.slug!, title: d.title!, url: d.url }));
+  const r = await fetch(CDTN_SITEMAP, { headers: { "User-Agent": "JurisAI/1.0" } });
+  if (!r.ok) throw new Error(`CDTN sitemap ${r.status}`);
+  const xml = await r.text();
+  const re = /<loc>(https:\/\/code\.travail\.gouv\.fr\/modeles-de-courriers\/([^<]+))<\/loc>/g;
+  const out: BatchItem[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const url = m[1];
+    const slug = m[2];
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ slug, title: slugToTitle(slug), url });
+  }
+  return out;
 }
 
 Deno.serve(async (req) => {
