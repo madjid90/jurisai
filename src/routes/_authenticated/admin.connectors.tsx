@@ -80,7 +80,7 @@ const CONNECTORS = [
     description: "Bulletin officiel des finances publiques : doctrine fiscale officielle opposable à l'administration. Pour les questions fiscales.",
     source: "DGFiP · BOFiP-Impôts (PISTE)",
     auth: true,
-    defaultPayload: { max_docs: 500, dry_run: false },
+    defaultPayload: { dry_run: false },
     badge: "API Légifrance (OAuth)",
   },
   {

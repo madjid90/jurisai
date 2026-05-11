@@ -44,24 +44,35 @@ Deno.serve(async (req) => {
         if (dryRun) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
         batchId = await startBatch(db, "bofip-full", "documents", items, {});
       } else {
-        const max = Math.min(Number(body.max_docs) || 1000, 5000);
+        const max = Number.isFinite(Number(body.max_docs)) && Number(body.max_docs) > 0
+          ? Number(body.max_docs)
+          : Number.POSITIVE_INFINITY; // pas de limite par défaut
         if (dryRun) {
-          // Échantillon rapide page 1
-          const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string }> }>(
-            "/search",
-            {
-              recherche: {
-                champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
-                filtres: [{ facette: "FONDS", valeurs: ["BOFIP"] }],
-                pageNumber: 1, pageSize: 10, sort: "PERTINENCE", typePagination: "DEFAUT",
-              },
-              fond: "BOFIP",
-            },
-          ).catch(() => ({ results: [] as Array<{ id?: string; titre?: string }> }));
-          return json({ dry_run: true, sample: (data.results ?? []).slice(0, 5) });
+          // Échantillon rapide page 1 — essaie plusieurs fonds connus
+          const fondsToTry = ["BOFIP", "BOFIP_IMPOTS"];
+          let sample: Array<{ id?: string; titre?: string }> = [];
+          let lastErr = "";
+          for (const fond of fondsToTry) {
+            try {
+              const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string }> }>(
+                "/search",
+                {
+                  recherche: {
+                    champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
+                    filtres: [{ facette: "FONDS", valeurs: [fond] }],
+                    pageNumber: 1, pageSize: 10, sort: "PERTINENCE", typePagination: "DEFAUT",
+                  },
+                  fond,
+                },
+              );
+              sample = data.results ?? [];
+              if (sample.length) return json({ dry_run: true, fond, sample: sample.slice(0, 5) });
+            } catch (e) { lastErr = (e as Error).message; }
+          }
+          return json({ dry_run: true, sample, warning: lastErr || "aucun résultat sur les fonds essayés" });
         }
         // Crée le batch vide, planning en arrière-plan
-        batchId = await startBatch(db, "bofip-full", "documents", [], { planning: "in_progress", max });
+        batchId = await startBatch(db, "bofip-full", "documents", [], { planning: "in_progress", max: Number.isFinite(max) ? max : null });
         planningMax = max;
       }
     }
@@ -76,42 +87,70 @@ Deno.serve(async (req) => {
           let ingested = 0, skipped = 0, failed = 0;
           let planningDone = planningMax === null;
 
-          // Planification asynchrone : pagine /search BOFiP et append items au batch
+          // Planification asynchrone : pagine /search BOFiP et append items au batch.
+          // Essaie plusieurs noms de fonds connus jusqu'à trouver des résultats.
           const planTask = planningMax !== null ? (async () => {
             const max = planningMax!;
-            const pageSize = 50;
-            let page = 1;
+            const pageSize = 100;
+            const fondsToTry = ["BOFIP", "BOFIP_IMPOTS"];
             let total = 0;
+            let chosenFond: string | null = null;
+            const planErrors: string[] = [];
             try {
-              while (total < max) {
-                const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string; serie?: string; division?: string }> }>(
-                  "/search",
-                  {
-                    recherche: {
-                      champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
-                      filtres: [{ facette: "FONDS", valeurs: ["BOFIP"] }],
-                      pageNumber: page, pageSize, sort: "PERTINENCE", typePagination: "DEFAUT",
-                    },
-                    fond: "BOFIP",
-                  },
-                ).catch((e) => { console.warn("[bofip-full] plan p", page, ":", (e as Error).message); return { results: [] }; });
-                const hits = data.results ?? [];
-                if (!hits.length) break;
-                const items: BatchItem[] = hits
-                  .filter((h) => h.id)
-                  .slice(0, max - total)
-                  .map((h) => ({ id: h.id!, titre: h.titre, serie: h.serie, division: h.division }));
-                if (items.length) {
-                  const { error } = await db.rpc("append_batch_items", { p_batch_id: batchId, p_items: items });
-                  if (error) console.error(`[bofip-full] append err: ${error.message}`);
-                  total += items.length;
+              for (const fond of fondsToTry) {
+                if (chosenFond) break;
+                let page = 1;
+                while (total < max) {
+                  let data: { results?: Array<{ id?: string; titre?: string; serie?: string; division?: string }> } = { results: [] };
+                  try {
+                    data = await legifranceFetch(
+                      "/search",
+                      {
+                        recherche: {
+                          champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
+                          filtres: [{ facette: "FONDS", valeurs: [fond] }],
+                          pageNumber: page, pageSize, sort: "PERTINENCE", typePagination: "DEFAUT",
+                        },
+                        fond,
+                      },
+                    );
+                  } catch (e) {
+                    const msg = `fond=${fond} p${page}: ${(e as Error).message}`;
+                    planErrors.push(msg);
+                    console.warn("[bofip-full] plan", msg);
+                    break;
+                  }
+                  const hits = data.results ?? [];
+                  if (!hits.length) break;
+                  if (!chosenFond) chosenFond = fond;
+                  const items: BatchItem[] = hits
+                    .filter((h) => h.id)
+                    .slice(0, max - total)
+                    .map((h) => ({ id: h.id!, titre: h.titre, serie: h.serie, division: h.division }));
+                  if (items.length) {
+                    const { error } = await db.rpc("append_batch_items", { p_batch_id: batchId, p_items: items });
+                    if (error) {
+                      planErrors.push(`append: ${error.message}`);
+                      console.error(`[bofip-full] append err: ${error.message}`);
+                    }
+                    total += items.length;
+                  }
+                  if (hits.length < pageSize) break;
+                  page++;
                 }
-                if (hits.length < pageSize) break;
-                page++;
+              }
+              if (total === 0) {
+                // Surface l'erreur dans la DB pour que l'utilisateur la voie dans Jobs récents
+                const reason = planErrors.length
+                  ? planErrors.join(" | ")
+                  : "PISTE n'a renvoyé aucun résultat pour les fonds BOFIP/BOFIP_IMPOTS";
+                await db.from("ingestion_batch_state")
+                  .update({ error_log: [{ at: new Date().toISOString(), stage: "planning", message: reason }] })
+                  .eq("id", batchId);
               }
             } finally {
               planningDone = true;
-              console.log(`[bofip-full] planning fini: ${total} items`);
+              console.log(`[bofip-full] planning fini: ${total} items (fond=${chosenFond ?? "aucun"})`);
             }
           })() : Promise.resolve();
 
