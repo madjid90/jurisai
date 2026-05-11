@@ -8,7 +8,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import { legifranceFetch } from "../_shared/piste.ts";
-import { appendBatchItems, finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
+import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 import { stripHtml } from "../_shared/unist-extract.ts";
 
@@ -90,7 +90,6 @@ interface BatchItem {
   article_id: string;
   num: string | null;
   section_path: string[];
-  retries?: number;
 }
 
 function flattenCode(codeId: string, codeTitle: string, root: { sections?: SectionNode[]; articles?: SectionNode["articles"] }): BatchItem[] {
@@ -166,48 +165,48 @@ async function runIngestion(
     const it = items[0];
 
     let ing = 0, skip = 0, failed = false;
-    try {
-      const art = await legifranceFetch<{ article?: { id: string; num?: string; texte?: string; texteHtml?: string; dateDebut?: number; etat?: string; cid?: string } }>(
-        "/consult/getArticle", { id: it.article_id },
-      );
-      const raw = art.article?.texte ?? art.article?.texteHtml ?? "";
-      const text = stripHtml(raw);
-      if (!text || text.length < 30) {
-        await markProcessed(db, batchId, [it], 0, 0);
-        await new Promise((r) => setTimeout(r, 80));
-        continue;
-      }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const art = await legifranceFetch<{ article?: { id: string; num?: string; texte?: string; texteHtml?: string; dateDebut?: number; etat?: string; cid?: string } }>(
+          "/consult/getArticle", { id: it.article_id },
+        );
+        const raw = art.article?.texte ?? art.article?.texteHtml ?? "";
+        const text = stripHtml(raw);
+        if (!text || text.length < 30) {
+          await markProcessed(db, batchId, [it], 0, 0);
+          await new Promise((r) => setTimeout(r, 80));
+          continue;
+        }
 
-      const locline = it.section_path.length ? `**Localisation** : ${it.code_title} > ${it.section_path.join(" > ")}\n\n` : `**Localisation** : ${it.code_title}\n\n`;
-      const content = `${locline}# Article ${it.num ?? art.article?.num ?? it.article_id}\n\n${text}`;
-      const hash = await sha256(content);
-      const dec = await shouldIngest(db, "legifrance", it.article_id, hash);
-      if (!dec.shouldIngest) { skip = 1; }
-      else {
-        await ingestSource(db, apiKey, "legifrance", {
-          external_id: it.article_id,
-          source_type: "code_article",
-          title: `${it.code_title} — Article ${it.num ?? art.article?.num ?? it.article_id}`,
-          content,
-          reference_code: `Article ${it.num ?? art.article?.num}`,
-          official_url: `https://www.legifrance.gouv.fr/codes/article_lc/${it.article_id}`,
-          legal_date: art.article?.dateDebut ? new Date(art.article.dateDebut).toISOString().slice(0, 10) : null,
-          raw_metadata: { code_id: it.code_id, cid: art.article?.cid, etat: art.article?.etat, section_path: it.section_path, content_hash: hash },
-        });
-        ing = 1;
+        const locline = it.section_path.length ? `**Localisation** : ${it.code_title} > ${it.section_path.join(" > ")}\n\n` : `**Localisation** : ${it.code_title}\n\n`;
+        const content = `${locline}# Article ${it.num ?? art.article?.num ?? it.article_id}\n\n${text}`;
+        const hash = await sha256(content);
+        const dec = await shouldIngest(db, "legifrance", it.article_id, hash);
+        if (!dec.shouldIngest) { skip = 1; }
+        else {
+          await ingestSource(db, apiKey, "legifrance", {
+            external_id: it.article_id,
+            source_type: "code_article",
+            title: `${it.code_title} — Article ${it.num ?? art.article?.num ?? it.article_id}`,
+            content,
+            reference_code: `Article ${it.num ?? art.article?.num}`,
+            official_url: `https://www.legifrance.gouv.fr/codes/article_lc/${it.article_id}`,
+            legal_date: art.article?.dateDebut ? new Date(art.article.dateDebut).toISOString().slice(0, 10) : null,
+            raw_metadata: { code_id: it.code_id, cid: art.article?.cid, etat: art.article?.etat, section_path: it.section_path, content_hash: hash },
+          });
+          ing = 1;
+        }
+        break;
+      } catch (err) {
+        const message = (err as Error).message;
+        if (attempt < 3) {
+          console.warn(`[legifrance-full] ${it.article_id}: transient error (${message}), retry ${attempt}/2`);
+          await new Promise((r) => setTimeout(r, 250 * attempt));
+          continue;
+        }
+        failed = true;
+        console.error(`[legifrance-full] ${it.article_id}:`, message);
       }
-    } catch (err) {
-      const message = (err as Error).message;
-      const retries = (it.retries ?? 0) + 1;
-      if (retries < 3) {
-        await appendBatchItems(db, batchId, [{ ...it, retries }]);
-        await markProcessed(db, batchId, [it], 0, 0);
-        console.warn(`[legifrance-full] ${it.article_id}: transient error (${message}), retry ${retries}/2`);
-        await new Promise((r) => setTimeout(r, 250));
-        continue;
-      }
-      failed = true;
-      console.error(`[legifrance-full] ${it.article_id}:`, message);
     }
 
     if (failed) { await markFailed(db, batchId, [it], "see logs"); totalFailed++; }
