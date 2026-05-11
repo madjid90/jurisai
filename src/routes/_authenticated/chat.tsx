@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { runLegalAgent } from "@/server/agent.functions";
 import { getAgentRun } from "@/server/agent-runs.functions";
+import { useExecuteSuggestedAction } from "@/hooks/use-execute-suggested-action";
 import { toast } from "sonner";
 
 const ChatSearch = z.object({ run: z.string().uuid().optional() });
