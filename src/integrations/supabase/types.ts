@@ -5352,6 +5352,10 @@ export type Database = {
       }
     }
     Functions: {
+      append_batch_items: {
+        Args: { p_batch_id: string; p_items: Json }
+        Returns: undefined
+      }
       check_rate_limit: {
         Args: {
           p_endpoint: string
