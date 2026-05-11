@@ -131,42 +131,55 @@ Deno.serve(async (req) => {
           await heartbeat(db, batchId);
           const it = items[0];
           let ing = 0, sk = 0, fail = false;
-          try {
-            // Échappe les guillemets dans l'identifiant pour le where
-            const where = `identifiant_juridique="${it.id.replace(/"/g, '\\"')}"`;
-            const det = await fetchPage({ select: "contenu,titre,debut_de_validite,permalien", where, limit: 1, offset: 0 });
-            const rec = det.results[0];
-            const text = (rec?.contenu ?? "").trim();
-            if (!text || text.length < 80) {
-              // Pas de contenu — on marque traité (skip)
-              await markProcessed(db, batchId, [it], 0, 0);
-            } else {
-              const title = rec?.titre ?? it.titre ?? `BOFiP ${it.id}`;
-              const loc = [it.serie, it.division].filter(Boolean).join(" / ");
-              const content = `**BOFiP** · ${loc}\n\n# ${title}\n\n${text}`;
-              const hash = await sha256(content);
-              const dec = await shouldIngest(db, "bofip", it.id, hash);
-              if (!dec.shouldIngest) {
-                sk = 1;
+          let attempt = 0;
+          const maxAttempts = 3;
+          while (attempt < maxAttempts) {
+            attempt++;
+            try {
+              const where = `identifiant_juridique="${it.id.replace(/"/g, '\\"')}"`;
+              const det = await fetchPage({ select: "contenu,titre,debut_de_validite,permalien", where, limit: 1, offset: 0 });
+              const rec = det.results[0];
+              const text = (rec?.contenu ?? "").trim();
+              if (!text || text.length < 80) {
+                await markProcessed(db, batchId, [it], 0, 0);
               } else {
-                await ingestSource(db, apiKey, "bofip", {
-                  external_id: it.id,
-                  source_type: "doctrine_fiscale",
-                  title: `BOFiP — ${title}`,
-                  content,
-                  reference_code: it.id,
-                  official_url: rec?.permalien ?? it.permalien ?? `https://bofip.impots.gouv.fr/bofip/${it.id}`,
-                  legal_date: (rec?.debut_de_validite ?? it.date) ?? null,
-                  raw_metadata: { bofip_id: it.id, serie: it.serie, division: it.division, content_hash: hash },
-                });
-                ing = 1;
+                const title = rec?.titre ?? it.titre ?? `BOFiP ${it.id}`;
+                const loc = [it.serie, it.division].filter(Boolean).join(" / ");
+                const content = `**BOFiP** · ${loc}\n\n# ${title}\n\n${text}`;
+                const hash = await sha256(content);
+                const dec = await shouldIngest(db, "bofip", it.id, hash);
+                if (!dec.shouldIngest) {
+                  sk = 1;
+                } else {
+                  await ingestSource(db, apiKey, "bofip", {
+                    external_id: it.id,
+                    source_type: "doctrine_fiscale",
+                    title: `BOFiP — ${title}`,
+                    content,
+                    reference_code: it.id,
+                    official_url: rec?.permalien ?? it.permalien ?? `https://bofip.impots.gouv.fr/bofip/${it.id}`,
+                    legal_date: (rec?.debut_de_validite ?? it.date) ?? null,
+                    raw_metadata: { bofip_id: it.id, serie: it.serie, division: it.division, content_hash: hash },
+                  });
+                  ing = 1;
+                }
+                await markProcessed(db, batchId, [it], ing, sk);
               }
-              await markProcessed(db, batchId, [it], ing, sk);
+              break; // succès
+            } catch (err) {
+              const msg = (err as Error).message ?? "";
+              const transient = /statement timeout|fetch failed|ECONNRESET|429|503|504|network|timeout/i.test(msg);
+              if (transient && attempt < maxAttempts) {
+                console.warn(`[bofip-full] ${it.id}: transient (${msg}), retry ${attempt}/${maxAttempts - 1}`);
+                await heartbeat(db, batchId);
+                await new Promise((r) => setTimeout(r, 1500 * attempt));
+                continue;
+              }
+              fail = true;
+              console.error(`[bofip-full] ${it.id}:`, msg);
+              await markFailed(db, batchId, [it], msg);
+              break;
             }
-          } catch (err) {
-            fail = true;
-            console.error(`[bofip-full] ${it.id}:`, (err as Error).message);
-            await markFailed(db, batchId, [it], (err as Error).message);
           }
           ingested += ing; skipped += sk; if (fail) failed++;
           await new Promise((r) => setTimeout(r, 80));
