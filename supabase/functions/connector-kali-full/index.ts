@@ -217,7 +217,15 @@ async function runIngestion(
 
       const articles = extractAllArticles(detail, { keepAbrogated: false });
 
+      let artIdx = 0;
+      let timeExceeded = false;
       for (const art of articles) {
+        // Heartbeat + budget check toutes les 10 itérations pour éviter le kill silencieux
+        if (artIdx % 10 === 0) {
+          await heartbeat(db, batchId);
+          if (Date.now() - start > TIME_BUDGET_MS) { timeExceeded = true; break; }
+        }
+        artIdx++;
         const content = buildArticleContent(art, title);
         const hash = await sha256(content);
         const externalId = `kali:${idcc}:${art.externalId}`;
