@@ -487,6 +487,32 @@ export const executeAgentRun = createServerFn({ method: "POST" })
         .join("\n\n");
       const collected = r.draft?.form ?? {};
 
+      // Mode conversation : si la run est un suivi, on charge le fil parent
+      // (jusqu'à 3 niveaux) pour donner le contexte à l'IA.
+      const conversation: Array<{ role: "user" | "assistant"; content: string }> = [];
+      if (r.parent_run_id) {
+        let cursor: string | null = r.parent_run_id;
+        let safety = 3;
+        const stack: Array<{ message: string; answer: string }> = [];
+        while (cursor && safety > 0) {
+          const { data: p } = await supabaseAdmin
+            .from("agent_runs")
+            .select("message, answer, parent_run_id")
+            .eq("id", cursor)
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
+          if (!p) break;
+          const pr = p as { message: string; answer: string | null; parent_run_id: string | null };
+          stack.push({ message: pr.message, answer: pr.answer ?? "" });
+          cursor = pr.parent_run_id;
+          safety -= 1;
+        }
+        for (const turn of stack.reverse()) {
+          conversation.push({ role: "user", content: turn.message });
+          if (turn.answer) conversation.push({ role: "assistant", content: turn.answer });
+        }
+      }
+
       const userMsg = `DEMANDE: ${r.message}
 
 INFOS COLLECTÉES:
@@ -503,6 +529,7 @@ ${sourcesBlock || "(aucune)"}`;
           model: await resolveChatModel(run.tenant_id as string),
           messages: [
             { role: "system", content: EXEC_SYSTEM },
+            ...conversation,
             { role: "user", content: userMsg },
           ],
           response_format: { type: "json_object" },
