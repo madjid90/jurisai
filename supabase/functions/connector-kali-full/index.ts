@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
     if (dryRun) {
       const mode: "top" | "all" | "idcc" = body.mode ?? "top";
       const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
-      const idxRes = await fetch(KALI_INDEX_URL);
+      const idxRes = await fetchKaliIndex();
       if (!idxRes.ok) return json({ error: `KALI index ${idxRes.status}` }, 502);
       const index: KaliIndexEntry[] = await idxRes.json();
       let target: KaliIndexEntry[];
