@@ -12,7 +12,9 @@ import { finalizeBatch, getNextItems, markFailed, markProcessed, startBatch } fr
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 import { stripHtml } from "../_shared/unist-extract.ts";
 
-const TIME_BUDGET_MS = 135_000;
+// Budget conservateur : Supabase coupe sur "CPU Time exceeded" bien avant
+// la limite wall-clock. 60s laisse la marge pour finalizeBatch + auto-resume.
+const TIME_BUDGET_MS = 60_000;
 // Codes prioritaires PME (transverse : RH + commercial + sociétés + fiscal + administratif)
 const DEFAULT_CODES = [
   "LEGITEXT000006072050", // Code du travail
