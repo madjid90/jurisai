@@ -5412,6 +5412,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      heartbeat_batch: { Args: { p_batch_id: string }; Returns: undefined }
       hybrid_search: {
         Args: {
           idcc_filter?: string

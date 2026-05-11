@@ -25,6 +25,7 @@ import {
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import {
   finalizeBatch,
+  heartbeat,
   getNextItems,
   markFailed,
   markProcessed,
@@ -180,6 +181,7 @@ async function runIngestion(
   while (Date.now() - start < TIME_BUDGET_MS) {
     const items = await getNextItems<BatchItem>(db, batchId, 1);
     if (items.length === 0) break;
+    await heartbeat(db, batchId);
     const item = items[0];
 
     let perItemIngested = 0;
