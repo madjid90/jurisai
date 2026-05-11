@@ -23,6 +23,7 @@ import {
   Library,
   ServerCrash,
   Link2,
+  Inbox,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
