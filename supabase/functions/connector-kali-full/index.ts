@@ -100,9 +100,24 @@ interface KaliIndexEntry {
 
 interface BatchItem {
   kali_id: string;
-  idcc: string;
-  title: string;
+  idcc?: string;   // optionnel : rempli depuis le détail si absent (mode "all")
+  title?: string;
   url?: string;
+}
+
+// Mode "all" : l'index officiel kali-data ne liste que ~49 conventions, mais le
+// repo en contient ~393 (fichiers KALICONT*.json). On énumère via GitHub API
+// pour avoir la liste complète, et on récupère IDCC/titre depuis le détail.
+async function listAllKaliFromGitHub(): Promise<string[]> {
+  const r = await fetch(
+    "https://api.github.com/repos/SocialGouv/kali-data/contents/data?ref=master&per_page=1000",
+    { headers: { "Accept": "application/vnd.github+json", "User-Agent": "jurisai-ingest" } },
+  );
+  if (!r.ok) throw new Error(`GitHub Contents HTTP ${r.status}`);
+  const files = await r.json() as Array<{ name: string }>;
+  return files
+    .filter((f) => f.name.startsWith("KALICONT") && f.name.endsWith(".json"))
+    .map((f) => f.name.replace(/\.json$/, ""));
 }
 
 async function runIngestion(
@@ -118,40 +133,43 @@ async function runIngestion(
     const mode: "top" | "all" | "idcc" = body.mode ?? "top";
     const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
 
-    const idxRes = await fetchKaliIndex();
-    if (!idxRes.ok) throw new Error(`KALI index HTTP ${idxRes.status}`);
-    const index: KaliIndexEntry[] = await idxRes.json();
+    let items: BatchItem[];
 
-    let target: KaliIndexEntry[];
     if (mode === "all") {
-      target = index.filter((e) => e.active !== false);
-    } else if (mode === "idcc" && requested.length) {
-      const set = new Set(requested);
-      target = index.filter((e) => set.has(e.num));
+      const ids = await listAllKaliFromGitHub();
+      items = ids.map((id) => ({ kali_id: id }));
     } else {
-      const set = new Set(TOP_IDCC);
-      target = index.filter((e) => set.has(e.num) && e.active !== false);
-    }
+      // top + idcc utilisent l'index (les 49 conventions sont les principales)
+      const idxRes = await fetchKaliIndex();
+      if (!idxRes.ok) throw new Error(`KALI index HTTP ${idxRes.status}`);
+      const index: KaliIndexEntry[] = await idxRes.json();
+      let target: KaliIndexEntry[];
+      if (mode === "idcc" && requested.length) {
+        const set = new Set(requested);
+        target = index.filter((e) => set.has(e.num));
+      } else {
+        const set = new Set(TOP_IDCC);
+        target = index.filter((e) => set.has(e.num) && e.active !== false);
+      }
+      items = target.map((e) => ({ kali_id: e.id, idcc: e.num, title: e.title, url: e.url }));
 
-    const items: BatchItem[] = target.map((e) => ({
-      kali_id: e.id, idcc: e.num, title: e.title, url: e.url,
-    }));
+      // Pré-upsert dans conventions_collectives (on a déjà les métadonnées)
+      for (const e of target) {
+        await db.from("conventions_collectives").upsert({
+          idcc: e.num,
+          title: e.title,
+          short_title: e.shortTitle ?? null,
+          is_active: e.active !== false,
+          effectif: e.effectif ?? null,
+          source_url: e.url ?? `https://www.legifrance.gouv.fr/conv_coll/id/${e.id}`,
+          raw_metadata: e as unknown as Record<string, unknown>,
+          last_synced_at: new Date().toISOString(),
+        }, { onConflict: "idcc" });
+      }
+    }
 
     batchId = await startBatch(db, "kali-full", "conventions", items, { mode });
-    console.log(`[kali-full] batch ${batchId} planned: ${items.length} conventions`);
-
-    for (const e of target) {
-      await db.from("conventions_collectives").upsert({
-        idcc: e.num,
-        title: e.title,
-        short_title: e.shortTitle ?? null,
-        is_active: e.active !== false,
-        effectif: e.effectif ?? null,
-        source_url: e.url ?? `https://www.legifrance.gouv.fr/conv_coll/id/${e.id}`,
-        raw_metadata: e as unknown as Record<string, unknown>,
-        last_synced_at: new Date().toISOString(),
-      }, { onConflict: "idcc" });
-    }
+    console.log(`[kali-full] batch ${batchId} planned: ${items.length} conventions (mode=${mode})`);
   }
 
   const start = Date.now();
