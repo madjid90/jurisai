@@ -24,6 +24,7 @@ import {
 } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import {
+  appendBatchItems,
   finalizeBatch,
   heartbeat,
   getNextItems,
@@ -100,10 +101,12 @@ interface KaliIndexEntry {
 }
 
 interface BatchItem {
+  id?: string;
   kali_id: string;
   idcc?: string;   // optionnel : rempli depuis le détail si absent (mode "all")
   title?: string;
   url?: string;
+  resume_article_idx?: number;
 }
 
 // Mode "all" : l'index officiel kali-data ne liste que ~49 conventions, mais le
@@ -138,7 +141,7 @@ async function runIngestion(
 
     if (mode === "all") {
       const ids = await listAllKaliFromGitHub();
-      items = ids.map((id) => ({ kali_id: id }));
+      items = ids.map((id) => ({ id: `${id}:0`, kali_id: id, resume_article_idx: 0 }));
     } else {
       // top + idcc utilisent l'index (les 49 conventions sont les principales)
       const idxRes = await fetchKaliIndex();
@@ -152,7 +155,14 @@ async function runIngestion(
         const set = new Set(TOP_IDCC);
         target = index.filter((e) => set.has(e.num) && e.active !== false);
       }
-      items = target.map((e) => ({ kali_id: e.id, idcc: e.num, title: e.title, url: e.url }));
+      items = target.map((e) => ({
+        id: `${e.id}:0`,
+        kali_id: e.id,
+        idcc: e.num,
+        title: e.title,
+        url: e.url,
+        resume_article_idx: 0,
+      }));
 
       // Pré-upsert dans conventions_collectives (on a déjà les métadonnées)
       for (const e of target) {
@@ -218,8 +228,8 @@ async function runIngestion(
 
       const articles = extractAllArticles(detail, { keepAbrogated: false });
 
-      let artIdx = 0;
-      for (const art of articles) {
+      let artIdx = item.resume_article_idx ?? 0;
+      for (const art of articles.slice(item.resume_article_idx ?? 0)) {
         // Heartbeat + budget check toutes les 10 itérations pour éviter le kill silencieux
         if (artIdx % 10 === 0) {
           await heartbeat(db, batchId);
@@ -257,9 +267,15 @@ async function runIngestion(
       await markFailed(db, batchId, [item], "see ingestion_errors");
       totalFailed++;
     } else if (timeExceeded) {
+      await appendBatchItems(db, batchId, [{
+        ...item,
+        id: `${item.kali_id}:${artIdx}`,
+        resume_article_idx: artIdx,
+      }]);
+      await markProcessed(db, batchId, [item], perItemIngested, perItemSkipped);
       totalIngested += perItemIngested;
       totalSkipped += perItemSkipped;
-      console.log(`[kali-full] item ${item.kali_id} partial (${perItemIngested} ingested, ${perItemSkipped} skipped) — will resume`);
+      console.log(`[kali-full] item ${item.kali_id} partial at article ${artIdx} (${perItemIngested} ingested, ${perItemSkipped} skipped) — continuation queued`);
       break;
     } else {
       await markProcessed(db, batchId, [item], perItemIngested, perItemSkipped);
