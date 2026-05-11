@@ -11,6 +11,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { getAgentRun } from "@/server/agent-runs.functions";
+import { useExecuteSuggestedAction } from "@/hooks/use-execute-suggested-action";
 
 export const Route = createFileRoute("/_authenticated/mes-demandes/$id")({
   head: () => ({
