@@ -445,6 +445,7 @@ export const executeAgentRun = createServerFn({ method: "POST" })
       requires_rag: boolean | null;
       topic: string | null;
       dossier_id: string | null;
+      parent_run_id: string | null;
     };
     if (r.status !== "ready") throw new Error(`Statut invalide: ${r.status}`);
 
