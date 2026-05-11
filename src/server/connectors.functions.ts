@@ -25,6 +25,7 @@ export type ConnectorJobRow = {
   items_processed: number | null;
   items_failed: number | null;
   completed_at: string | null;
+  last_tick_at: string | null;
   params: Record<string, unknown> | null | object;
   created_at: string;
 };
@@ -76,6 +77,7 @@ export const listConnectorJobs = createServerFn({ method: "POST" })
       items_processed: b.processed_count,
       items_failed: b.failed_count,
       completed_at: b.completed_at,
+      last_tick_at: b.last_tick_at,
       params: {
         ...(b.metadata ?? {}),
         articles_ingested: b.articles_ingested ?? 0,
@@ -163,6 +165,26 @@ export const triggerConnector = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.userId);
     const fnName = `connector-${data.connector}`;
+    let payload = data.payload ?? {};
+
+    if ((data.connector === "bofip-full" || data.connector === "judilibre-full") && !payload.resume_batch_id) {
+      const { data: activeBatch, error: activeBatchError } = await supabaseAdmin
+        .from("ingestion_batch_state")
+        .select("id")
+        .eq("connector", data.connector)
+        .in("status", ["running", "paused", "pending"])
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (activeBatchError) {
+        throw new Error(`Batch lookup failed: ${activeBatchError.message}`);
+      }
+
+      if (activeBatch?.id) {
+        payload = { ...payload, resume_batch_id: activeBatch.id };
+      }
+    }
 
     // Forward the caller's JWT so the edge function's requireSuperAdmin
     // can verify the user (service role key would fail auth.getUser).
@@ -171,7 +193,7 @@ export const triggerConnector = createServerFn({ method: "POST" })
 
     try {
       const { data: result, error } = await supabaseAdmin.functions.invoke(fnName, {
-        body: data.payload ?? {},
+        body: payload,
         headers: authHeader ? { Authorization: authHeader } : undefined,
       });
       if (error) {
