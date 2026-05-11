@@ -89,9 +89,32 @@ Deno.serve(async (req) => {
                 }
                 if (!body && f.html) body = f.html.replace(/<[^>]+>/g, " ");
                 body = body.replace(/\s+/g, " ").trim();
-                if (body.length < 80) { ok.push(it); continue; }
+              try {
+                const r = await fetch(it.url ?? `${CDTN_BASE}/modeles-de-courriers/${it.slug}`, { headers: { "User-Agent": "JurisAI/1.0" } });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const html = await r.text();
+                // Extract <main> ou <article> puis nettoyer.
+                const m = html.match(/<main[\s\S]*?<\/main>/i) ?? html.match(/<article[\s\S]*?<\/article>/i);
+                let text = (m ? m[0] : html)
+                  .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                  .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                  .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+                  .replace(/<header[\s\S]*?<\/header>/gi, " ")
+                  .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+                  .replace(/<[^>]+>/g, " ")
+                  .replace(/&nbsp;/g, " ")
+                  .replace(/&amp;/g, "&")
+                  .replace(/&#39;/g, "'")
+                  .replace(/&quot;/g, '"')
+                  .replace(/\s+/g, " ")
+                  .trim();
+                // Try to extract real <h1> as title.
+                const h1m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+                const realTitle = h1m ? h1m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : it.title;
+                if (text.length < 80) { ok.push(it); continue; }
+                if (text.length > 60_000) text = text.slice(0, 60_000);
 
-                const content = `**Source officielle** : Ministère du Travail (CDTN)\n\n# ${it.title}\n\n${body}`;
+                const content = `**Source officielle** : Ministère du Travail (CDTN)\n\n# ${realTitle}\n\n${text}`;
                 const hash = await sha256(content);
                 const dec = await shouldIngest(db, "cdtn-modeles-full", it.slug, hash);
                 if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
@@ -99,9 +122,9 @@ Deno.serve(async (req) => {
                 await ingestSource(db, apiKey, "cdtn-modeles", {
                   external_id: it.slug,
                   source_type: "modele_courrier",
-                  title: it.title,
+                  title: realTitle.slice(0, 500),
                   content,
-                  official_url: it.url ?? `https://www.code.travail.gouv.fr/${it.slug}`,
+                  official_url: it.url ?? `${CDTN_BASE}/modeles-de-courriers/${it.slug}`,
                   raw_metadata: { slug: it.slug, content_hash: hash },
                 });
                 ing++; ok.push(it);
