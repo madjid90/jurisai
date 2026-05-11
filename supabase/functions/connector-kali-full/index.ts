@@ -35,8 +35,8 @@ import {
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 import {
   buildArticleContent,
-  extractAllArticles,
   type UnistNode,
+  walkArticles,
 } from "../_shared/unist-extract.ts";
 
 // Budget conservateur : Supabase coupe sur "CPU Time exceeded" bien avant
@@ -226,11 +226,18 @@ async function runIngestion(
         }, { onConflict: "idcc" });
       }
 
-      const articles = extractAllArticles(detail, { keepAbrogated: false });
-
-      let artIdx = item.resume_article_idx ?? 0;
-      for (const art of articles.slice(item.resume_article_idx ?? 0)) {
-        // Heartbeat + budget check toutes les 10 itérations pour éviter le kill silencieux
+      const resumeIdx = item.resume_article_idx ?? 0;
+      let artIdx = 0;
+      for (const art of walkArticles(detail)) {
+        if (art.etat === "ABROGE" || art.content.length < 30) continue;
+        if (artIdx < resumeIdx) {
+          artIdx++;
+          continue;
+        }
+        // Heartbeat + budget check toutes les 10 itérations pour éviter le kill silencieux.
+        // Important: on stream les articles au lieu de matérialiser tout le tableau,
+        // sinon les très grosses conventions peuvent consommer tout le budget CPU
+        // avant le premier checkpoint.
         if (artIdx % 10 === 0) {
           await heartbeat(db, batchId);
           if (Date.now() - start > TIME_BUDGET_MS) { timeExceeded = true; break; }
@@ -293,21 +300,29 @@ async function runIngestion(
   if (finalState.status === "paused") {
     const cronSecret = Deno.env.get("CRON_SECRET");
     const supaUrl = Deno.env.get("SUPABASE_URL");
-    if (cronSecret && supaUrl) {
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (cronSecret && supaUrl && serviceKey) {
       try {
-        await fetch(`${supaUrl}/functions/v1/connector-kali-full`, {
+        const res = await fetch(`${supaUrl}/functions/v1/connector-kali-full`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-internal-cron": cronSecret,
-            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`,
+            "Authorization": `Bearer ${serviceKey}`,
           },
           body: JSON.stringify({ resume_batch_id: batchId }),
         });
+        if (!res.ok) {
+          const detail = await res.text().catch(() => "");
+          console.warn(`[kali-full] auto-resume rejected ${res.status}: ${detail.slice(0, 200)}`);
+          return;
+        }
         console.log(`[kali-full] auto-resume scheduled for batch ${batchId}`);
       } catch (e) {
         console.warn(`[kali-full] auto-resume failed:`, (e as Error).message);
       }
+    } else {
+      console.warn(`[kali-full] auto-resume disabled: missing CRON_SECRET, SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY`);
     }
   }
 }
