@@ -810,6 +810,16 @@ function RunDetail({
               </Button>
             </div>
           ) : null}
+
+          {/* Fil conversationnel : suivis et nouvelle question */}
+          <FollowUpThread
+            parentId={run.id as string}
+            dossierId={dossierId}
+            onChanged={() => {
+              void reload();
+              onChanged();
+            }}
+          />
         </div>
       ) : null}
 
