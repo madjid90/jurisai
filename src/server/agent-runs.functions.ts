@@ -131,6 +131,7 @@ export const createAgentRun = createServerFn({ method: "POST" })
       analysis: null as unknown,
       procedure: null as unknown,
       sources: [] as unknown[],
+      routing: null as AgentRouting | null,
     };
 
     // Si la question est un suivi (parent_run_id), on hérite automatiquement
@@ -182,7 +183,59 @@ export const createAgentRun = createServerFn({ method: "POST" })
       };
     }
 
+    // Persiste le routing dans le draft pour que l'UI puisse retrouver les
+    // candidats (dossier_selection) lors du rechargement de la page.
+    try {
+      await supabaseAdmin
+        .from("agent_runs")
+        .update({ draft: { ...draft, routing } } as never)
+        .eq("id", (row as { id: string }).id);
+    } catch {
+      /* non bloquant */
+    }
+
     return { ...(row as { id: string; status: string; created_at: string }), routing };
+  });
+
+/**
+ * Rattache une run à un dossier choisi par l'utilisateur (cas dossier_selection).
+ * Logge un événement timeline dans le dossier cible.
+ */
+export const attachRunToDossier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ run_id: z.string().uuid(), dossier_id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
+    const tenantId = await getTenantId(userId);
+
+    const { data: run, error: errRun } = await supabaseAdmin
+      .from("agent_runs")
+      .select("id, message, title, tenant_id")
+      .eq("id", data.run_id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (errRun) throw new Error(errRun.message);
+    if (!run) throw new Error("Demande introuvable");
+
+    const { error: errUpd } = await supabaseAdmin
+      .from("agent_runs")
+      .update({ dossier_id: data.dossier_id } as never)
+      .eq("id", data.run_id);
+    if (errUpd) throw new Error(errUpd.message);
+
+    await logTimelineEvent({
+      tenantId,
+      dossierId: data.dossier_id,
+      actorId: userId,
+      eventType: "agent.run_attached",
+      title: "Demande rattachée au dossier",
+      description: (run as { title: string | null; message: string }).title ?? (run as { message: string }).message.slice(0, 120),
+      metadata: { run_id: data.run_id },
+    });
+
+    return { ok: true, dossier_id: data.dossier_id };
   });
 
 /** Récupère une demande (RLS limite au tenant). */

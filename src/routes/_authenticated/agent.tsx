@@ -20,6 +20,7 @@ import {
   listMyRuns,
   getAgentRun,
   listChildRuns,
+  attachRunToDossier,
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
@@ -251,6 +252,10 @@ function AssistantPage() {
               Nouvelle question
             </Button>
           </div>
+          <ModeBanner mode={search.mode} />
+          {search.mode === "dossier_selection" ? (
+            <DossierSelectionPanel runId={focusRunId} onAttached={() => void refresh()} />
+          ) : null}
           <RunCard
             key={focusRunId}
             summary={focusSummary as Run}
@@ -1776,5 +1781,174 @@ function SourcesList({
         </button>
       ) : null}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bandeau de mode — explique le mode (document / procedure / dossier_selection)
+// ---------------------------------------------------------------------------
+function ModeBanner({ mode }: { mode?: "chat" | "document" | "procedure" | "dossier_selection" }) {
+  if (!mode || mode === "chat") return null;
+  const meta: Record<string, { title: string; sub: string; emoji: string; tone: string }> = {
+    document: {
+      emoji: "📝",
+      title: "Mode rédaction de document",
+      sub: "L'agent prépare un document personnalisé. Répondez aux précisions demandées pour obtenir la version finale.",
+      tone: "border-violet-500/30 bg-violet-500/5 text-violet-700 dark:text-violet-300",
+    },
+    procedure: {
+      emoji: "🧭",
+      title: "Mode procédure pas-à-pas",
+      sub: "L'agent va dérouler les étapes officielles à suivre. Vous validerez chaque jalon sensible.",
+      tone: "border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300",
+    },
+    dossier_selection: {
+      emoji: "📁",
+      title: "Plusieurs dossiers correspondent",
+      sub: "Choisissez le dossier auquel rattacher cette demande pour garder un fil cohérent.",
+      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+    },
+  };
+  const m = meta[mode];
+  if (!m) return null;
+  return (
+    <div className={cn("rounded-xl border p-4 flex items-start gap-3", m.tone)}>
+      <span className="text-xl leading-none">{m.emoji}</span>
+      <div className="min-w-0">
+        <p className="font-medium text-sm">{m.title}</p>
+        <p className="text-xs opacity-80 mt-0.5">{m.sub}</p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sélection de dossier — carte multi-choix lue depuis draft.routing.candidates
+// ---------------------------------------------------------------------------
+function DossierSelectionPanel({
+  runId,
+  onAttached,
+}: {
+  runId: string;
+  onAttached: () => void;
+}) {
+  const get = useServerFn(getAgentRun);
+  const attach = useServerFn(attachRunToDossier);
+  const navigate = useNavigate({ from: "/_authenticated/agent" });
+  const [candidates, setCandidates] = useState<
+    Array<{ id: string; title: string; category: string | null }> | null
+  >(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [attachedId, setAttachedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = (await get({ data: { id: runId } })) as Record<string, unknown>;
+        if (cancelled) return;
+        const draft = (r.draft as Record<string, unknown>) ?? {};
+        const routing = draft.routing as
+          | { target?: string; candidates?: Array<{ id: string; title: string; category: string | null }> }
+          | null;
+        setCandidates(routing?.candidates ?? []);
+        setAttachedId((r.dossier_id as string | null) ?? null);
+      } catch (e) {
+        console.error(e);
+        setCandidates([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, get]);
+
+  if (candidates === null) {
+    return (
+      <Card className="border-border/60">
+        <CardContent className="py-6 text-center text-sm text-muted-foreground">
+          <Loader2 className="inline h-4 w-4 animate-spin mr-2" /> Recherche des dossiers correspondants…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (candidates.length === 0) {
+    return (
+      <Card className="border-border/60">
+        <CardContent className="py-6 text-sm text-muted-foreground">
+          Aucun dossier candidat. La demande sera traitée sans rattachement —
+          vous pourrez la relier plus tard depuis la fiche dossier.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const choose = async (id: string) => {
+    setBusyId(id);
+    try {
+      await attach({ data: { run_id: runId, dossier_id: id } });
+      setAttachedId(id);
+      onAttached();
+      toast.success("Demande rattachée au dossier");
+      void navigate({ to: "/dossiers/$id", params: { id } });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <Card className="border-border/60">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Choisissez le dossier
+          </p>
+          <button
+            type="button"
+            onClick={() => void navigate({ search: { run: runId, mode: undefined } })}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Continuer sans rattacher
+          </button>
+        </div>
+        <ul className="grid sm:grid-cols-2 gap-2">
+          {candidates.map((d) => {
+            const isAttached = attachedId === d.id;
+            const isBusy = busyId === d.id;
+            return (
+              <li key={d.id}>
+                <button
+                  type="button"
+                  onClick={() => void choose(d.id)}
+                  disabled={busyId !== null}
+                  className={cn(
+                    "w-full text-left rounded-lg border p-3 transition group",
+                    isAttached
+                      ? "border-emerald-500/50 bg-emerald-500/5"
+                      : "border-border/60 bg-background hover:border-primary/40 hover:bg-accent/30",
+                    busyId !== null && !isBusy && "opacity-50",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-sm leading-snug truncate">{d.title}</p>
+                    {isBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                    ) : isAttached ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                    ) : null}
+                  </div>
+                  {d.category ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground">{d.category}</p>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
