@@ -1,0 +1,2 @@
+ALTER TABLE public.agent_runs ADD COLUMN IF NOT EXISTS parent_run_id uuid REFERENCES public.agent_runs(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_agent_runs_parent_run_id ON public.agent_runs(parent_run_id);

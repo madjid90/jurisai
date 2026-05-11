@@ -18,6 +18,7 @@ import {
   archiveAgentRun,
   listMyRuns,
   getAgentRun,
+  listChildRuns,
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
@@ -809,6 +810,16 @@ function RunDetail({
               </Button>
             </div>
           ) : null}
+
+          {/* Fil conversationnel : suivis et nouvelle question */}
+          <FollowUpThread
+            parentId={run.id as string}
+            dossierId={dossierId}
+            onChanged={() => {
+              void reload();
+              onChanged();
+            }}
+          />
         </div>
       ) : null}
 
@@ -1439,6 +1450,179 @@ function WorkflowRuntimeBlock({
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FollowUpThread — affiche les questions de suivi liées à une réponse
+// (parent_run_id) et propose un input pour en poser de nouvelles. Garde le
+// fil conversationnel sans complexifier la machine à états.
+// ---------------------------------------------------------------------------
+type ChildRun = {
+  id: string;
+  message: string;
+  status: string;
+  answer: string | null;
+  sources: Array<{ title: string; reference?: string; url?: string }> | null;
+  created_at: string;
+  error_message: string | null;
+  refused: boolean | null;
+  refusal_reason: string | null;
+  confidence: number | null;
+};
+
+function FollowUpThread({
+  parentId,
+  dossierId,
+  onChanged,
+}: {
+  parentId: string;
+  dossierId: string | null;
+  onChanged: () => void;
+}) {
+  const list = useServerFn(listChildRuns);
+  const create = useServerFn(createAgentRun);
+  const process = useServerFn(processAgentRun);
+  const execute = useServerFn(executeAgentRun);
+
+  const [children, setChildren] = useState<ChildRun[]>([]);
+  const [followUp, setFollowUp] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const reload = async () => {
+    try {
+      const rows = (await list({ data: { parent_id: parentId } })) as unknown as ChildRun[];
+      setChildren(rows);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    void reload();
+    const channel = supabase
+      .channel(`agent_runs_children:${parentId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "agent_runs", filter: `parent_run_id=eq.${parentId}` },
+        () => { void reload(); },
+      )
+      .subscribe();
+    const interval = setInterval(reload, 8000);
+    return () => {
+      clearInterval(interval);
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentId]);
+
+  const ask = async () => {
+    const text = followUp.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    setFollowUp("");
+    try {
+      const created = (await create({
+        data: {
+          message: text,
+          parent_run_id: parentId,
+          dossier_id: dossierId ?? undefined,
+        },
+      })) as { id: string };
+      await reload();
+      try {
+        const r1 = (await process({ data: { id: created.id } })) as { status: string };
+        if (r1.status === "ready") await execute({ data: { id: created.id } });
+      } catch (e) {
+        console.error(e);
+      }
+      await reload();
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+      setFollowUp(text);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 pt-2">
+      {children.length > 0 ? (
+        <div className="space-y-3 pl-3 border-l-2 border-primary/20">
+          {children.map((c) => (
+            <div key={c.id} className="space-y-2">
+              <div className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground/80">Question de suivi · </span>
+                {new Date(c.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+              </div>
+              <p className="text-sm font-medium">{c.message}</p>
+              {c.answer ? (
+                <div className="rounded-md bg-background border border-border/50 p-3">
+                  <div className="prose prose-sm max-w-none dark:prose-invert text-sm">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.answer}</ReactMarkdown>
+                  </div>
+                  {c.sources && c.sources.length > 0 ? (
+                    <details className="text-xs mt-2">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        Sources ({c.sources.length})
+                      </summary>
+                      <ul className="mt-1 space-y-0.5 pl-4">
+                        {c.sources.map((s, i) => (
+                          <li key={i} className="text-muted-foreground">
+                            [{i + 1}]{" "}
+                            {s.url ? (
+                              <a href={s.url} target="_blank" rel="noreferrer" className="underline">
+                                {s.title}
+                              </a>
+                            ) : (
+                              s.title
+                            )}
+                            {s.reference ? ` — ${s.reference}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </div>
+              ) : c.refused && c.refusal_reason ? (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-muted-foreground">
+                  {c.refusal_reason}
+                </div>
+              ) : c.status === "failed" ? (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                  {c.error_message ?? "Erreur"}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  L'agent prépare la réponse…
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex gap-2 pt-1">
+        <Input
+          value={followUp}
+          onChange={(e) => setFollowUp(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void ask();
+            }
+          }}
+          placeholder="Poser une question de suivi…"
+          disabled={submitting}
+          className="text-sm bg-background"
+        />
+        <Button size="sm" onClick={ask} disabled={submitting || !followUp.trim()}>
+          {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
     </div>
   );
 }

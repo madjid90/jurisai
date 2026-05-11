@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
-import { classifyIntent, type AgentCtx } from "./_shared/agent-tools.server";
+import { classifyIntent, safeParseJSON, type AgentCtx } from "./_shared/agent-tools.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
 import { runIntentActions } from "./_shared/agent-intent-actions.server";
@@ -29,6 +29,7 @@ const CreateInput = z.object({
   message: z.string().min(1).max(8000),
   dossier_id: z.string().uuid().nullable().optional(),
   title: z.string().max(200).optional(),
+  parent_run_id: z.string().uuid().nullable().optional(),
   attachments: z
     .array(z.object({ analysis_id: z.string().uuid().optional(), filename: z.string().optional() }))
     .optional(),
@@ -55,12 +56,26 @@ export const createAgentRun = createServerFn({ method: "POST" })
       sources: [] as unknown[],
     };
 
+    // Si la question est un suivi (parent_run_id), on hérite automatiquement
+    // du dossier_id du parent pour que le fil reste cohérent dans le 360°.
+    let inheritedDossierId: string | null = data.dossier_id ?? null;
+    if (data.parent_run_id && !inheritedDossierId) {
+      const { data: parent } = await supabaseAdmin
+        .from("agent_runs")
+        .select("dossier_id, tenant_id")
+        .eq("id", data.parent_run_id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (parent) inheritedDossierId = (parent as { dossier_id: string | null }).dossier_id ?? null;
+    }
+
     const { data: row, error } = await supabaseAdmin
       .from("agent_runs")
       .insert({
         user_id: userId,
         tenant_id: tenantId,
-        dossier_id: data.dossier_id ?? null,
+        dossier_id: inheritedDossierId,
+        parent_run_id: data.parent_run_id ?? null,
         message: data.message,
         title: data.title ?? data.message.slice(0, 80),
         status: "pending",
@@ -113,6 +128,7 @@ export const listMyRuns = createServerFn({ method: "GET" })
         "id, title, message, status, intent, domain, dossier_id, created_at, updated_at, executed_at, archived_at"
       )
       .eq("tenant_id", tenantId)
+      .is("parent_run_id", null) // ne lister que les conversations racine
       .order("updated_at", { ascending: false })
       .limit(data.limit);
 
@@ -120,6 +136,28 @@ export const listMyRuns = createServerFn({ method: "GET" })
     if (data.status) q = q.eq("status", data.status);
 
     const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+/**
+ * Liste les questions de suivi (children) d'une run racine, ordonnées chronologiquement.
+ * Utilisé par l'UI pour afficher le fil conversationnel.
+ */
+export const listChildRuns = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ parent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = (context as { userId: string }).userId;
+    const tenantId = await getTenantId(userId);
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("agent_runs")
+      .select("id, title, message, status, answer, sources, draft, created_at, updated_at, error_message, refused, refusal_reason, confidence, dossier_id, workflow_instance_id, final_document_ids")
+      .eq("tenant_id", tenantId)
+      .eq("parent_run_id", data.parent_id)
+      .order("created_at", { ascending: true });
+
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
@@ -430,6 +468,7 @@ export const executeAgentRun = createServerFn({ method: "POST" })
       requires_rag: boolean | null;
       topic: string | null;
       dossier_id: string | null;
+      parent_run_id: string | null;
     };
     if (r.status !== "ready") throw new Error(`Statut invalide: ${r.status}`);
 
@@ -471,6 +510,32 @@ export const executeAgentRun = createServerFn({ method: "POST" })
         .join("\n\n");
       const collected = r.draft?.form ?? {};
 
+      // Mode conversation : si la run est un suivi, on charge le fil parent
+      // (jusqu'à 3 niveaux) pour donner le contexte à l'IA.
+      const conversation: Array<{ role: "user" | "assistant"; content: string }> = [];
+      if (r.parent_run_id) {
+        let cursor: string | null = r.parent_run_id;
+        let safety = 3;
+        const stack: Array<{ message: string; answer: string }> = [];
+        while (cursor && safety > 0) {
+          const { data: p } = await supabaseAdmin
+            .from("agent_runs")
+            .select("message, answer, parent_run_id")
+            .eq("id", cursor)
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
+          if (!p) break;
+          const pr = p as { message: string; answer: string | null; parent_run_id: string | null };
+          stack.push({ message: pr.message, answer: pr.answer ?? "" });
+          cursor = pr.parent_run_id;
+          safety -= 1;
+        }
+        for (const turn of stack.reverse()) {
+          conversation.push({ role: "user", content: turn.message });
+          if (turn.answer) conversation.push({ role: "assistant", content: turn.answer });
+        }
+      }
+
       const userMsg = `DEMANDE: ${r.message}
 
 INFOS COLLECTÉES:
@@ -487,6 +552,7 @@ ${sourcesBlock || "(aucune)"}`;
           model: await resolveChatModel(run.tenant_id as string),
           messages: [
             { role: "system", content: EXEC_SYSTEM },
+            ...conversation,
             { role: "user", content: userMsg },
           ],
           response_format: { type: "json_object" },
@@ -497,7 +563,7 @@ ${sourcesBlock || "(aucune)"}`;
       const raw = aiJson.choices?.[0]?.message?.content ?? "{}";
       let parsed: { answer?: string; procedure?: unknown[]; risks?: unknown[]; next_actions?: unknown[] } = {};
       try {
-        parsed = JSON.parse(raw);
+        parsed = safeParseJSON(raw);
       } catch {
         parsed = { answer: raw };
       }

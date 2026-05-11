@@ -112,6 +112,7 @@ export type Database = {
           intent: string | null
           message: string
           missing_information: Json | null
+          parent_run_id: string | null
           refusal_reason: string | null
           refused: boolean | null
           requires_document_upload: boolean | null
@@ -144,6 +145,7 @@ export type Database = {
           intent?: string | null
           message: string
           missing_information?: Json | null
+          parent_run_id?: string | null
           refusal_reason?: string | null
           refused?: boolean | null
           requires_document_upload?: boolean | null
@@ -176,6 +178,7 @@ export type Database = {
           intent?: string | null
           message?: string
           missing_information?: Json | null
+          parent_run_id?: string | null
           refusal_reason?: string | null
           refused?: boolean | null
           requires_document_upload?: boolean | null
@@ -198,6 +201,13 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_parent_run_id_fkey"
+            columns: ["parent_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
             referencedColumns: ["id"]
           },
           {
