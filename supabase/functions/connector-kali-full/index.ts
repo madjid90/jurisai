@@ -187,6 +187,7 @@ async function runIngestion(
     let perItemIngested = 0;
     let perItemSkipped = 0;
     let failed = false;
+    let timeExceeded = false;
 
     try {
       const detRes = await fetchKaliDetail(item.kali_id);
@@ -218,7 +219,6 @@ async function runIngestion(
       const articles = extractAllArticles(detail, { keepAbrogated: false });
 
       let artIdx = 0;
-      let timeExceeded = false;
       for (const art of articles) {
         // Heartbeat + budget check toutes les 10 itérations pour éviter le kill silencieux
         if (artIdx % 10 === 0) {
