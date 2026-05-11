@@ -8,18 +8,31 @@ import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, star
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
 const TIME_BUDGET_MS = 60_000;
-const CDTN_API = "https://www.code.travail.gouv.fr/api/items.json";
+const CDTN_SITEMAP = "https://code.travail.gouv.fr/sitemap.xml";
+const CDTN_BASE = "https://code.travail.gouv.fr";
 
 interface BatchItem { slug: string; title: string; url?: string; }
 
+function slugToTitle(slug: string): string {
+  return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 async function loadIndex(): Promise<BatchItem[]> {
-  const r = await fetch(CDTN_API);
-  if (!r.ok) throw new Error(`CDTN items.json ${r.status}`);
-  const data = await r.json() as Array<{ source?: string; slug?: string; title?: string; url?: string }>;
-  return data
-    .filter((d) => d.source === "modeles-courriers-types" || d.source === "modeles_de_courriers")
-    .filter((d) => d.slug && d.title)
-    .map((d) => ({ slug: d.slug!, title: d.title!, url: d.url }));
+  const r = await fetch(CDTN_SITEMAP, { headers: { "User-Agent": "JurisAI/1.0" } });
+  if (!r.ok) throw new Error(`CDTN sitemap ${r.status}`);
+  const xml = await r.text();
+  const re = /<loc>(https:\/\/code\.travail\.gouv\.fr\/modeles-de-courriers\/([^<]+))<\/loc>/g;
+  const out: BatchItem[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    const url = m[1];
+    const slug = m[2];
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ slug, title: slugToTitle(slug), url });
+  }
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -67,18 +80,31 @@ Deno.serve(async (req) => {
             for (const it of items) {
               if (Date.now() - start > TIME_BUDGET_MS) break;
               try {
-                const r = await fetch(`https://www.code.travail.gouv.fr/api/items/${it.slug}.json`);
+                const r = await fetch(it.url ?? `${CDTN_BASE}/modeles-de-courriers/${it.slug}`, { headers: { "User-Agent": "JurisAI/1.0" } });
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                const f = await r.json() as { title?: string; description?: string; html?: string; text?: string; intro?: string; questions?: Array<{ name?: string; html?: string }> };
-                let body = f.intro ?? f.text ?? f.description ?? "";
-                if (Array.isArray(f.questions)) {
-                  body += "\n\n" + f.questions.map((q) => `## ${q.name ?? ""}\n${(q.html ?? "").replace(/<[^>]+>/g, " ")}`).join("\n\n");
-                }
-                if (!body && f.html) body = f.html.replace(/<[^>]+>/g, " ");
-                body = body.replace(/\s+/g, " ").trim();
-                if (body.length < 80) { ok.push(it); continue; }
+                const html = await r.text();
+                // Extract <main> ou <article> puis nettoyer.
+                const m = html.match(/<main[\s\S]*?<\/main>/i) ?? html.match(/<article[\s\S]*?<\/article>/i);
+                let text = (m ? m[0] : html)
+                  .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                  .replace(/<style[\s\S]*?<\/style>/gi, " ")
+                  .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+                  .replace(/<header[\s\S]*?<\/header>/gi, " ")
+                  .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+                  .replace(/<[^>]+>/g, " ")
+                  .replace(/&nbsp;/g, " ")
+                  .replace(/&amp;/g, "&")
+                  .replace(/&#39;/g, "'")
+                  .replace(/&quot;/g, '"')
+                  .replace(/\s+/g, " ")
+                  .trim();
+                // Try to extract real <h1> as title.
+                const h1m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+                const realTitle = h1m ? h1m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : it.title;
+                if (text.length < 80) { ok.push(it); continue; }
+                if (text.length > 60_000) text = text.slice(0, 60_000);
 
-                const content = `**Source officielle** : Ministère du Travail (CDTN)\n\n# ${it.title}\n\n${body}`;
+                const content = `**Source officielle** : Ministère du Travail (CDTN)\n\n# ${realTitle}\n\n${text}`;
                 const hash = await sha256(content);
                 const dec = await shouldIngest(db, "cdtn-modeles-full", it.slug, hash);
                 if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
@@ -86,9 +112,9 @@ Deno.serve(async (req) => {
                 await ingestSource(db, apiKey, "cdtn-modeles", {
                   external_id: it.slug,
                   source_type: "modele_courrier",
-                  title: it.title,
+                  title: realTitle.slice(0, 500),
                   content,
-                  official_url: it.url ?? `https://www.code.travail.gouv.fr/${it.slug}`,
+                  official_url: it.url ?? `${CDTN_BASE}/modeles-de-courriers/${it.slug}`,
                   raw_metadata: { slug: it.slug, content_hash: hash },
                 });
                 ing++; ok.push(it);

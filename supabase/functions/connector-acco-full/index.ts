@@ -130,11 +130,20 @@ Deno.serve(async (req) => {
         months: body.months ?? 24,
         planning: "in_progress",
       });
-      planning = {
-        query: body.query,
-        months: body.months ?? 24,
-        max: body.max_accords ?? 20000,
-      };
+      // Si le batch retourné a déjà des items planifiés (réutilisé par startBatch),
+      // on ne re-planifie pas pour éviter les doublons (ACCO 569/500).
+      const { data: existing } = await db
+        .from("ingestion_batch_state")
+        .select("total_count")
+        .eq("id", batchId)
+        .maybeSingle();
+      if (!existing || (existing.total_count ?? 0) === 0) {
+        planning = {
+          query: body.query,
+          months: body.months ?? 24,
+          max: body.max_accords ?? 20000,
+        };
+      }
     }
 
     // @ts-ignore EdgeRuntime injecté par Supabase
