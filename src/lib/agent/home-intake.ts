@@ -1,5 +1,6 @@
 // Helper client : enrichit le message utilisateur avec contexte (document, dossier)
-// avant l'appel à l'agent canonique runLegalAgent.
+// avant l'appel à l'agent canonique runLegalAgent, puis applique la décision
+// de routage produite par `decideRouting()` côté serveur.
 
 import type { useNavigate } from "@tanstack/react-router";
 
@@ -22,8 +23,7 @@ export function buildIntakeMessage(opts: HomeAgentIntakeOptions): string {
   return msg;
 }
 
-// Routage métier renvoyé par createAgentRun. L'Agent 360 décide où envoyer
-// l'utilisateur après la classification de l'intention.
+// Routage métier renvoyé par createAgentRun (mirror du type côté serveur).
 export type AgentRouting =
   | { target: "dossier"; route: string; dossier_id: string; title?: string }
   | {
@@ -32,51 +32,64 @@ export type AgentRouting =
       route: string;
     }
   | { target: "analysis"; route: string; analysis_id: string }
-  | { target: "agent"; route: string; mode: "document" | "procedure" | "chat" };
+  | { target: "agent"; route: string; mode: "document" | "procedure" | "chat" }
+  | { target: "chat"; route: string; run_id: string }
+  | { target: "requests"; route: string; run_id: string };
 
 /**
- * Applique la décision de routage de l'Agent 360.
+ * Applique la décision de routage de l'Agent 360 (cf. spec § 7
+ * `resolveAgentDestination`). Chaque intent ouvre la page la plus utile à
+ * l'utilisateur — l'outil interne reste invisible.
  *
- * RÈGLE PRODUIT (recadrage Agent 360 = expérience principale) :
- * - Par défaut, on RESTE inline dans /agent. Le résultat (réponse juridique,
- *   analyse de document, brouillon, procédure...) s'affiche dans l'assistant.
- * - On n'ouvre une page métier QUE si la demande explicite de l'utilisateur
- *   est de la voir : seul `target=dossier` (1 dossier fiable trouvé) déclenche
- *   une vraie navigation vers /dossiers/:id.
- * - Pour `analysis`, `agent` (document/procedure), `dossier_selection`, on
- *   reste sur /agent — l'utilisateur cliquera lui-même "Voir l'analyse",
- *   "Voir toute la procédure", etc. depuis le ResultPanel.
+ *  - dossier              → /dossiers/:id
+ *  - dossier_selection    → /agent?mode=dossier_selection (choix inline)
+ *  - analysis             → /analyses/:id
+ *  - agent (doc/procedure)→ /agent?mode=document|procedure
+ *  - chat                 → /chat (Assistant juridique sourcé)
+ *  - requests / fallback  → /mes-demandes (boîte de réception)
  */
 export function applyRouting(
   routing: AgentRouting | undefined,
   navigate: ReturnType<typeof useNavigate>,
   fallbackRunId: string,
 ): void {
-  // Cas unique d'auto-navigation : dossier explicitement demandé et trouvé.
-  if (routing?.target === "dossier") {
-    void navigate({
-      to: "/dossiers/$id",
-      params: { id: routing.dossier_id },
-    });
+  if (!routing) {
+    void navigate({ to: "/mes-demandes", search: { run: fallbackRunId } as never });
     return;
   }
 
-  // Tous les autres cas : on reste dans l'expérience Agent 360 inline.
-  // On passe le `mode` éventuel (document / procedure / dossier_selection)
-  // pour que /agent puisse afficher le panneau adapté SANS forcer un tunnel.
-  const mode =
-    routing?.target === "agent"
-      ? routing.mode
-      : routing?.target === "dossier_selection"
-        ? "dossier_selection"
-        : routing?.target === "analysis"
-          ? "analysis"
-          : undefined;
+  switch (routing.target) {
+    case "dossier":
+      void navigate({ to: "/dossiers/$id", params: { id: routing.dossier_id } });
+      return;
 
-  void navigate({
-    to: "/agent",
-    search: (mode
-      ? { run: fallbackRunId, mode }
-      : { run: fallbackRunId }) as never,
-  });
+    case "analysis":
+      void navigate({
+        to: "/analyses/$id" as never,
+        params: { id: routing.analysis_id } as never,
+      });
+      return;
+
+    case "chat":
+      void navigate({ to: "/chat", search: { run: routing.run_id } as never });
+      return;
+
+    case "requests":
+      void navigate({ to: "/mes-demandes", search: { run: routing.run_id } as never });
+      return;
+
+    case "agent":
+      void navigate({
+        to: "/agent",
+        search: { run: fallbackRunId, mode: routing.mode } as never,
+      });
+      return;
+
+    case "dossier_selection":
+      void navigate({
+        to: "/agent",
+        search: { run: fallbackRunId, mode: "dossier_selection" } as never,
+      });
+      return;
+  }
 }
