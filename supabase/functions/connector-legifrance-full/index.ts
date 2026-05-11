@@ -8,7 +8,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import { legifranceFetch } from "../_shared/piste.ts";
-import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
+import { appendBatchItems, finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 import { stripHtml } from "../_shared/unist-extract.ts";
 
@@ -200,7 +200,8 @@ async function runIngestion(
       const message = (err as Error).message;
       const retries = (it.retries ?? 0) + 1;
       if (retries < 3) {
-        await markProcessed(db, batchId, [{ ...it, retries }], 0, 0);
+        await appendBatchItems(db, batchId, [{ ...it, retries }]);
+        await markProcessed(db, batchId, [it], 0, 0);
         console.warn(`[legifrance-full] ${it.article_id}: transient error (${message}), retry ${retries}/2`);
         await new Promise((r) => setTimeout(r, 250));
         continue;
