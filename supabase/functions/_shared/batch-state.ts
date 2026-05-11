@@ -34,6 +34,14 @@ export async function getNextItems<T = unknown>(
   return (data as T[]) ?? [];
 }
 
+export async function heartbeat(
+  db: SupabaseClient,
+  batchId: string,
+): Promise<void> {
+  const { error } = await db.rpc("heartbeat_batch", { p_batch_id: batchId });
+  if (error) console.warn(`heartbeat warning: ${error.message}`);
+}
+
 export async function markProcessed(
   db: SupabaseClient,
   batchId: string,
