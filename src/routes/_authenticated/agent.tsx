@@ -217,6 +217,49 @@ function AssistantPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Mode focus : une question = une page dédiée, sans le composer ni la liste
+  if (focusRunId) {
+    const focusSummary = runs.find((r) => r.id === focusRunId) ?? {
+      id: focusRunId,
+      title: null,
+      message: "",
+      status: submitting ? "running" : "pending",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    return (
+      <AppShell>
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-10 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => void navigate({ search: { run: undefined } })}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+            >
+              ← Retour à l'assistant
+            </button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void navigate({ search: { run: undefined } })}
+              className="gap-1.5"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Nouvelle question
+            </Button>
+          </div>
+          <RunCard
+            key={focusRunId}
+            summary={focusSummary as Run}
+            expanded
+            onToggle={() => {}}
+            onChanged={refresh}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-10 space-y-6">
