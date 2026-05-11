@@ -62,7 +62,7 @@ const CONNECTORS = [
     description: "Décisions de la Cour de cassation des 5 dernières années, toutes chambres (sociale, commerciale, civile, criminelle). Sert à sourcer la jurisprudence.",
     source: "Cour de cassation · API Judilibre (PISTE)",
     auth: true,
-    defaultPayload: { chambers: ["soc", "comm", "civ1", "civ2", "civ3", "crim"], max_decisions: 1000, dry_run: false },
+    defaultPayload: { chambers: ["soc", "comm", "civ1", "civ2", "civ3", "crim"], max_decisions: 0, dry_run: false },
     badge: "API PISTE (clé)",
   },
   {
@@ -71,7 +71,7 @@ const CONNECTORS = [
     description: "Décisions du Conseil d'État et des juridictions administratives. Pour le contentieux administratif et la fonction publique.",
     source: "Conseil d'État · API JADE (PISTE)",
     auth: true,
-    defaultPayload: { max_decisions: 500, dry_run: false },
+    defaultPayload: { max_decisions: 0, dry_run: false },
     badge: "API PISTE (clé)",
   },
   {
