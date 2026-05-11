@@ -66,7 +66,8 @@ Deno.serve(async (req) => {
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
-      const chambers: string[] = Array.isArray(body.chambers) && body.chambers.length ? body.chambers : ["soc", "comm", "civ1", "civ2", "civ3", "crim"];
+      // Valeurs valides côté Judilibre: pl, mi, civ1, civ2, civ3, comm, soc, cr (chambre criminelle)
+      const chambers: string[] = Array.isArray(body.chambers) && body.chambers.length ? body.chambers : ["pl", "mi", "soc", "comm", "civ1", "civ2", "civ3", "cr"];
       const dEnd: string = body.date_end ?? new Date().toISOString().slice(0, 10);
       const dStart: string = body.date_start ?? (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 5); return d.toISOString().slice(0, 10); })();
       const query: string = typeof body.query === "string" && body.query.trim() ? body.query.trim() : "*";
