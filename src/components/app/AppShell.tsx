@@ -12,7 +12,7 @@ import {
   LogOut,
   ChevronDown,
   Sparkles,
-  MessageSquare,
+  
   Database,
   BookMarked,
   Menu,
@@ -159,7 +159,7 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     access.roles.length > 0 &&
     access.roles.every((r) => r === "operationnel_terrain");
 
-  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/chat", "/mes-demandes", "/dossiers", "/documents", "/notifications"]);
+  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/mes-demandes", "/dossiers", "/documents", "/notifications"]);
 
   const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))

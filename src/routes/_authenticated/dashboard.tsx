@@ -121,7 +121,7 @@ function DashboardPage() {
       if (created.routing?.target === "dossier") {
         toast.success("Dossier trouvé. Ouverture…");
       } else if (created.routing?.target === "analysis") {
-        toast.success("Document analysé. Ouverture de l'analyse…");
+        toast.success("Document analysé. Résultat dans l'assistant.");
       }
       applyRouting(created.routing, navigate, created.id);
     } catch (e) {
