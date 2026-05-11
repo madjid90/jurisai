@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronDown,
   Sparkles,
+  MessageSquare,
   Database,
   BookMarked,
   Menu,
