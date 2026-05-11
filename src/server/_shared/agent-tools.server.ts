@@ -6,10 +6,10 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
 import { llmFetch } from "./llm-fetch.server";
-import { resolveChatModel, DEFAULT_EMBED_MODEL } from "./llm-models.server";
+import { resolveChatModel } from "./llm-models.server";
+import { embedText, embedErrorMessage } from "./llm-embeddings.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const EMBED_MODEL = DEFAULT_EMBED_MODEL;
 
 export type AgentCtx = {
   userId: string;
@@ -129,15 +129,21 @@ export async function searchLaw(
   ctx: AgentCtx,
 ): Promise<ToolOutcome> {
   try {
-    const embRes = await llmFetch(`${AI_GATEWAY}/embeddings`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: EMBED_MODEL, input: [query] }),
-    });
-    if (!embRes.ok) return { result: { error: "embedding failed" }, succeeded: false };
-    const embJson = await embRes.json();
-    const embedding: number[] = embJson.data?.[0]?.embedding ?? [];
-    if (!embedding.length) return { result: { error: "no embedding" }, succeeded: false };
+    const emb = await embedText(query, { apiKey: ctx.apiKey, context: "search_law" });
+    if (!emb.ok) {
+      return {
+        result: {
+          error: embedErrorMessage(emb.kind),
+          kind: emb.kind,
+          status: emb.status,
+          detail: emb.detail,
+          attempts: emb.attempts,
+        },
+        succeeded: false,
+        errorMessage: `embed:${emb.kind}${emb.status ? `:${emb.status}` : ""}`,
+      };
+    }
+    const embedding = emb.embedding;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: results, error } = await (supabaseAdmin as any).rpc("hybrid_search", {
