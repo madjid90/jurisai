@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
-import { classifyIntent, type AgentCtx } from "./_shared/agent-tools.server";
+import { classifyIntent, safeParseJSON, type AgentCtx } from "./_shared/agent-tools.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
 import { runIntentActions } from "./_shared/agent-intent-actions.server";
@@ -29,6 +29,7 @@ const CreateInput = z.object({
   message: z.string().min(1).max(8000),
   dossier_id: z.string().uuid().nullable().optional(),
   title: z.string().max(200).optional(),
+  parent_run_id: z.string().uuid().nullable().optional(),
   attachments: z
     .array(z.object({ analysis_id: z.string().uuid().optional(), filename: z.string().optional() }))
     .optional(),
@@ -55,12 +56,26 @@ export const createAgentRun = createServerFn({ method: "POST" })
       sources: [] as unknown[],
     };
 
+    // Si la question est un suivi (parent_run_id), on hérite automatiquement
+    // du dossier_id du parent pour que le fil reste cohérent dans le 360°.
+    let inheritedDossierId: string | null = data.dossier_id ?? null;
+    if (data.parent_run_id && !inheritedDossierId) {
+      const { data: parent } = await supabaseAdmin
+        .from("agent_runs")
+        .select("dossier_id, tenant_id")
+        .eq("id", data.parent_run_id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (parent) inheritedDossierId = (parent as { dossier_id: string | null }).dossier_id ?? null;
+    }
+
     const { data: row, error } = await supabaseAdmin
       .from("agent_runs")
       .insert({
         user_id: userId,
         tenant_id: tenantId,
-        dossier_id: data.dossier_id ?? null,
+        dossier_id: inheritedDossierId,
+        parent_run_id: data.parent_run_id ?? null,
         message: data.message,
         title: data.title ?? data.message.slice(0, 80),
         status: "pending",
@@ -497,7 +512,7 @@ ${sourcesBlock || "(aucune)"}`;
       const raw = aiJson.choices?.[0]?.message?.content ?? "{}";
       let parsed: { answer?: string; procedure?: unknown[]; risks?: unknown[]; next_actions?: unknown[] } = {};
       try {
-        parsed = JSON.parse(raw);
+        parsed = safeParseJSON(raw);
       } catch {
         parsed = { answer: raw };
       }
