@@ -1652,6 +1652,7 @@ function FollowUpThread({
 
       <div className="flex gap-2 pt-1">
         <Input
+          id={`follow-up-input-${parentId}`}
           value={followUp}
           onChange={(e) => setFollowUp(e.target.value)}
           onKeyDown={(e) => {
@@ -1660,7 +1661,7 @@ function FollowUpThread({
               void ask();
             }
           }}
-          placeholder="Poser une question de suivi…"
+          placeholder="Préciser, compléter, ou poser une question de suivi…"
           disabled={submitting}
           className="text-sm bg-background"
         />
