@@ -4,7 +4,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
-import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
+import { appendBatchItems, finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
 const TIME_BUDGET_MS = 60_000;
@@ -117,12 +117,24 @@ Deno.serve(async (req) => {
     const token = await getPisteToken();
 
     let batchId: string;
+    let planning: { query?: string; months: number; max: number } | null = null;
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
-      const items = await loadIndex(token, body.query, body.months ?? 24, body.max_accords ?? 20000);
-      if (body.dry_run) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
-      batchId = await startBatch(db, "acco-full", "accords", items, { query: body.query ?? null, months: body.months ?? 12 });
+      if (body.dry_run) {
+        const items = await loadIndex(token, body.query, body.months ?? 24, body.max_accords ?? 20000);
+        return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
+      }
+      batchId = await startBatch(db, "acco-full", "accords", [], {
+        query: body.query ?? null,
+        months: body.months ?? 24,
+        planning: "in_progress",
+      });
+      planning = {
+        query: body.query,
+        months: body.months ?? 24,
+        max: body.max_accords ?? 20000,
+      };
     }
 
     // @ts-ignore EdgeRuntime injecté par Supabase
@@ -133,10 +145,30 @@ Deno.serve(async (req) => {
 
           const start = Date.now();
           let ingested = 0, skipped = 0, failed = 0;
+          let planningDone = planning === null;
+
+          const planTask = planning ? (async () => {
+            try {
+              const items = await loadIndex(token, planning.query, planning.months, planning.max);
+              if (items.length) {
+                await appendBatchItems(db, batchId, items);
+              }
+              console.log(`[acco-full] planning fini: ${items.length} items`);
+            } catch (err) {
+              console.error(`[acco-full] planning error:`, (err as Error).message);
+            } finally {
+              planningDone = true;
+            }
+          })() : Promise.resolve();
 
           while (Date.now() - start < TIME_BUDGET_MS) {
             const items = await getNextItems<BatchItem>(db, batchId, 1);
-            if (!items.length) break;
+            if (!items.length) {
+              if (planningDone) break;
+              await heartbeat(db, batchId);
+              await new Promise((r) => setTimeout(r, 1500));
+              continue;
+            }
             await heartbeat(db, batchId);
             const ok: BatchItem[] = [], fl: BatchItem[] = [];
             let ing = 0, sk = 0;
@@ -172,6 +204,10 @@ Deno.serve(async (req) => {
             ingested += ing; skipped += sk; failed += fl.length;
           }
 
+          await planTask;
+          if (!planningDone) {
+            await db.from("ingestion_batch_state").update({ status: "paused", last_tick_at: new Date().toISOString() }).eq("id", batchId);
+          }
           const fin = await finalizeBatch(db, batchId);
           console.log(`[connector-acco-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
 
