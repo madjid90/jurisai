@@ -11,6 +11,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { getAgentRun } from "@/server/agent-runs.functions";
+import { useExecuteSuggestedAction } from "@/hooks/use-execute-suggested-action";
 
 export const Route = createFileRoute("/_authenticated/mes-demandes/$id")({
   head: () => ({
@@ -27,7 +28,7 @@ function DemandeDetailPage() {
   const navigate = useNavigate();
   const get = useServerFn(getAgentRun);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["agent-run", id],
     queryFn: () => get({ data: { id } }),
     refetchInterval: (q) => {
@@ -40,6 +41,10 @@ function DemandeDetailPage() {
   });
 
   const run = data as AgentRun | undefined;
+  const handleAction = useExecuteSuggestedAction({
+    run,
+    onChanged: () => void refetch(),
+  });
 
   return (
     <AppShell>
@@ -79,7 +84,7 @@ function DemandeDetailPage() {
             Chargement de la demande…
           </div>
         ) : (
-          <ResultRenderer run={run ?? null} />
+          <ResultRenderer run={run ?? null} onSuggestedAction={handleAction} />
         )}
       </div>
     </AppShell>

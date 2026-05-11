@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { runLegalAgent } from "@/server/agent.functions";
 import { getAgentRun } from "@/server/agent-runs.functions";
+import { useExecuteSuggestedAction } from "@/hooks/use-execute-suggested-action";
 import { toast } from "sonner";
 
 const ChatSearch = z.object({ run: z.string().uuid().optional() });
@@ -277,6 +278,10 @@ function ChatPage() {
 }
 
 function MessageBubble({ msg }: { msg: Msg }) {
+  const handleAction = useExecuteSuggestedAction({
+    run: msg.role === "assistant" ? msg.run ?? null : null,
+  });
+
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -299,7 +304,7 @@ function MessageBubble({ msg }: { msg: Msg }) {
             JurisAI consulte les sources…
           </div>
         ) : (
-          <ResultRenderer run={msg.run ?? null} />
+          <ResultRenderer run={msg.run ?? null} onSuggestedAction={handleAction} />
         )}
       </div>
     </div>
