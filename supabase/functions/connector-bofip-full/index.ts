@@ -35,49 +35,35 @@ Deno.serve(async (req) => {
     const apiKey = getLovableApiKey();
 
     let batchId: string;
+    let planningMax: number | null = null;
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
-      let items: BatchItem[];
       if (Array.isArray(body.ids) && body.ids.length) {
-        items = body.ids.map((id: string) => ({ id }));
+        const items: BatchItem[] = body.ids.map((id: string) => ({ id }));
+        if (dryRun) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
+        batchId = await startBatch(db, "bofip-full", "documents", items, {});
       } else {
-        // Search via Légifrance API (BOFiP est dispo via /search BOFiP)
         const max = Math.min(Number(body.max_docs) || 1000, 5000);
-        const collected: BatchItem[] = [];
-        let page = 1;
-        const pageSize = 50;
-        while (collected.length < max) {
-          try {
-            const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string; serie?: string; division?: string }> }>(
-              "/search",
-              {
-                recherche: {
-                  champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
-                  filtres: [{ facette: "FONDS", valeurs: ["BOFIP"] }],
-                  pageNumber: page,
-                  pageSize,
-                  sort: "PERTINENCE",
-                  typePagination: "DEFAUT",
-                },
-                fond: "BOFIP",
+        if (dryRun) {
+          // Échantillon rapide page 1
+          const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string }> }>(
+            "/search",
+            {
+              recherche: {
+                champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
+                filtres: [{ facette: "FONDS", valeurs: ["BOFIP"] }],
+                pageNumber: 1, pageSize: 10, sort: "PERTINENCE", typePagination: "DEFAUT",
               },
-            );
-            const hits = data.results ?? [];
-            if (!hits.length) break;
-            collected.push(...hits.filter((h) => h.id).map((h) => ({ id: h.id!, titre: h.titre, serie: h.serie, division: h.division })));
-            if (hits.length < pageSize) break;
-            page++;
-          } catch (err) {
-            console.warn("[bofip-full] search page", page, "failed:", (err as Error).message);
-            break;
-          }
+              fond: "BOFIP",
+            },
+          ).catch(() => ({ results: [] as Array<{ id?: string; titre?: string }> }));
+          return json({ dry_run: true, sample: (data.results ?? []).slice(0, 5) });
         }
-        items = collected.slice(0, max);
+        // Crée le batch vide, planning en arrière-plan
+        batchId = await startBatch(db, "bofip-full", "documents", [], { planning: "in_progress", max });
+        planningMax = max;
       }
-
-      if (dryRun) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
-      batchId = await startBatch(db, "bofip-full", "documents", items, {});
     }
 
     // @ts-ignore EdgeRuntime injecté par Supabase
