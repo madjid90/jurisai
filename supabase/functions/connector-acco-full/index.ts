@@ -23,13 +23,13 @@ async function getPisteToken(): Promise<string> {
   return (await r.json() as { access_token: string }).access_token;
 }
 
-async function searchAcco(token: string, query: string | undefined, dateStart: string, page: number, pageSize: number) {
+async function searchAcco(token: string, query: string | undefined, dateStart: string, dateEnd: string, page: number, pageSize: number) {
   const payload = {
     fond: "ACCO",
     recherche: {
-      filtres: [{ facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } }],
+      filtres: [{ facette: "DATE_SIGNATURE", dates: { start: dateStart, end: dateEnd } }],
       pageNumber: page, pageSize, sort: "SIGNATURE_DATE_DESC",
-      typePagination: "ARTICLE", operateur: "ET",
+      typePagination: "DEFAUT", operateur: "ET",
       ...(query ? { champs: [{ typeChamp: "TEXTE", criteres: [{ typeRecherche: "EXACTE", valeur: query, operateur: "ET" }], operateur: "ET" }] } : {}),
     },
   };
@@ -39,26 +39,44 @@ async function searchAcco(token: string, query: string | undefined, dateStart: s
     body: JSON.stringify(payload),
   });
   if (!r.ok) throw new Error(`ACCO search ${r.status}`);
-  return await r.json() as { results?: Array<{ titles?: Array<{ id: string; title: string }>; date?: string }> };
+  return await r.json() as { results?: Array<{ titles?: Array<{ id: string; title: string }>; date?: string }>; totalResultNumber?: number };
 }
 
+function fmt(d: Date): string { return d.toISOString().slice(0, 10); }
+
 async function loadIndex(token: string, query: string | undefined, months: number, max: number): Promise<BatchItem[]> {
-  const since = new Date(); since.setMonth(since.getMonth() - months);
-  const dateStart = since.toISOString().slice(0, 10);
+  // PISTE limite l'offset à ~1000 par requête → on découpe en fenêtres mensuelles.
   const out: BatchItem[] = [];
   const seen = new Set<string>();
-  for (let page = 1; page <= 400 && out.length < max; page++) {
-    const res = await searchAcco(token, query, dateStart, page, 50);
-    const arr = res.results ?? [];
-    if (!arr.length) break;
-    for (const r of arr) {
-      const t = r.titles?.[0];
-      if (!t || seen.has(t.id)) continue;
-      seen.add(t.id);
-      out.push({ id: t.id, title: t.title, date: r.date });
-      if (out.length >= max) break;
+  const end = new Date();
+  const stop = new Date(); stop.setMonth(stop.getMonth() - months);
+  let windowEnd = new Date(end);
+
+  while (windowEnd > stop && out.length < max) {
+    const windowStart = new Date(windowEnd); windowStart.setMonth(windowStart.getMonth() - 1);
+    if (windowStart < stop) windowStart.setTime(stop.getTime());
+    const ds = fmt(windowStart);
+    const de = fmt(windowEnd);
+
+    for (let page = 1; page <= 20 && out.length < max; page++) {
+      let res;
+      try { res = await searchAcco(token, query, ds, de, page, 100); }
+      catch (e) { console.warn(`[acco-full] search ${ds}→${de} p${page}:`, (e as Error).message); break; }
+      const arr = res.results ?? [];
+      if (!arr.length) break;
+      for (const r of arr) {
+        const t = r.titles?.[0];
+        if (!t || seen.has(t.id)) continue;
+        seen.add(t.id);
+        out.push({ id: t.id, title: t.title, date: r.date });
+        if (out.length >= max) break;
+      }
+      if (arr.length < 100) break;
     }
+    windowEnd = new Date(windowStart);
+    windowEnd.setDate(windowEnd.getDate() - 1);
   }
+  console.log(`[acco-full] loadIndex collected ${out.length} accords across ${months} months`);
   return out;
 }
 
