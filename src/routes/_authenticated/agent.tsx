@@ -591,22 +591,27 @@ function RunDetail({
   const workflowInstanceId = (run.workflow_instance_id as string | null) ?? null;
 
   return (
-    <div className="border-t border-border/60 px-4 py-4 space-y-4 bg-muted/20">
-      {/* Demande initiale rappelée discrètement */}
-      <div className="text-xs text-muted-foreground italic">
-        « {run.message as string} »
+    <div className="border-t border-border/60 px-4 py-5 space-y-5 bg-muted/20">
+      {/* Rappel de la demande — proéminent pour garder le focus */}
+      <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
+        <div className="flex items-center justify-between gap-3 mb-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+            Votre demande
+          </p>
+          {dossierId ? (
+            <Link
+              to="/dossiers/$id"
+              params={{ id: dossierId }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/20 transition"
+            >
+              📁 Voir le dossier lié
+            </Link>
+          ) : null}
+        </div>
+        <p className="text-sm text-foreground/90 leading-relaxed">
+          {run.message as string}
+        </p>
       </div>
-
-      {/* Suivi dans un dossier */}
-      {dossierId && (
-        <Link
-          to="/dossiers/$id"
-          params={{ id: dossierId }}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
-        >
-          📁 Suivi dans le dossier — ouvrir
-        </Link>
-      )}
 
       {/* Procédure pas-à-pas (si workflow lié) */}
       {workflowInstanceId ? (
