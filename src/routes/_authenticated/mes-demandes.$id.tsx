@@ -28,7 +28,7 @@ function DemandeDetailPage() {
   const navigate = useNavigate();
   const get = useServerFn(getAgentRun);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["agent-run", id],
     queryFn: () => get({ data: { id } }),
     refetchInterval: (q) => {
@@ -41,6 +41,10 @@ function DemandeDetailPage() {
   });
 
   const run = data as AgentRun | undefined;
+  const handleAction = useExecuteSuggestedAction({
+    run,
+    onChanged: () => void refetch(),
+  });
 
   return (
     <AppShell>
