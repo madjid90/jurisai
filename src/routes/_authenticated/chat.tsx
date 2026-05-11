@@ -1,20 +1,26 @@
 // Page /chat — interface conversationnelle type ChatGPT branchée sur l'agent
 // juridique RAG. Chaque réponse est sourcée via [source:N] depuis legal_chunks.
-// Pas de persistance pour l'instant : l'historique vit dans la session.
+// P0.1 / P1.5 : si /chat?run=ID, on charge la run existante (créée depuis la
+// home) au lieu de relancer l'agent.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import { z } from "zod";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { runLegalAgent } from "@/server/agent.functions";
+import { getAgentRun } from "@/server/agent-runs.functions";
 import { toast } from "sonner";
+
+const ChatSearch = z.object({ run: z.string().uuid().optional() });
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Chat juridique · JurisAI" }] }),
+  validateSearch: (s) => ChatSearch.parse(s),
   component: ChatPage,
 });
 
