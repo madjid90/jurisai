@@ -62,7 +62,7 @@ const CONNECTORS = [
     description: "Décisions de la Cour de cassation des 5 dernières années, toutes chambres (sociale, commerciale, civile, criminelle). Sert à sourcer la jurisprudence.",
     source: "Cour de cassation · API Judilibre (PISTE)",
     auth: true,
-    defaultPayload: { chambers: ["soc", "comm", "civ1", "civ2", "civ3", "crim"], max_decisions: 0, dry_run: false },
+    defaultPayload: { chambers: ["soc", "comm", "civ1", "civ2", "civ3", "cr"], max_decisions: 0, dry_run: false },
     badge: "API PISTE (clé)",
   },
   {
@@ -428,8 +428,19 @@ function ConnectorCard({
         <Button
           onClick={() => {
             try {
-              const parsed = JSON.parse(payload);
-              onRun(parsed);
+              const parsed = JSON.parse(payload) as Record<string, unknown> & { chambers?: unknown };
+              const normalized = connector.id === "judilibre-full" && Array.isArray(parsed.chambers)
+                ? {
+                    ...parsed,
+                    chambers: parsed.chambers.map((value) => value === "crim" ? "cr" : value),
+                  }
+                : parsed;
+
+              if (normalized !== parsed) {
+                setPayload(JSON.stringify(normalized, null, 2));
+              }
+
+              onRun(normalized);
             } catch {
               toast.error("JSON invalide");
             }
