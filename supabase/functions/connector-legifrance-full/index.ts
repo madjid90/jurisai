@@ -56,12 +56,25 @@ const KNOWN_CODES: Record<string, string> = {
   "LEGITEXT000006074093": "Code de l'action sociale et des familles",
 };
 
-const LEGI_INDEX_URL = "https://unpkg.com/@socialgouv/legi-data/data/index.json";
+// `unpkg.com/@socialgouv/legi-data` renvoie HTTP 500 (package > 150 MB CDN limit).
+// On bascule sur raw.githubusercontent (stable, pas de quota CDN) avec esm.sh en secours.
+const LEGI_INDEX_URLS = [
+  "https://raw.githubusercontent.com/SocialGouv/legi-data/master/data/index.json",
+  "https://esm.sh/@socialgouv/legi-data/data/index.json",
+];
 async function fetchAllCodes(): Promise<string[]> {
-  const res = await fetch(LEGI_INDEX_URL);
-  if (!res.ok) throw new Error(`legi-data index HTTP ${res.status}`);
-  const idx = await res.json() as Array<{ id: string }>;
-  return idx.map((c) => c.id).filter(Boolean);
+  let lastErr: unknown = null;
+  for (const url of LEGI_INDEX_URLS) {
+    try {
+      const res = await fetch(url, { redirect: "follow" });
+      if (res.ok) {
+        const idx = await res.json() as Array<{ id: string }>;
+        return idx.map((c) => c.id).filter(Boolean);
+      }
+      lastErr = new Error(`${url} HTTP ${res.status}`);
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("legi-data index: all sources failed");
 }
 
 interface SectionNode {
