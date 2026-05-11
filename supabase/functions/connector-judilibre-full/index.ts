@@ -56,7 +56,13 @@ Deno.serve(async (req) => {
   const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    await requireSuperAdmin(req);
+    // Auto-relance interne (chaînage de ticks) via secret partagé.
+    const internalToken = req.headers.get("x-internal-cron");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isInternal = !!internalToken && !!cronSecret && internalToken === cronSecret;
+    if (!isInternal) {
+      await requireSuperAdmin(req);
+    }
     const body = await req.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
     const db = getAdminClient();
@@ -183,9 +189,37 @@ Deno.serve(async (req) => {
             ingested += ing; skipped += sk; failed += fl.length;
           }
 
-          await planTask.catch(() => {});
+          // Si planning pas terminé, force pause pour permettre auto-resume
+          if (!planningDone) {
+            await db.from("ingestion_batch_state").update({ status: "paused", last_tick_at: new Date().toISOString() }).eq("id", batchId);
+          }
           const fin = await finalizeBatch(db, batchId);
-          console.log(`[connector-judilibre-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
+          console.log(`[connector-judilibre-full] tick done batch=${batchId} status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
+
+          // Auto-resume si pas terminé (utilise CRON_SECRET pour bypasser super_admin)
+          if (fin.status === "paused" || !planningDone) {
+            const cronSecret = Deno.env.get("CRON_SECRET");
+            const supaUrl = Deno.env.get("SUPABASE_URL");
+            const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+            if (cronSecret && supaUrl && serviceKey) {
+              try {
+                await fetch(`${supaUrl}/functions/v1/connector-judilibre-full`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-internal-cron": cronSecret,
+                    "Authorization": `Bearer ${serviceKey}`,
+                  },
+                  body: JSON.stringify({ resume_batch_id: batchId }),
+                });
+                console.log(`[judilibre-full] auto-resume scheduled for batch ${batchId}`);
+              } catch (e) {
+                console.warn(`[judilibre-full] auto-resume failed:`, (e as Error).message);
+              }
+            } else {
+              console.warn(`[judilibre-full] CRON_SECRET manquant — auto-resume désactivé`);
+            }
+          }
 
       } catch (err) {
 
