@@ -163,11 +163,11 @@ function MesDemandesPage() {
           {filtered.map((r) => {
             const meta = STATUS_META[r.status] ?? STATUS_META.pending;
             const Icon = meta.icon;
-            const target = r.dossier_id ? `/dossiers/${r.dossier_id}` : `/agent?run=${r.id}`;
             return (
               <li key={r.id}>
                 <Link
-                  to={target}
+                  to="/mes-demandes/$id"
+                  params={{ id: r.id }}
                   className="block rounded-lg border bg-card p-4 transition hover:border-primary/50 hover:bg-accent/40"
                 >
                   <div className="flex items-start gap-3">
