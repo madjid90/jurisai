@@ -218,13 +218,16 @@ function ConnectorsAdminPage() {
     onError: (err: Error) => toast.error("Suppression impossible", { description: err.message.slice(0, 200) }),
   });
 
-  const relaunchConnector = (connectorId: string) => {
+  const relaunchConnector = (connectorId: string, jobId?: string) => {
     const cfg = CONNECTORS.find((c) => c.id === connectorId);
     if (!cfg) {
       toast.error(`Connecteur ${connectorId} inconnu`);
       return;
     }
-    triggerMut.mutate({ connector: cfg.id, payload: cfg.defaultPayload as Record<string, unknown> });
+    const payload = jobId
+      ? { ...(cfg.defaultPayload as Record<string, unknown>), resume_batch_id: jobId }
+      : (cfg.defaultPayload as Record<string, unknown>);
+    triggerMut.mutate({ connector: cfg.id, payload });
   };
 
   if (errorDenied) {
@@ -337,7 +340,7 @@ function ConnectorsAdminPage() {
                   <JobRow
                     key={j.id}
                     job={j}
-                    onRelaunch={() => j.connector && relaunchConnector(j.connector)}
+                    onRelaunch={() => j.connector && relaunchConnector(j.connector, j.id)}
                     onDelete={() => deleteJobMut.mutate(j.id)}
                     relaunching={triggerMut.isPending && triggerMut.variables?.connector === j.connector}
                     deleting={deleteJobMut.isPending && deleteJobMut.variables === j.id}
@@ -515,6 +518,7 @@ type Job = {
   items_processed: number | null;
   items_failed: number | null;
   completed_at: string | null;
+  last_tick_at?: string | null;
   created_at: string;
 };
 
@@ -538,7 +542,9 @@ function JobRow({
   const total = job.items_total ?? 0;
   const done = job.items_processed ?? 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const canRelaunch = !!job.connector && job.status !== "running";
+  const lastTickMs = job.last_tick_at ? new Date(job.last_tick_at).getTime() : 0;
+  const staleRunning = job.status === "running" && lastTickMs > 0 && (Date.now() - lastTickMs) > 5 * 60 * 1000;
+  const canRelaunch = !!job.connector && (job.status !== "running" || staleRunning);
 
   return (
     <div className="rounded-lg border border-border/30 px-3 py-2">
