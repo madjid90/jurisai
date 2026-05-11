@@ -137,7 +137,7 @@ const CONNECTORS = [
     description: "Accords d'entreprise déposés à la DREETS. Utile pour benchmark, précédents et exemples de clauses négociées.",
     source: "Légifrance · fonds ACCO (PISTE)",
     auth: true,
-    defaultPayload: { query: "télétravail", months: 12, max_accords: 500, dry_run: false },
+    defaultPayload: { months: 24, max_accords: 10000, dry_run: false },
     badge: "API Légifrance (OAuth)",
   },
 ];
