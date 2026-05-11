@@ -38,9 +38,41 @@ import {
 } from "../_shared/unist-extract.ts";
 
 const TIME_BUDGET_MS = 135_000;
-// CDN unpkg : pas de rate-limit (vs raw.githubusercontent.com)
-const KALI_INDEX_URL = "https://unpkg.com/@socialgouv/kali-data/data/index.json";
-const KALI_RAW_BASE = "https://unpkg.com/@socialgouv/kali-data/data";
+// Sources de données KALI (avec fallback automatique).
+// unpkg renvoyait 500 (package > 150 MB) ; on bascule sur raw.githubusercontent
+// en primaire (stable, pas de quota CDN), avec esm.sh en secours.
+const KALI_INDEX_URLS = [
+  "https://raw.githubusercontent.com/SocialGouv/kali-data/master/data/index.json",
+  "https://esm.sh/@socialgouv/kali-data/data/index.json",
+];
+const KALI_RAW_BASES = [
+  "https://raw.githubusercontent.com/SocialGouv/kali-data/master/data",
+  "https://esm.sh/@socialgouv/kali-data/data",
+];
+
+async function fetchWithFallback(paths: string[]): Promise<Response> {
+  let lastErr: unknown = null;
+  for (const url of paths) {
+    try {
+      const r = await fetch(url, { redirect: "follow" });
+      if (r.ok) return r;
+      lastErr = new Error(`${url} -> HTTP ${r.status}`);
+      console.warn(`[kali-full] source failed ${url} HTTP ${r.status}`);
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[kali-full] source error ${url}`, (e as Error).message);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("all sources failed");
+}
+
+async function fetchKaliIndex(): Promise<Response> {
+  return fetchWithFallback(KALI_INDEX_URLS);
+}
+
+async function fetchKaliDetail(kaliId: string): Promise<Response> {
+  return fetchWithFallback(KALI_RAW_BASES.map((b) => `${b}/${kaliId}.json`));
+}
 
 // Top IDCC to seed first (employee coverage rank).
 const TOP_IDCC = [
@@ -83,7 +115,7 @@ async function runIngestion(
     const mode: "top" | "all" | "idcc" = body.mode ?? "top";
     const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
 
-    const idxRes = await fetch(KALI_INDEX_URL);
+    const idxRes = await fetchKaliIndex();
     if (!idxRes.ok) throw new Error(`KALI index HTTP ${idxRes.status}`);
     const index: KaliIndexEntry[] = await idxRes.json();
 
@@ -135,7 +167,7 @@ async function runIngestion(
     for (const item of items) {
       if (Date.now() - start > TIME_BUDGET_MS) break;
       try {
-        const detRes = await fetch(`${KALI_RAW_BASE}/${item.kali_id}.json`);
+        const detRes = await fetchKaliDetail(item.kali_id);
         if (!detRes.ok) throw new Error(`detail HTTP ${detRes.status}`);
         const detail = await detRes.json() as UnistNode;
         const articles = extractAllArticles(detail, { keepAbrogated: false });
@@ -197,7 +229,7 @@ Deno.serve(async (req) => {
     if (dryRun) {
       const mode: "top" | "all" | "idcc" = body.mode ?? "top";
       const requested: string[] = Array.isArray(body.idcc) ? body.idcc : [];
-      const idxRes = await fetch(KALI_INDEX_URL);
+      const idxRes = await fetchKaliIndex();
       if (!idxRes.ok) return json({ error: `KALI index ${idxRes.status}` }, 502);
       const index: KaliIndexEntry[] = await idxRes.json();
       let target: KaliIndexEntry[];
