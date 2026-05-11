@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
-      const items = await loadIndex(token, body.query, body.months ?? 12, body.max_accords ?? 500);
+      const items = await loadIndex(token, body.query, body.months ?? 24, body.max_accords ?? 20000);
       if (body.dry_run) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
       batchId = await startBatch(db, "acco-full", "accords", items, { query: body.query ?? null, months: body.months ?? 12 });
     }
