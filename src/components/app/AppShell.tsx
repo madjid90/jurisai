@@ -12,7 +12,7 @@ import {
   LogOut,
   ChevronDown,
   Sparkles,
-  MessageSquare,
+  
   Database,
   BookMarked,
   Menu,
@@ -46,10 +46,13 @@ type NavItemDef = {
   perms?: string[];
 };
 
+// Recadrage Agent 360 : sidebar client minimale. L'Assistant est l'expérience
+// principale ; les outils techniques (Chat, OCR, Templates, Workflows,
+// Analyses, Liaisons, RAG/Data quality...) sont masqués côté client standard
+// et restent accessibles aux admins via la section Admin/Outils plus bas.
 const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/agent", label: "Assistant", icon: Sparkles },
-  { to: "/chat", label: "Chat juridique", icon: MessageSquare },
   { to: "/mes-demandes", label: "Mes demandes", icon: Inbox },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
   { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
@@ -156,7 +159,7 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     access.roles.length > 0 &&
     access.roles.every((r) => r === "operationnel_terrain");
 
-  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/chat", "/mes-demandes", "/dossiers", "/documents", "/notifications"]);
+  const TERRAIN_PATHS = new Set(["/dashboard", "/agent", "/mes-demandes", "/dossiers", "/documents", "/notifications"]);
 
   const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
