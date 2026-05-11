@@ -6,7 +6,8 @@
 // Toute la terminologie technique (pending, running, waiting_info, ready, executed…)
 // est cachée derrière des libellés naturels.
 
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { z } from "zod";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -54,6 +55,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/agent")({
+  validateSearch: z.object({ run: z.string().uuid().optional() }),
   component: AssistantPage,
 });
 
@@ -90,6 +92,10 @@ function humanLabel(status: string): { label: string; tone: "work" | "ask" | "ok
 }
 
 function AssistantPage() {
+  const search = useSearch({ from: "/_authenticated/agent" });
+  const navigate = useNavigate({ from: "/_authenticated/agent" });
+  const focusRunId = search.run ?? null;
+
   const create = useServerFn(createAgentRun);
   const process = useServerFn(processAgentRun);
   const execute = useServerFn(executeAgentRun);
@@ -177,6 +183,8 @@ function AssistantPage() {
       }
       const created = (await create({ data: { message: text, attachments } })) as { id: string };
       setActiveId(created.id);
+      // Bascule en mode focus : la conversation prend toute la page
+      void navigate({ search: { run: created.id }, replace: false });
       await refresh();
       try {
         const r1 = (await process({ data: { id: created.id } })) as { status: string };
@@ -208,6 +216,49 @@ function AssistantPage() {
     if (files.length) setPendingFiles((p) => [...p, ...files]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  // Mode focus : une question = une page dédiée, sans le composer ni la liste
+  if (focusRunId) {
+    const focusSummary = runs.find((r) => r.id === focusRunId) ?? {
+      id: focusRunId,
+      title: null,
+      message: "",
+      status: submitting ? "running" : "pending",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    return (
+      <AppShell>
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 sm:py-10 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => void navigate({ search: { run: undefined } })}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition"
+            >
+              ← Retour à l'assistant
+            </button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void navigate({ search: { run: undefined } })}
+              className="gap-1.5"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Nouvelle question
+            </Button>
+          </div>
+          <RunCard
+            key={focusRunId}
+            summary={focusSummary as Run}
+            expanded
+            onToggle={() => {}}
+            onChanged={refresh}
+          />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -308,8 +359,8 @@ function AssistantPage() {
                 <RunCard
                   key={r.id}
                   summary={r}
-                  expanded={activeId === r.id}
-                  onToggle={() => setActiveId(activeId === r.id ? null : r.id)}
+                  expanded={false}
+                  onToggle={() => void navigate({ search: { run: r.id } })}
                   onChanged={refresh}
                 />
               ))}
