@@ -6,10 +6,10 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
 import { llmFetch } from "./llm-fetch.server";
-import { resolveChatModel, DEFAULT_EMBED_MODEL } from "./llm-models.server";
+import { resolveChatModel } from "./llm-models.server";
+import { embedText, embedErrorMessage } from "./llm-embeddings.server";
 
 const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const EMBED_MODEL = DEFAULT_EMBED_MODEL;
 
 export type AgentCtx = {
   userId: string;
