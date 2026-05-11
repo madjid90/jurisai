@@ -1,5 +1,6 @@
-// connector-cdtn-fiches — Fiches Service-Public + fiches-MT depuis SocialGouv/cdtn-admin (GitHub).
-// Pas d'auth. Batch resumable. Walks la liste de fiches puis fetch chaque markdown.
+// connector-cdtn-fiches — Fiches pratiques Service-Public + Ministère du Travail.
+// Source : sitemap.xml de code.travail.gouv.fr (l'ancienne items.json a été retirée).
+// Pour chaque URL, on fetch le HTML et on extrait le contenu de <main>.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
@@ -8,29 +9,68 @@ import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, star
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
 const TIME_BUDGET_MS = 60_000;
-// Fiches Service-Public packagées dans cdtn-admin (JSON bundle)
-const CDTN_FICHES_INDEX = "https://raw.githubusercontent.com/SocialGouv/cdtn-admin/master/targets/frontend/src/server/legi-data/fiches-service-public/index.json";
-// Fallback list (curated) si l'index n'existe pas
-const CDTN_API = "https://www.code.travail.gouv.fr/api/items.json";
+const CDTN_SITEMAP = "https://code.travail.gouv.fr/sitemap.xml";
 
-interface FicheEntry {
-  slug?: string;
-  title?: string;
-  url?: string;
-  source?: string;
-  raw?: string;
-}
-interface BatchItem { slug: string; title: string; url?: string; source?: string; }
+interface BatchItem { slug: string; title: string; url: string; source: string; }
 
 async function loadIndex(): Promise<BatchItem[]> {
-  // Stratégie 1 : items.json du site code.travail.gouv.fr (fiable)
-  const res = await fetch(CDTN_API);
-  if (!res.ok) throw new Error(`CDTN items.json ${res.status}`);
-  const data = await res.json() as Array<{ source?: string; slug?: string; title?: string; url?: string }>;
-  return data
-    .filter((d) => d.source === "fiches-service-public" || d.source === "fiches-ministere-travail")
-    .filter((d) => d.slug && d.title)
-    .map((d) => ({ slug: d.slug!, title: d.title!, url: d.url, source: d.source }));
+  const res = await fetch(CDTN_SITEMAP);
+  if (!res.ok) throw new Error(`CDTN sitemap ${res.status}`);
+  const xml = await res.text();
+  const urls = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/g)).map((m) => m[1]);
+  const items: BatchItem[] = [];
+  const seen = new Set<string>();
+  for (const url of urls) {
+    const m = url.match(/^https:\/\/code\.travail\.gouv\.fr\/(fiche-service-public|fiche-ministere-travail)\/([^/?#]+)$/);
+    if (!m) continue;
+    const source = m[1] === "fiche-service-public" ? "fiches-service-public" : "fiches-ministere-travail";
+    const slug = `${m[1]}/${m[2]}`;
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    const title = m[2].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    items.push({ slug, title, url, source });
+  }
+  return items;
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+
+function extractMainText(html: string): { title: string; body: string } {
+  const titleM = html.match(/<title>([^<]+)<\/title>/);
+  let title = titleM ? decodeEntities(titleM[1]).replace(/\s*-\s*Code du travail numérique\s*$/, "").trim() : "";
+
+  const mainM = html.match(/<main[^>]*>([\s\S]*?)<\/main>/);
+  let body = mainM ? mainM[1] : html;
+  body = body
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<style[\s\S]*?<\/style>/g, "")
+    .replace(/<nav[\s\S]*?<\/nav>/g, "")
+    .replace(/<header[\s\S]*?<\/header>/g, "")
+    .replace(/<footer[\s\S]*?<\/footer>/g, "")
+    .replace(/<h([1-6])[^>]*>/g, (_, n) => "\n" + "#".repeat(parseInt(n, 10)) + " ")
+    .replace(/<\/h[1-6]>/g, "\n")
+    .replace(/<li[^>]*>/g, "\n- ")
+    .replace(/<\/p>|<br\s*\/?>/g, "\n")
+    .replace(/<[^>]+>/g, " ");
+  body = decodeEntities(body)
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  // Coupe le bloc UI "Avez-vous trouvé la réponse..." et tout ce qui suit
+  const cutIdx = body.search(/(Avez-vous trouvé la réponse|Articles liés|Partager la page)/);
+  if (cutIdx > 200) body = body.slice(0, cutIdx).trim();
+  return { title, body };
 }
 
 Deno.serve(async (req) => {
