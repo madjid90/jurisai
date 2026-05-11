@@ -518,7 +518,19 @@ type Job = {
   created_at: string;
 };
 
-function JobRow({ job }: { job: Job }) {
+function JobRow({
+  job,
+  onRelaunch,
+  onDelete,
+  relaunching,
+  deleting,
+}: {
+  job: Job;
+  onRelaunch: () => void;
+  onDelete: () => void;
+  relaunching: boolean;
+  deleting: boolean;
+}) {
   const icon = job.status === "completed" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> :
     job.status === "failed" ? <XCircle className="h-4 w-4 text-destructive" /> :
     job.status === "running" ? <Loader2 className="h-4 w-4 animate-spin text-accent" /> :
@@ -526,18 +538,41 @@ function JobRow({ job }: { job: Job }) {
   const total = job.items_total ?? 0;
   const done = job.items_processed ?? 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const canRelaunch = !!job.connector && job.status !== "running";
 
   return (
     <div className="rounded-lg border border-border/30 px-3 py-2">
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <div className="flex min-w-0 items-center gap-2">
           {icon}
-          <span className="font-medium">{job.connector ?? job.job_type}</span>
+          <span className="truncate font-medium">{job.connector ?? job.job_type}</span>
           <Badge variant="outline" className="text-[10px]">{job.status}</Badge>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {new Date(job.created_at).toLocaleString("fr-FR")}
-        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="text-xs text-muted-foreground">
+            {new Date(job.created_at).toLocaleString("fr-FR")}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={onRelaunch}
+            disabled={!canRelaunch || relaunching}
+            title="Relancer maintenant"
+          >
+            {relaunching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive"
+            onClick={onDelete}
+            disabled={deleting}
+            title="Supprimer ce job"
+          >
+            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       </div>
       {total > 0 && (
         <div className="mt-2">
