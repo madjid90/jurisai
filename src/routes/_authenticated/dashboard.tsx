@@ -24,6 +24,7 @@ import {
 } from "@/server/dashboard.functions";
 import { createAgentRun } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
+import { applyRouting, type AgentRouting } from "@/lib/agent/home-intake";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
