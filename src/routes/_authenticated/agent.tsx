@@ -765,54 +765,94 @@ function RunDetail({
             </div>
           ) : null}
 
-          {/* Sources discrètes */}
+          {/* Sources visibles par défaut — preuve de fiabilité */}
           {sources.length > 0 ? (
-            <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                Voir les sources juridiques ({sources.length})
-              </summary>
-              <ul className="mt-2 space-y-1 pl-4">
-                {sources.map((s, i) => (
-                  <li key={i} className="text-muted-foreground">
-                    [{i + 1}]{" "}
-                    {s.url ? (
-                      <a href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                        {s.title}
-                      </a>
-                    ) : (
-                      s.title
-                    )}
-                    {s.reference ? ` — ${s.reference}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <div className="rounded-lg bg-background border border-border/60 p-4">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Sources juridiques
+                </p>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  <Shield className="h-2.5 w-2.5" />
+                  {sources.length} source{sources.length > 1 ? "s" : ""} vérifiée{sources.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              <SourcesList sources={sources} />
+            </div>
           ) : null}
 
+          {/* Panneau Actions — proéminent et groupé */}
           {status !== "archived" ? (
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  exportAnswerToPdf({
-                    title: (run.title as string) || (run.message as string).slice(0, 80),
-                    question: run.message as string,
-                    answer: answerText,
-                    procedure,
-                    sources,
-                    confidence: confidence ?? null,
-                    createdAt: run.created_at as string | undefined,
-                  })
-                }
-                className="gap-1.5"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Exporter en PDF
-              </Button>
-              <Button variant="ghost" size="sm" onClick={doArchive} disabled={busy}>
-                Classer cette demande
-              </Button>
+            <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.03] to-accent/[0.03] p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Que voulez-vous faire ?
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() =>
+                    exportAnswerToPdf({
+                      title: (run.title as string) || (run.message as string).slice(0, 80),
+                      question: run.message as string,
+                      answer: answerText,
+                      procedure,
+                      sources,
+                      confidence: confidence ?? null,
+                      createdAt: run.created_at as string | undefined,
+                    })
+                  }
+                  className="justify-start gap-2 h-auto py-2.5"
+                >
+                  <Download className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Télécharger en PDF</div>
+                    <div className="text-[10px] opacity-80 font-normal">Réponse + procédure + sources</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrint}
+                  className="justify-start gap-2 h-auto py-2.5"
+                >
+                  <Printer className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Imprimer</div>
+                    <div className="text-[10px] opacity-70 font-normal">Version papier</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={doArchive}
+                  disabled={busy}
+                  className="justify-start gap-2 h-auto py-2.5"
+                >
+                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Classer cette demande</div>
+                    <div className="text-[10px] opacity-70 font-normal">
+                      {dossierId ? "Dans le dossier lié" : "Marquer comme traitée"}
+                    </div>
+                  </div>
+                </Button>
+                <a
+                  href="#follow-up-thread"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(`follow-up-${run.id as string}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    document.getElementById(`follow-up-input-${run.id as string}`)?.focus();
+                  }}
+                  className="inline-flex items-center justify-start gap-2 h-auto py-2.5 px-3 rounded-md border border-border bg-background hover:bg-accent transition text-sm"
+                >
+                  <Send className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Préciser ou compléter</div>
+                    <div className="text-[10px] opacity-70 font-normal">Poser une question de suivi</div>
+                  </div>
+                </a>
+              </div>
             </div>
           ) : null}
 
