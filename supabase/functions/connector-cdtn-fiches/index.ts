@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
             const su = Deno.env.get("SUPABASE_URL");
             if (cs && su) {
               try {
-                await fetch(`${su}/functions/v1/connector-cdtn-fiches-full`, {
+                await fetch(`${su}/functions/v1/connector-cdtn-fiches`, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -170,9 +170,9 @@ Deno.serve(async (req) => {
                   },
                   body: JSON.stringify({ resume_batch_id: batchId }),
                 });
-                console.log(`[connector-cdtn-fiches-full] auto-resume scheduled for batch ${batchId}`);
+                console.log(`[connector-cdtn-fiches] auto-resume scheduled for batch ${batchId}`);
               } catch (e) {
-                console.warn(`[connector-cdtn-fiches-full] auto-resume failed:`, (e as Error).message);
+                console.warn(`[connector-cdtn-fiches] auto-resume failed:`, (e as Error).message);
               }
             }
           }
