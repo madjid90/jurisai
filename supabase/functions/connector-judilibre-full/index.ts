@@ -183,9 +183,30 @@ Deno.serve(async (req) => {
             ingested += ing; skipped += sk; failed += fl.length;
           }
 
-          await planTask.catch(() => {});
+          // Si planning pas terminé, force pause pour permettre auto-resume
+          if (!planningDone) {
+            await db.from("ingestion_batch_state").update({ status: "paused", last_tick_at: new Date().toISOString() }).eq("id", batchId);
+          }
           const fin = await finalizeBatch(db, batchId);
-          console.log(`[connector-judilibre-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
+          console.log(`[connector-judilibre-full] tick done batch=${batchId} status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
+
+          // Auto-resume si pas terminé
+          if (fin.status === "paused" || !planningDone) {
+            try {
+              const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+              const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+              setTimeout(() => {
+                fetch(`${supabaseUrl}/functions/v1/connector-judilibre-full`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+                  body: JSON.stringify({ resume_batch_id: batchId, _internal_resume: true }),
+                }).catch((e) => console.error(`[judilibre-full] auto-resume fetch err: ${e.message}`));
+              }, 2000);
+              console.log(`[judilibre-full] auto-resume scheduled for batch ${batchId}`);
+            } catch (e) {
+              console.error(`[judilibre-full] auto-resume err:`, (e as Error).message);
+            }
+          }
 
       } catch (err) {
 
