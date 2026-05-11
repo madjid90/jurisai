@@ -25,6 +25,7 @@ export type ConnectorJobRow = {
   items_processed: number | null;
   items_failed: number | null;
   completed_at: string | null;
+  last_tick_at: string | null;
   params: Record<string, unknown> | null | object;
   created_at: string;
 };
@@ -76,6 +77,7 @@ export const listConnectorJobs = createServerFn({ method: "POST" })
       items_processed: b.processed_count,
       items_failed: b.failed_count,
       completed_at: b.completed_at,
+      last_tick_at: b.last_tick_at,
       params: {
         ...(b.metadata ?? {}),
         articles_ingested: b.articles_ingested ?? 0,
