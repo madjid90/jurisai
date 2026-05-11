@@ -591,22 +591,27 @@ function RunDetail({
   const workflowInstanceId = (run.workflow_instance_id as string | null) ?? null;
 
   return (
-    <div className="border-t border-border/60 px-4 py-4 space-y-4 bg-muted/20">
-      {/* Demande initiale rappelée discrètement */}
-      <div className="text-xs text-muted-foreground italic">
-        « {run.message as string} »
+    <div className="border-t border-border/60 px-4 py-5 space-y-5 bg-muted/20">
+      {/* Rappel de la demande — proéminent pour garder le focus */}
+      <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
+        <div className="flex items-center justify-between gap-3 mb-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary/80">
+            Votre demande
+          </p>
+          {dossierId ? (
+            <Link
+              to="/dossiers/$id"
+              params={{ id: dossierId }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/20 transition"
+            >
+              📁 Voir le dossier lié
+            </Link>
+          ) : null}
+        </div>
+        <p className="text-sm text-foreground/90 leading-relaxed">
+          {run.message as string}
+        </p>
       </div>
-
-      {/* Suivi dans un dossier */}
-      {dossierId && (
-        <Link
-          to="/dossiers/$id"
-          params={{ id: dossierId }}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
-        >
-          📁 Suivi dans le dossier — ouvrir
-        </Link>
-      )}
 
       {/* Procédure pas-à-pas (si workflow lié) */}
       {workflowInstanceId ? (
@@ -760,54 +765,94 @@ function RunDetail({
             </div>
           ) : null}
 
-          {/* Sources discrètes */}
+          {/* Sources visibles par défaut — preuve de fiabilité */}
           {sources.length > 0 ? (
-            <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                Voir les sources juridiques ({sources.length})
-              </summary>
-              <ul className="mt-2 space-y-1 pl-4">
-                {sources.map((s, i) => (
-                  <li key={i} className="text-muted-foreground">
-                    [{i + 1}]{" "}
-                    {s.url ? (
-                      <a href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                        {s.title}
-                      </a>
-                    ) : (
-                      s.title
-                    )}
-                    {s.reference ? ` — ${s.reference}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <div className="rounded-lg bg-background border border-border/60 p-4">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Sources juridiques
+                </p>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                  <Shield className="h-2.5 w-2.5" />
+                  {sources.length} source{sources.length > 1 ? "s" : ""} vérifiée{sources.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              <SourcesList sources={sources} />
+            </div>
           ) : null}
 
+          {/* Panneau Actions — proéminent et groupé */}
           {status !== "archived" ? (
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  exportAnswerToPdf({
-                    title: (run.title as string) || (run.message as string).slice(0, 80),
-                    question: run.message as string,
-                    answer: answerText,
-                    procedure,
-                    sources,
-                    confidence: confidence ?? null,
-                    createdAt: run.created_at as string | undefined,
-                  })
-                }
-                className="gap-1.5"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Exporter en PDF
-              </Button>
-              <Button variant="ghost" size="sm" onClick={doArchive} disabled={busy}>
-                Classer cette demande
-              </Button>
+            <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.03] to-accent/[0.03] p-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Que voulez-vous faire ?
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() =>
+                    exportAnswerToPdf({
+                      title: (run.title as string) || (run.message as string).slice(0, 80),
+                      question: run.message as string,
+                      answer: answerText,
+                      procedure,
+                      sources,
+                      confidence: confidence ?? null,
+                      createdAt: run.created_at as string | undefined,
+                    })
+                  }
+                  className="justify-start gap-2 h-auto py-2.5"
+                >
+                  <Download className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Télécharger en PDF</div>
+                    <div className="text-[10px] opacity-80 font-normal">Réponse + procédure + sources</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrint}
+                  className="justify-start gap-2 h-auto py-2.5"
+                >
+                  <Printer className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Imprimer</div>
+                    <div className="text-[10px] opacity-70 font-normal">Version papier</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={doArchive}
+                  disabled={busy}
+                  className="justify-start gap-2 h-auto py-2.5"
+                >
+                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Classer cette demande</div>
+                    <div className="text-[10px] opacity-70 font-normal">
+                      {dossierId ? "Dans le dossier lié" : "Marquer comme traitée"}
+                    </div>
+                  </div>
+                </Button>
+                <a
+                  href="#follow-up-thread"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(`follow-up-${run.id as string}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    document.getElementById(`follow-up-input-${run.id as string}`)?.focus();
+                  }}
+                  className="inline-flex items-center justify-start gap-2 h-auto py-2.5 px-3 rounded-md border border-border bg-background hover:bg-accent transition text-sm"
+                >
+                  <Send className="h-4 w-4 flex-shrink-0" />
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">Préciser ou compléter</div>
+                    <div className="text-[10px] opacity-70 font-normal">Poser une question de suivi</div>
+                  </div>
+                </a>
+              </div>
             </div>
           ) : null}
 
@@ -1548,7 +1593,7 @@ function FollowUpThread({
   };
 
   return (
-    <div className="space-y-3 pt-2">
+    <div id={`follow-up-${parentId}`} className="space-y-3 pt-2">
       {children.length > 0 ? (
         <div className="space-y-3 pl-3 border-l-2 border-primary/20">
           {children.map((c) => (
@@ -1607,6 +1652,7 @@ function FollowUpThread({
 
       <div className="flex gap-2 pt-1">
         <Input
+          id={`follow-up-input-${parentId}`}
           value={followUp}
           onChange={(e) => setFollowUp(e.target.value)}
           onKeyDown={(e) => {
@@ -1615,7 +1661,7 @@ function FollowUpThread({
               void ask();
             }
           }}
-          placeholder="Poser une question de suivi…"
+          placeholder="Préciser, compléter, ou poser une question de suivi…"
           disabled={submitting}
           className="text-sm bg-background"
         />
@@ -1624,5 +1670,57 @@ function FollowUpThread({
         </Button>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SourcesList — affiche les sources de manière visible (3 premières) avec
+// possibilité de tout déplier. Renforce la confiance utilisateur.
+// ---------------------------------------------------------------------------
+function SourcesList({
+  sources,
+}: {
+  sources: Array<{ title: string; reference?: string; url?: string }>;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? sources : sources.slice(0, 3);
+  return (
+    <>
+      <ul className="space-y-1.5">
+        {visible.map((s, i) => (
+          <li key={i} className="flex gap-2 text-xs text-muted-foreground">
+            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-muted font-semibold text-foreground/70 text-[10px]">
+              {i + 1}
+            </span>
+            <span className="flex-1 leading-relaxed">
+              {s.url ? (
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-foreground/90 underline-offset-2 hover:underline hover:text-primary"
+                >
+                  {s.title}
+                </a>
+              ) : (
+                <span className="text-foreground/90">{s.title}</span>
+              )}
+              {s.reference ? (
+                <span className="text-muted-foreground"> — {s.reference}</span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {sources.length > 3 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-2 text-[11px] font-medium text-primary hover:underline"
+        >
+          {showAll ? "Réduire" : `Voir les ${sources.length - 3} autres sources`}
+        </button>
+      ) : null}
+    </>
   );
 }
