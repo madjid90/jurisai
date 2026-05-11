@@ -70,7 +70,8 @@ Deno.serve(async (req) => {
       const dEnd: string = body.date_end ?? new Date().toISOString().slice(0, 10);
       const dStart: string = body.date_start ?? (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 5); return d.toISOString().slice(0, 10); })();
       const query: string = typeof body.query === "string" && body.query.trim() ? body.query.trim() : "*";
-      const max = Math.min(Number(body.max_decisions) || 5000, 20000);
+      // max_decisions = 0 (ou absent) => totalité disponible (pagination jusqu'à épuisement)
+      const max = body.max_decisions === undefined ? 0 : Number(body.max_decisions);
 
       const hits = await searchPaginated(query, chambers, dStart, dEnd, max);
       const items: BatchItem[] = hits.map((h) => ({ id: h.id, chamber: h.chamber, date: h.decision_date, number: h.number }));
