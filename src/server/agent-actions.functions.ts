@@ -147,22 +147,77 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
       }
 
       // --------------------------------------------------------- start_workflow
+      // P0.4 : bloque le lancement direct si le workflow est sensible / non
+      // validé. La demande est rerouter vers une demande de validation humaine.
       case "start_workflow": {
         const { data: def, error: defErr } = await db
           .from("workflow_definitions")
-          .select("id, name")
+          .select(
+            "id, title, slug, status, lifecycle_status, requires_human_review, contains_sensitive_actions, sensitive_actions_detected",
+          )
           .eq("slug", data.definition_slug)
           .maybeSingle();
         if (defErr || !def) throw new Error("Procédure introuvable");
+
+        // Règles de blocage (cf. spec P0.4) — adaptées au schéma réel.
+        const blockedReasons: string[] = [];
+        if (def.requires_human_review) blockedReasons.push("révision humaine requise");
+        if (def.contains_sensitive_actions) blockedReasons.push("actions sensibles détectées");
+        if (def.lifecycle_status === "pending_human_review") blockedReasons.push("en attente de validation");
+        if (def.lifecycle_status === "rejected") blockedReasons.push("procédure rejetée");
+        if (def.status && def.status !== "active" && def.status !== "human_validated" && def.status !== "ai_validated_auto") {
+          blockedReasons.push(`statut = ${def.status}`);
+        }
+
+        if (blockedReasons.length > 0) {
+          // Crée une demande de validation au lieu de lancer.
+          const { data: vr } = await db
+            .from("validation_requests")
+            .insert({
+              tenant_id: tenantId,
+              dossier_id: data.dossier_id ?? null,
+              requested_by: userId,
+              subject_type: "workflow_definition",
+              subject_id: def.id,
+              title: `Validation procédure : ${def.title}`,
+              comment: `Lancement bloqué — ${blockedReasons.join(", ")}.`,
+              status: "pending",
+            })
+            .select("id")
+            .single();
+
+          if (data.dossier_id) {
+            await logTimelineEvent({
+              tenantId,
+              dossierId: data.dossier_id,
+              actorId: userId,
+              eventType: "workflow.blocked_pending_validation",
+              title: `Procédure bloquée : ${def.title}`,
+              metadata: {
+                workflow_definition_id: def.id,
+                validation_request_id: vr?.id,
+                reasons: blockedReasons,
+              },
+            });
+          }
+
+          return {
+            ok: false,
+            requires_validation: true,
+            reason: `Cette procédure nécessite une validation humaine avant lancement (${blockedReasons.join(", ")}).`,
+            workflow_definition_id: def.id,
+            validation_request_id: vr?.id ?? null,
+          };
+        }
 
         const { data: instance, error } = await db
           .from("workflow_instances")
           .insert({
             tenant_id: tenantId,
             definition_id: def.id,
-            title: data.title ?? def.name,
+            title: data.title ?? def.title,
             dossier_id: data.dossier_id ?? null,
-            status: "running",
+            status: "in_progress", // P0.3 — statut harmonisé
             started_by: userId,
             current_step_index: 0,
             context: {},
@@ -177,12 +232,13 @@ export const executeSuggestedAction = createServerFn({ method: "POST" })
             dossierId: data.dossier_id,
             actorId: userId,
             eventType: "workflow.started",
-            title: `Procédure lancée : ${def.name}`,
+            title: `Procédure lancée : ${def.title}`,
             metadata: { workflow_instance_id: instance.id, source: "result_panel" },
           });
         }
         return { ok: true, workflow_instance_id: instance.id, redirect: `/workflows/${instance.id}` };
       }
+
 
       // ------------------------------------------------------- generate_document
       case "generate_document": {
