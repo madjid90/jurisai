@@ -7,7 +7,7 @@ import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import { finalizeBatch, getNextItems, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
-const TIME_BUDGET_MS = 135_000;
+const TIME_BUDGET_MS = 60_000;
 const PISTE_OAUTH_URL = "https://oauth.piste.gouv.fr/api/oauth/token";
 const PISTE_BASE = "https://api.piste.gouv.fr/dila/legifrance/lf-engine-app";
 
@@ -102,7 +102,13 @@ Deno.serve(async (req) => {
   const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   try {
-    await requireSuperAdmin(req);
+    // Auto-resume interne (chaînage de ticks) : secret partagé au lieu de JWT.
+    const internalToken = req.headers.get("x-internal-cron");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isInternal = !!internalToken && !!cronSecret && internalToken === cronSecret;
+    if (!isInternal) {
+      await requireSuperAdmin(req);
+    }
     const body = await req.json().catch(() => ({})) as {
       dry_run?: boolean; query?: string; months?: number; max_accords?: number; resume_batch_id?: string;
     };
@@ -129,7 +135,7 @@ Deno.serve(async (req) => {
           let ingested = 0, skipped = 0, failed = 0;
 
           while (Date.now() - start < TIME_BUDGET_MS) {
-            const items = await getNextItems<BatchItem>(db, batchId, 8);
+            const items = await getNextItems<BatchItem>(db, batchId, 1);
             if (!items.length) break;
             const ok: BatchItem[] = [], fl: BatchItem[] = [];
             let ing = 0, sk = 0;
@@ -167,6 +173,27 @@ Deno.serve(async (req) => {
 
           const fin = await finalizeBatch(db, batchId);
           console.log(`[connector-acco-full] batch ${batchId} fini: status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
+
+          if (fin.status === "paused") {
+            const cs = Deno.env.get("CRON_SECRET");
+            const su = Deno.env.get("SUPABASE_URL");
+            if (cs && su) {
+              try {
+                await fetch(`${su}/functions/v1/connector-acco-full`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-internal-cron": cs,
+                    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`,
+                  },
+                  body: JSON.stringify({ resume_batch_id: batchId }),
+                });
+                console.log(`[connector-acco-full] auto-resume scheduled for batch ${batchId}`);
+              } catch (e) {
+                console.warn(`[connector-acco-full] auto-resume failed:`, (e as Error).message);
+              }
+            }
+          }
 
       } catch (err) {
 
