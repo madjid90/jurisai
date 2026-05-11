@@ -359,8 +359,8 @@ function AssistantPage() {
                 <RunCard
                   key={r.id}
                   summary={r}
-                  expanded={activeId === r.id}
-                  onToggle={() => setActiveId(activeId === r.id ? null : r.id)}
+                  expanded={false}
+                  onToggle={() => void navigate({ search: { run: r.id } })}
                   onChanged={refresh}
                 />
               ))}
