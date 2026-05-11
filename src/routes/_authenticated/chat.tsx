@@ -1,20 +1,26 @@
 // Page /chat — interface conversationnelle type ChatGPT branchée sur l'agent
 // juridique RAG. Chaque réponse est sourcée via [source:N] depuis legal_chunks.
-// Pas de persistance pour l'instant : l'historique vit dans la session.
+// P0.1 / P1.5 : si /chat?run=ID, on charge la run existante (créée depuis la
+// home) au lieu de relancer l'agent.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import { z } from "zod";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
 import { runLegalAgent } from "@/server/agent.functions";
+import { getAgentRun } from "@/server/agent-runs.functions";
 import { toast } from "sonner";
+
+const ChatSearch = z.object({ run: z.string().uuid().optional() });
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({ meta: [{ title: "Chat juridique · JurisAI" }] }),
+  validateSearch: (s) => ChatSearch.parse(s),
   component: ChatPage,
 });
 
@@ -39,10 +45,62 @@ const STARTERS = [
 
 function ChatPage() {
   const ask = useServerFn(runLegalAgent);
+  const fetchRun = useServerFn(getAgentRun);
+  const { run: runIdParam } = Route.useSearch();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // P0.1 / P1.5 — si /chat?run=ID, charger la run existante (créée depuis la home).
+  useEffect(() => {
+    if (!runIdParam) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const row = (await fetchRun({ data: { id: runIdParam } })) as {
+          id: string;
+          message: string;
+          intent: string | null;
+          domain: string | null;
+          answer: string | null;
+          sources: unknown;
+          suggested_actions: unknown;
+          missing_information: unknown;
+          requires_validation: boolean | null;
+          refused: boolean | null;
+          refusal_reason: string | null;
+        };
+        if (cancelled) return;
+        const userMsg: Msg = { role: "user", content: row.message, id: `${row.id}-q` };
+        const assistantMsg: Msg = {
+          role: "assistant",
+          content: row.answer ?? "",
+          id: row.id,
+          pending: !row.answer,
+          run: {
+            id: row.id,
+            message: row.message,
+            intent: row.intent ?? undefined,
+            domain: row.domain ?? undefined,
+            answer: row.answer ?? "",
+            sources: (row.sources as AgentRun["sources"]) ?? [],
+            suggested_actions: (row.suggested_actions as AgentRun["suggested_actions"]) ?? [],
+            missing_information: (row.missing_information as string[]) ?? [],
+            requires_validation: row.requires_validation ?? false,
+            refused: row.refused ?? false,
+            refusal_reason: row.refusal_reason,
+          },
+        };
+        setMessages([userMsg, assistantMsg]);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Demande introuvable");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [runIdParam, fetchRun]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
