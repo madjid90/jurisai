@@ -6,7 +6,8 @@
 // Toute la terminologie technique (pending, running, waiting_info, ready, executed…)
 // est cachée derrière des libellés naturels.
 
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { z } from "zod";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
