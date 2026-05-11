@@ -278,6 +278,10 @@ function ChatPage() {
 }
 
 function MessageBubble({ msg }: { msg: Msg }) {
+  const handleAction = useExecuteSuggestedAction({
+    run: msg.role === "assistant" ? msg.run ?? null : null,
+  });
+
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
@@ -300,7 +304,7 @@ function MessageBubble({ msg }: { msg: Msg }) {
             JurisAI consulte les sources…
           </div>
         ) : (
-          <ResultRenderer run={msg.run ?? null} />
+          <ResultRenderer run={msg.run ?? null} onSuggestedAction={handleAction} />
         )}
       </div>
     </div>
