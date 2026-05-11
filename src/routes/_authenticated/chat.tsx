@@ -64,23 +64,34 @@ function ChatPage() {
 
     try {
       const res = (await ask({ data: { message: q } })) as {
+        run_id: string;
+        intent: string;
+        domain: string;
         answer: string;
         sources: Source[];
+        suggested_actions: Array<{ kind: string; label: string }>;
+        missing_information: string[];
+        requires_validation: boolean;
         refused: boolean;
         refusal_reason: string | null;
+      };
+      const run: AgentRun = {
+        id: res.run_id,
+        message: q,
+        intent: res.intent,
+        domain: res.domain,
+        answer: res.answer,
+        sources: res.sources as unknown as AgentRun["sources"],
+        suggested_actions: res.suggested_actions as unknown as AgentRun["suggested_actions"],
+        missing_information: res.missing_information,
+        requires_validation: res.requires_validation,
+        refused: res.refused,
+        refusal_reason: res.refusal_reason,
       };
       setMessages((m) =>
         m.map((msg) =>
           msg.id === placeholder.id
-            ? {
-                ...msg,
-                content: res.refused
-                  ? res.refusal_reason || "Je ne peux pas répondre sans source juridique fiable."
-                  : res.answer,
-                sources: res.sources,
-                refused: res.refused,
-                pending: false,
-              }
+            ? { ...msg, content: res.answer, run, pending: false }
             : msg,
         ),
       );
@@ -90,7 +101,17 @@ function ChatPage() {
       setMessages((m) =>
         m.map((msg) =>
           msg.id === placeholder.id
-            ? { ...msg, content: `⚠️ ${errMsg}`, pending: false, refused: true }
+            ? {
+                ...msg,
+                content: `⚠️ ${errMsg}`,
+                pending: false,
+                run: {
+                  id: crypto.randomUUID(),
+                  message: q,
+                  refused: true,
+                  refusal_reason: errMsg,
+                },
+              }
             : msg,
         ),
       );
