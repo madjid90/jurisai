@@ -28,6 +28,7 @@ import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/t
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedScanRouteImport } from './routes/_authenticated/scan'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedMesDemandesRouteImport } from './routes/_authenticated/mes-demandes'
 import { Route as AuthenticatedLinksRouteImport } from './routes/_authenticated/links'
 import { Route as AuthenticatedDossiersRouteImport } from './routes/_authenticated/dossiers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -152,6 +153,12 @@ const AuthenticatedNotificationsRoute =
   AuthenticatedNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMesDemandesRoute =
+  AuthenticatedMesDemandesRouteImport.update({
+    id: '/mes-demandes',
+    path: '/mes-demandes',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedLinksRoute = AuthenticatedLinksRouteImport.update({
@@ -336,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/links': typeof AuthenticatedLinksRoute
+  '/mes-demandes': typeof AuthenticatedMesDemandesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -386,6 +394,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/links': typeof AuthenticatedLinksRoute
+  '/mes-demandes': typeof AuthenticatedMesDemandesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -438,6 +447,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/_authenticated/links': typeof AuthenticatedLinksRoute
+  '/_authenticated/mes-demandes': typeof AuthenticatedMesDemandesRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -490,6 +500,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/dossiers'
     | '/links'
+    | '/mes-demandes'
     | '/notifications'
     | '/scan'
     | '/settings'
@@ -540,6 +551,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/dossiers'
     | '/links'
+    | '/mes-demandes'
     | '/notifications'
     | '/scan'
     | '/settings'
@@ -591,6 +603,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/dossiers'
     | '/_authenticated/links'
+    | '/_authenticated/mes-demandes'
     | '/_authenticated/notifications'
     | '/_authenticated/scan'
     | '/_authenticated/settings'
@@ -782,6 +795,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/mes-demandes': {
+      id: '/_authenticated/mes-demandes'
+      path: '/mes-demandes'
+      fullPath: '/mes-demandes'
+      preLoaderRoute: typeof AuthenticatedMesDemandesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/links': {
@@ -1030,6 +1050,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
   AuthenticatedLinksRoute: typeof AuthenticatedLinksRoute
+  AuthenticatedMesDemandesRoute: typeof AuthenticatedMesDemandesRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -1059,6 +1080,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
   AuthenticatedLinksRoute: AuthenticatedLinksRoute,
+  AuthenticatedMesDemandesRoute: AuthenticatedMesDemandesRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
