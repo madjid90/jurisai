@@ -37,7 +37,10 @@ import {
   type UnistNode,
 } from "../_shared/unist-extract.ts";
 
-const TIME_BUDGET_MS = 135_000;
+// Budget conservateur : Supabase coupe sur "CPU Time exceeded" bien avant
+// la limite wall-clock quand on parse de gros JSON KALI. 60s laisse de la
+// marge pour finaliser proprement le batch et auto-relancer le tick suivant.
+const TIME_BUDGET_MS = 60_000;
 // Sources de données KALI (avec fallback automatique).
 // unpkg renvoyait 500 (package > 150 MB) ; on bascule sur raw.githubusercontent
 // en primaire (stable, pas de quota CDN), avec esm.sh en secours.
