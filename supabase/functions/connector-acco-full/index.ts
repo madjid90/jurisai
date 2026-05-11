@@ -47,7 +47,7 @@ async function loadIndex(token: string, query: string | undefined, months: numbe
   const dateStart = since.toISOString().slice(0, 10);
   const out: BatchItem[] = [];
   const seen = new Set<string>();
-  for (let page = 1; page <= 50 && out.length < max; page++) {
+  for (let page = 1; page <= 400 && out.length < max; page++) {
     const res = await searchAcco(token, query, dateStart, page, 50);
     const arr = res.results ?? [];
     if (!arr.length) break;
