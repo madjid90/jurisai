@@ -198,6 +198,7 @@ async function runIngestion(
     let perItemSkipped = 0;
     let failed = false;
     let timeExceeded = false;
+    let artIdx = 0;
 
     try {
       const detRes = await fetchKaliDetail(item.kali_id);
