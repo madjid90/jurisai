@@ -119,22 +119,16 @@ Deno.serve(async (req) => {
             for (const it of items) {
               if (Date.now() - start > TIME_BUDGET_MS) break;
               try {
-                const ficheUrl = `https://www.code.travail.gouv.fr/api/items/${it.slug}.json`;
-                const r = await fetch(ficheUrl);
+                const r = await fetch(it.url, { headers: { "user-agent": "JurisAI-bot/1.0" } });
                 if (!r.ok) throw new Error(`fiche ${it.slug} HTTP ${r.status}`);
-                const f = await r.json() as { title?: string; description?: string; html?: string; text?: string; raw?: string; sections?: Array<{ title?: string; html?: string; text?: string }> };
+                const html = await r.text();
+                const { title: extractedTitle, body: extractedBody } = extractMainText(html);
 
-                let body = f.text ?? f.raw ?? f.description ?? "";
-                if (!body && Array.isArray(f.sections)) {
-                  body = f.sections.map((s) => `## ${s.title ?? ""}\n${(s.text ?? s.html ?? "").replace(/<[^>]+>/g, " ")}`).join("\n\n");
-                }
-                if (!body && f.html) body = f.html.replace(/<[^>]+>/g, " ");
-                body = body.replace(/\s+/g, " ").trim();
+                if (!extractedBody || extractedBody.length < 200) { ok.push(it); continue; }
 
-                if (!body || body.length < 100) { ok.push(it); continue; }
-
-                const title = f.title ?? it.title;
-                const content = `**Source officielle** : ${it.source === "fiches-service-public" ? "Service-Public.fr" : "Ministère du Travail"}\n\n# ${title}\n\n${body}`;
+                const title = extractedTitle || it.title;
+                const sourceLabel = it.source === "fiches-service-public" ? "Service-Public.fr" : "Ministère du Travail";
+                const content = `**Source officielle** : ${sourceLabel}\n**URL** : ${it.url}\n\n# ${title}\n\n${extractedBody}`;
                 const hash = await sha256(content);
                 const dec = await shouldIngest(db, "cdtn-fiches", it.slug, hash);
                 if (!dec.shouldIngest) { sk++; ok.push(it); continue; }
@@ -144,7 +138,7 @@ Deno.serve(async (req) => {
                   source_type: it.source === "fiches-service-public" ? "fiche_service_public" : "fiche_ministere_travail",
                   title,
                   content,
-                  official_url: it.url ?? `https://www.code.travail.gouv.fr/${it.slug}`,
+                  official_url: it.url,
                   raw_metadata: { slug: it.slug, source: it.source, content_hash: hash },
                 });
                 ing++; ok.push(it);
