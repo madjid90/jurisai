@@ -48,6 +48,7 @@ type NavItemDef = {
 const NAV_ITEMS: NavItemDef[] = [
   { to: "/dashboard", label: "Accueil", icon: Home },
   { to: "/agent", label: "Assistant", icon: Sparkles },
+  { to: "/chat", label: "Chat juridique", icon: MessageSquare },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
   { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
   { to: "/notifications", label: "Notifications", icon: Bell },
