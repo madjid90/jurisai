@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "./_shared/tenant.server";
-import { classifyIntent, safeParseJSON, type AgentCtx } from "./_shared/agent-tools.server";
+import { classifyIntent, safeParseJSON, searchDossier, type AgentCtx } from "./_shared/agent-tools.server";
 import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
 import { runIntentActions } from "./_shared/agent-intent-actions.server";
@@ -36,8 +36,85 @@ const CreateInput = z.object({
 });
 
 /**
+ * Décision de routage métier renvoyée immédiatement à l'UI.
+ * L'Agent 360 décide où ouvrir l'utilisateur après création de la demande.
+ */
+export type AgentRouting =
+  | { target: "dossier"; route: string; dossier_id: string; title?: string }
+  | {
+      target: "dossier_selection";
+      candidates: Array<{ id: string; title: string; category: string | null }>;
+      route: string;
+    }
+  | { target: "analysis"; route: string; analysis_id: string }
+  | { target: "agent"; route: string; mode: "document" | "procedure" | "chat" };
+
+async function decideRouting(
+  ctx: AgentCtx,
+  runId: string,
+  message: string,
+  attachments: Array<{ analysis_id?: string; filename?: string }>,
+): Promise<AgentRouting> {
+  // 1. Document joint → analyse directe.
+  const firstAnalysis = attachments.find((a) => !!a.analysis_id);
+  if (firstAnalysis?.analysis_id) {
+    return {
+      target: "analysis",
+      route: `/analyses/${firstAnalysis.analysis_id}`,
+      analysis_id: firstAnalysis.analysis_id,
+    };
+  }
+
+  // 2. Classification rapide pour orienter.
+  let intent = "autre";
+  try {
+    const c = await classifyIntent(message, ctx);
+    intent = c.intent;
+  } catch {
+    /* fallback: agent chat */
+  }
+
+  // 3. Recherche de dossier.
+  if (intent === "gestion_dossier" || /dossier|client/i.test(message)) {
+    try {
+      const r = await searchDossier({ query: message, limit: 5 }, ctx);
+      const dossiers = ((r.result as { dossiers?: Array<{ id: string; title: string; category: string | null }> })
+        ?.dossiers ?? []) as Array<{ id: string; title: string; category: string | null }>;
+      if (dossiers.length === 1) {
+        return {
+          target: "dossier",
+          route: `/dossiers/${dossiers[0].id}`,
+          dossier_id: dossiers[0].id,
+          title: dossiers[0].title,
+        };
+      }
+      if (dossiers.length > 1) {
+        return {
+          target: "dossier_selection",
+          candidates: dossiers,
+          route: `/agent?run=${runId}&mode=dossier_selection`,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 4. Documents à rédiger / procédures.
+  if (intent === "redaction_document") {
+    return { target: "agent", route: `/agent?run=${runId}&mode=document`, mode: "document" };
+  }
+  if (intent === "conformite" || /procédure|procedure|workflow/i.test(message)) {
+    return { target: "agent", route: `/agent?run=${runId}&mode=procedure`, mode: "procedure" };
+  }
+
+  // 5. Par défaut : vue chat focalisée sur la run.
+  return { target: "agent", route: `/agent?run=${runId}`, mode: "chat" };
+}
+
+/**
  * Crée une nouvelle demande à l'agent. Réponse immédiate (status=pending).
- * Le worker prendra le relais en asynchrone (étape suivante).
+ * Renvoie aussi la décision de routage pour que l'UI ouvre directement la bonne page.
  */
 export const createAgentRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -85,7 +162,27 @@ export const createAgentRun = createServerFn({ method: "POST" })
       .single();
 
     if (error) throw new Error(error.message);
-    return row;
+
+    // Décision de routage : l'Agent 360 oriente vers la bonne page métier.
+    let routing: AgentRouting;
+    try {
+      const apiKey = process.env.LOVABLE_API_KEY ?? "";
+      const ctx: AgentCtx = { userId, tenantId, idcc: null, apiKey, sources: [] };
+      routing = await decideRouting(
+        ctx,
+        (row as { id: string }).id,
+        data.message,
+        data.attachments ?? [],
+      );
+    } catch {
+      routing = {
+        target: "agent",
+        route: `/agent?run=${(row as { id: string }).id}`,
+        mode: "chat",
+      };
+    }
+
+    return { ...(row as { id: string; status: string; created_at: string }), routing };
   });
 
 /** Récupère une demande (RLS limite au tenant). */

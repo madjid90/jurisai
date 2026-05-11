@@ -55,7 +55,10 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/agent")({
-  validateSearch: z.object({ run: z.string().uuid().optional() }),
+  validateSearch: z.object({
+    run: z.string().uuid().optional(),
+    mode: z.enum(["chat", "document", "procedure", "dossier_selection"]).optional(),
+  }),
   component: AssistantPage,
 });
 

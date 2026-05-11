@@ -24,6 +24,7 @@ import {
 } from "@/server/dashboard.functions";
 import { createAgentRun } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
+import { applyRouting, type AgentRouting } from "@/lib/agent/home-intake";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
@@ -113,8 +114,16 @@ function DashboardPage() {
           attachments.push({ analysis_id: r.id, filename: file.name });
         }
       }
-      const created = (await create({ data: { message: text, attachments } })) as { id: string };
-      navigate({ to: "/agent", search: { run: created.id } as never });
+      const created = (await create({ data: { message: text, attachments } })) as {
+        id: string;
+        routing?: AgentRouting;
+      };
+      if (created.routing?.target === "dossier") {
+        toast.success("Dossier trouvé. Ouverture…");
+      } else if (created.routing?.target === "analysis") {
+        toast.success("Document analysé. Ouverture de l'analyse…");
+      }
+      applyRouting(created.routing, navigate, created.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Échec de la demande");
     } finally {
