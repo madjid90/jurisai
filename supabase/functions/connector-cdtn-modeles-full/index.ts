@@ -80,16 +80,6 @@ Deno.serve(async (req) => {
             for (const it of items) {
               if (Date.now() - start > TIME_BUDGET_MS) break;
               try {
-                const r = await fetch(`https://www.code.travail.gouv.fr/api/items/${it.slug}.json`);
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                const f = await r.json() as { title?: string; description?: string; html?: string; text?: string; intro?: string; questions?: Array<{ name?: string; html?: string }> };
-                let body = f.intro ?? f.text ?? f.description ?? "";
-                if (Array.isArray(f.questions)) {
-                  body += "\n\n" + f.questions.map((q) => `## ${q.name ?? ""}\n${(q.html ?? "").replace(/<[^>]+>/g, " ")}`).join("\n\n");
-                }
-                if (!body && f.html) body = f.html.replace(/<[^>]+>/g, " ");
-                body = body.replace(/\s+/g, " ").trim();
-              try {
                 const r = await fetch(it.url ?? `${CDTN_BASE}/modeles-de-courriers/${it.slug}`, { headers: { "User-Agent": "JurisAI/1.0" } });
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 const html = await r.text();
