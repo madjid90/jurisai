@@ -37,6 +37,7 @@ import { Route as AuthenticatedAnalysesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAgentRouteImport } from './routes/_authenticated/agent'
 import { Route as AuthenticatedDocumentsIndexRouteImport } from './routes/_authenticated/documents.index'
 import { Route as AuthenticatedWorkflowsIdRouteImport } from './routes/_authenticated/workflows_.$id'
+import { Route as AuthenticatedMesDemandesIdRouteImport } from './routes/_authenticated/mes-demandes.$id'
 import { Route as AuthenticatedDossiersIdRouteImport } from './routes/_authenticated/dossiers.$id'
 import { Route as AuthenticatedDocumentsIdRouteImport } from './routes/_authenticated/documents.$id'
 import { Route as AuthenticatedAnalysesIdRouteImport } from './routes/_authenticated/analyses.$id'
@@ -203,6 +204,12 @@ const AuthenticatedWorkflowsIdRoute =
     path: '/workflows/$id',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMesDemandesIdRoute =
+  AuthenticatedMesDemandesIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedMesDemandesRoute,
+  } as any)
 const AuthenticatedDossiersIdRoute = AuthenticatedDossiersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -343,7 +350,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/links': typeof AuthenticatedLinksRoute
-  '/mes-demandes': typeof AuthenticatedMesDemandesRoute
+  '/mes-demandes': typeof AuthenticatedMesDemandesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -364,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
+  '/mes-demandes/$id': typeof AuthenticatedMesDemandesIdRoute
   '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
@@ -394,7 +402,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/links': typeof AuthenticatedLinksRoute
-  '/mes-demandes': typeof AuthenticatedMesDemandesRoute
+  '/mes-demandes': typeof AuthenticatedMesDemandesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/scan': typeof AuthenticatedScanRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -415,6 +423,7 @@ export interface FileRoutesByTo {
   '/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/dossiers/$id': typeof AuthenticatedDossiersIdRoute
+  '/mes-demandes/$id': typeof AuthenticatedMesDemandesIdRoute
   '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
@@ -447,7 +456,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dossiers': typeof AuthenticatedDossiersRouteWithChildren
   '/_authenticated/links': typeof AuthenticatedLinksRoute
-  '/_authenticated/mes-demandes': typeof AuthenticatedMesDemandesRoute
+  '/_authenticated/mes-demandes': typeof AuthenticatedMesDemandesRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/scan': typeof AuthenticatedScanRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -468,6 +477,7 @@ export interface FileRoutesById {
   '/_authenticated/analyses/$id': typeof AuthenticatedAnalysesIdRoute
   '/_authenticated/documents/$id': typeof AuthenticatedDocumentsIdRoute
   '/_authenticated/dossiers/$id': typeof AuthenticatedDossiersIdRoute
+  '/_authenticated/mes-demandes/$id': typeof AuthenticatedMesDemandesIdRoute
   '/_authenticated/workflows_/$id': typeof AuthenticatedWorkflowsIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
@@ -521,6 +531,7 @@ export interface FileRouteTypes {
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
+    | '/mes-demandes/$id'
     | '/workflows/$id'
     | '/documents/'
     | '/api/public/calendar/$token'
@@ -572,6 +583,7 @@ export interface FileRouteTypes {
     | '/analyses/$id'
     | '/documents/$id'
     | '/dossiers/$id'
+    | '/mes-demandes/$id'
     | '/workflows/$id'
     | '/documents'
     | '/api/public/calendar/$token'
@@ -624,6 +636,7 @@ export interface FileRouteTypes {
     | '/_authenticated/analyses/$id'
     | '/_authenticated/documents/$id'
     | '/_authenticated/dossiers/$id'
+    | '/_authenticated/mes-demandes/$id'
     | '/_authenticated/workflows_/$id'
     | '/_authenticated/documents/'
     | '/api/public/calendar/$token'
@@ -860,6 +873,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkflowsIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/mes-demandes/$id': {
+      id: '/_authenticated/mes-demandes/$id'
+      path: '/$id'
+      fullPath: '/mes-demandes/$id'
+      preLoaderRoute: typeof AuthenticatedMesDemandesIdRouteImport
+      parentRoute: typeof AuthenticatedMesDemandesRoute
+    }
     '/_authenticated/dossiers/$id': {
       id: '/_authenticated/dossiers/$id'
       path: '/$id'
@@ -1043,6 +1063,20 @@ const AuthenticatedDossiersRouteWithChildren =
     AuthenticatedDossiersRouteChildren,
   )
 
+interface AuthenticatedMesDemandesRouteChildren {
+  AuthenticatedMesDemandesIdRoute: typeof AuthenticatedMesDemandesIdRoute
+}
+
+const AuthenticatedMesDemandesRouteChildren: AuthenticatedMesDemandesRouteChildren =
+  {
+    AuthenticatedMesDemandesIdRoute: AuthenticatedMesDemandesIdRoute,
+  }
+
+const AuthenticatedMesDemandesRouteWithChildren =
+  AuthenticatedMesDemandesRoute._addFileChildren(
+    AuthenticatedMesDemandesRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAgentRoute: typeof AuthenticatedAgentRoute
   AuthenticatedAnalysesRoute: typeof AuthenticatedAnalysesRouteWithChildren
@@ -1050,7 +1084,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDossiersRoute: typeof AuthenticatedDossiersRouteWithChildren
   AuthenticatedLinksRoute: typeof AuthenticatedLinksRoute
-  AuthenticatedMesDemandesRoute: typeof AuthenticatedMesDemandesRoute
+  AuthenticatedMesDemandesRoute: typeof AuthenticatedMesDemandesRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedScanRoute: typeof AuthenticatedScanRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -1080,7 +1114,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDossiersRoute: AuthenticatedDossiersRouteWithChildren,
   AuthenticatedLinksRoute: AuthenticatedLinksRoute,
-  AuthenticatedMesDemandesRoute: AuthenticatedMesDemandesRoute,
+  AuthenticatedMesDemandesRoute: AuthenticatedMesDemandesRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedScanRoute: AuthenticatedScanRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
