@@ -241,69 +241,10 @@ function MessageBubble({ msg }: { msg: Msg }) {
             JurisAI consulte les sources…
           </div>
         ) : (
-          <>
-            <div
-              className={cn(
-                "prose prose-sm max-w-none rounded-2xl border bg-background/60 px-4 py-3 text-sm leading-relaxed",
-                msg.refused ? "border-destructive/30 bg-destructive/5" : "border-border/60",
-              )}
-            >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-            </div>
-            {msg.sources && msg.sources.length > 0 && (
-              <SourcesList sources={msg.sources} answer={msg.content} />
-            )}
-          </>
+          <ResultRenderer run={msg.run ?? null} />
         )}
       </div>
     </div>
   );
 }
 
-function SourcesList({ sources, answer }: { sources: Source[]; answer: string }) {
-  // Filter to sources actually cited in the answer
-  const refs = new Set<number>();
-  const re = /\[source:(\d+)\]/g;
-  let m;
-  while ((m = re.exec(answer)) !== null) refs.add(parseInt(m[1], 10));
-  const visible = refs.size > 0 ? sources.filter((s) => refs.has(s.n)) : sources.slice(0, 4);
-  if (visible.length === 0) return null;
-
-  return (
-    <div className="mt-3 rounded-2xl border border-border/60 bg-secondary/30 p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <BookMarked className="h-3 w-3" />
-        Sources officielles ({visible.length})
-      </div>
-      <ul className="space-y-1.5">
-        {visible.map((s) => (
-          <li
-            key={s.n}
-            className="flex items-start justify-between gap-2 rounded-xl border border-border/40 bg-background/60 p-2 text-[12px]"
-          >
-            <div className="min-w-0 flex-1">
-              <Badge variant="outline" className="mr-1.5 h-5 px-1.5 font-mono text-[10px]">
-                [{s.n}]
-              </Badge>
-              <span className="font-medium text-foreground">
-                {s.ref ? `${s.ref} — ` : ""}
-                {s.title}
-              </span>
-            </div>
-            {s.url && (
-              <a
-                href={s.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent hover:underline"
-                title="Ouvrir la source"
-              >
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
