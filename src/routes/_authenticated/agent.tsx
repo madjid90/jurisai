@@ -1593,7 +1593,7 @@ function FollowUpThread({
   };
 
   return (
-    <div className="space-y-3 pt-2">
+    <div id={`follow-up-${parentId}`} className="space-y-3 pt-2">
       {children.length > 0 ? (
         <div className="space-y-3 pl-3 border-l-2 border-primary/20">
           {children.map((c) => (
