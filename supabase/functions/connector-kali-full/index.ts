@@ -249,7 +249,14 @@ Deno.serve(async (req) => {
     });
 
   try {
-    await requireSuperAdmin(req);
+    // Auto-relance interne (chaînage de ticks) : on accepte un secret partagé
+    // au lieu d'un JWT super_admin pour ne pas dépendre d'un re-clic UI.
+    const internalToken = req.headers.get("x-internal-cron");
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const isInternal = !!internalToken && !!cronSecret && internalToken === cronSecret;
+    if (!isInternal) {
+      await requireSuperAdmin(req);
+    }
     const body = await req.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
     const db = getAdminClient();
