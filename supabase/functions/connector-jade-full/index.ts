@@ -48,11 +48,13 @@ Deno.serve(async (req) => {
       const dEnd: string = body.date_end ?? new Date().toISOString().slice(0, 10);
       const dStart: string = body.date_start ?? (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 5); return d.toISOString().slice(0, 10); })();
       const query: string = typeof body.query === "string" && body.query.trim() ? body.query.trim() : "*";
-      const max = Math.min(Number(body.max_decisions) || 3000, 15000);
+      // max_decisions = 0 (ou absent) => totalité disponible (pagination jusqu'à épuisement)
+      const max = body.max_decisions === undefined ? 0 : Number(body.max_decisions);
+      const unlimited = max <= 0;
 
       const collected: Hit[] = [];
       let page = 0; const pageSize = 50;
-      while (collected.length < max) {
+      while (unlimited || collected.length < max) {
         const url = `${baseUrl()}/search?` + new URLSearchParams({
           query, page: String(page), page_size: String(pageSize), date_start: dStart, date_end: dEnd,
         }).toString();
@@ -66,7 +68,8 @@ Deno.serve(async (req) => {
         page++;
       }
 
-      const items: BatchItem[] = collected.slice(0, max).map((h) => ({ id: h.id, juridiction: h.juridiction, date: h.date, numero: h.numero }));
+      const final = unlimited ? collected : collected.slice(0, max);
+      const items: BatchItem[] = final.map((h) => ({ id: h.id, juridiction: h.juridiction, date: h.date, numero: h.numero }));
       if (dryRun) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
       batchId = await startBatch(db, "jade-full", "decisions", items, { query, dStart, dEnd });
     }
