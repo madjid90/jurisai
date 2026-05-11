@@ -26,8 +26,7 @@ type Msg =
       role: "assistant";
       content: string;
       id: string;
-      sources?: Source[];
-      refused?: boolean;
+      run?: AgentRun;
       pending?: boolean;
     };
 
