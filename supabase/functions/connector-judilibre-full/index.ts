@@ -7,7 +7,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
-import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
+import { appendBatchItems, finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
 const TIME_BUDGET_MS = 135_000;
@@ -19,7 +19,7 @@ interface Hit {
   id: string; chamber?: string; formation?: string; decision_date?: string;
   number?: string; solution?: string; summary?: string; text?: string; themes?: string[];
 }
-interface BatchItem { id: string; chamber?: string; date?: string; number?: string; }
+interface BatchItem { id: string; chamber?: string; date?: string; number?: string; retries?: number; }
 
 function getKey(): string {
   const k = Deno.env.get("PISTE_API_KEY") ?? Deno.env.get("JUDILIBRE_KEY_ID");
@@ -178,8 +178,16 @@ Deno.serve(async (req) => {
                 });
                 ing++; ok.push(it);
               } catch (err) {
+                const message = (err as Error).message;
+                const retries = (it.retries ?? 0) + 1;
+                if (retries < 3) {
+                  await appendBatchItems(db, batchId, [{ ...it, retries }]);
+                  ok.push(it);
+                  console.warn(`[judilibre-full] ${it.id}: transient error (${message}), retry ${retries}/2`);
+                  continue;
+                }
                 fl.push(it);
-                console.error(`[judilibre-full] ${it.id}:`, (err as Error).message);
+                console.error(`[judilibre-full] ${it.id}:`, message);
               }
               await new Promise((r) => setTimeout(r, 100));
             }
@@ -223,6 +231,12 @@ Deno.serve(async (req) => {
 
       } catch (err) {
 
+        try {
+          await db.from("ingestion_batch_state")
+            .update({ status: "paused", last_tick_at: new Date().toISOString() })
+            .eq("id", batchId);
+        } catch (_pauseErr) {
+        }
         console.error(`[connector-judilibre-full] background error:`, (err as Error).message);
 
       }
