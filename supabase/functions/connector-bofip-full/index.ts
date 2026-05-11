@@ -74,10 +74,55 @@ Deno.serve(async (req) => {
 
           const start = Date.now();
           let ingested = 0, skipped = 0, failed = 0;
+          let planningDone = planningMax === null;
+
+          // Planification asynchrone : pagine /search BOFiP et append items au batch
+          const planTask = planningMax !== null ? (async () => {
+            const max = planningMax!;
+            const pageSize = 50;
+            let page = 1;
+            let total = 0;
+            try {
+              while (total < max) {
+                const data = await legifranceFetch<{ results?: Array<{ id?: string; titre?: string; serie?: string; division?: string }> }>(
+                  "/search",
+                  {
+                    recherche: {
+                      champs: [{ typeChamp: "ALL", criteres: [{ typeRecherche: "EXACTE", valeur: "*", operateur: "ET" }], operateur: "ET" }],
+                      filtres: [{ facette: "FONDS", valeurs: ["BOFIP"] }],
+                      pageNumber: page, pageSize, sort: "PERTINENCE", typePagination: "DEFAUT",
+                    },
+                    fond: "BOFIP",
+                  },
+                ).catch((e) => { console.warn("[bofip-full] plan p", page, ":", (e as Error).message); return { results: [] }; });
+                const hits = data.results ?? [];
+                if (!hits.length) break;
+                const items: BatchItem[] = hits
+                  .filter((h) => h.id)
+                  .slice(0, max - total)
+                  .map((h) => ({ id: h.id!, titre: h.titre, serie: h.serie, division: h.division }));
+                if (items.length) {
+                  const { error } = await db.rpc("append_batch_items", { p_batch_id: batchId, p_items: items });
+                  if (error) console.error(`[bofip-full] append err: ${error.message}`);
+                  total += items.length;
+                }
+                if (hits.length < pageSize) break;
+                page++;
+              }
+            } finally {
+              planningDone = true;
+              console.log(`[bofip-full] planning fini: ${total} items`);
+            }
+          })() : Promise.resolve();
 
           while (Date.now() - start < TIME_BUDGET_MS) {
             const items = await getNextItems<BatchItem>(db, batchId, 1);
-            if (!items.length) break;
+            if (!items.length) {
+              if (planningDone) break;
+              await heartbeat(db, batchId);
+              await new Promise((r) => setTimeout(r, 2000));
+              continue;
+            }
             await heartbeat(db, batchId);
             const ok: BatchItem[] = [], fl: BatchItem[] = [];
             let ing = 0, sk = 0;
