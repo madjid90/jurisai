@@ -196,21 +196,28 @@ Deno.serve(async (req) => {
           const fin = await finalizeBatch(db, batchId);
           console.log(`[connector-judilibre-full] tick done batch=${batchId} status=${fin.status} processed=${fin.processed}/${fin.total} ingested=${ingested} skipped=${skipped} failed=${failed}`);
 
-          // Auto-resume si pas terminé
+          // Auto-resume si pas terminé (utilise CRON_SECRET pour bypasser super_admin)
           if (fin.status === "paused" || !planningDone) {
-            try {
-              const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-              const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-              setTimeout(() => {
-                fetch(`${supabaseUrl}/functions/v1/connector-judilibre-full`, {
+            const cronSecret = Deno.env.get("CRON_SECRET");
+            const supaUrl = Deno.env.get("SUPABASE_URL");
+            const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+            if (cronSecret && supaUrl && serviceKey) {
+              try {
+                await fetch(`${supaUrl}/functions/v1/connector-judilibre-full`, {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-                  body: JSON.stringify({ resume_batch_id: batchId, _internal_resume: true }),
-                }).catch((e) => console.error(`[judilibre-full] auto-resume fetch err: ${e.message}`));
-              }, 2000);
-              console.log(`[judilibre-full] auto-resume scheduled for batch ${batchId}`);
-            } catch (e) {
-              console.error(`[judilibre-full] auto-resume err:`, (e as Error).message);
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-internal-cron": cronSecret,
+                    "Authorization": `Bearer ${serviceKey}`,
+                  },
+                  body: JSON.stringify({ resume_batch_id: batchId }),
+                });
+                console.log(`[judilibre-full] auto-resume scheduled for batch ${batchId}`);
+              } catch (e) {
+                console.warn(`[judilibre-full] auto-resume failed:`, (e as Error).message);
+              }
+            } else {
+              console.warn(`[judilibre-full] CRON_SECRET manquant — auto-resume désactivé`);
             }
           }
 
