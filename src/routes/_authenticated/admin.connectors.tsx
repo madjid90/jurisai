@@ -200,6 +200,33 @@ function ConnectorsAdminPage() {
     },
   });
 
+  const deleteJobMut = useMutation({
+    mutationFn: (jobId: string) => deleteConnectorJob({ data: { jobId } }),
+    onSuccess: () => {
+      toast.success("Job supprimé");
+      qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] });
+    },
+    onError: (err: Error) => toast.error("Suppression impossible", { description: err.message.slice(0, 200) }),
+  });
+
+  const deleteFailedMut = useMutation({
+    mutationFn: () => deleteFailedConnectorJobs({ data: {} }),
+    onSuccess: () => {
+      toast.success("Jobs en échec supprimés");
+      qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] });
+    },
+    onError: (err: Error) => toast.error("Suppression impossible", { description: err.message.slice(0, 200) }),
+  });
+
+  const relaunchConnector = (connectorId: string) => {
+    const cfg = CONNECTORS.find((c) => c.id === connectorId);
+    if (!cfg) {
+      toast.error(`Connecteur ${connectorId} inconnu`);
+      return;
+    }
+    triggerMut.mutate({ connector: cfg.id, payload: cfg.defaultPayload as Record<string, unknown> });
+  };
+
   if (errorDenied) {
     return (
       <AppShell>
