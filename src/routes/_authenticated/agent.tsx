@@ -24,8 +24,6 @@ import {
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
-import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
-import { WorkflowStepInline } from "@/components/agent/WorkflowStepInline";
 import { WorkflowRuntimeBlock } from "@/components/agent/WorkflowRuntimeBlock";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
