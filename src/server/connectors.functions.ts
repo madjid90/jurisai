@@ -292,29 +292,14 @@ export const countEmptySources = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertSuperAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
-      .from("legal_sources")
-      .select("id, connector")
-      .limit(50000);
+    const { data, error } = await supabaseAdmin.rpc("count_empty_sources_by_connector");
     if (error) throw new Error(error.message);
-    const sourceIds = (data ?? []).map((r) => r.id as string);
-    if (sourceIds.length === 0) return { by_connector: {} as Record<string, number>, total: 0 };
-    // Sources avec au moins un chunk
-    const { data: ch, error: chErr } = await supabaseAdmin
-      .from("legal_chunks")
-      .select("source_id")
-      .in("source_id", sourceIds)
-      .limit(200000);
-    if (chErr) throw new Error(chErr.message);
-    const withChunks = new Set((ch ?? []).map((c) => c.source_id as string));
     const byConnector: Record<string, number> = {};
     let total = 0;
-    for (const r of data ?? []) {
-      if (!withChunks.has(r.id as string)) {
-        const k = (r.connector as string) ?? "unknown";
-        byConnector[k] = (byConnector[k] ?? 0) + 1;
-        total++;
-      }
+    for (const row of (data ?? []) as Array<{ connector: string; count: number }>) {
+      const n = Number(row.count) || 0;
+      byConnector[row.connector] = n;
+      total += n;
     }
     return { by_connector: byConnector, total };
   });
