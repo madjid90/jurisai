@@ -2,7 +2,7 @@
 // Batch resumable. Veille proactive sur les lois en préparation.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { Untar } from "jsr:@std/archive/untar";
+import { UntarStream } from "jsr:@std/tar/untar-stream";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
@@ -59,13 +59,14 @@ async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
   if (!res.ok) throw new Error(`DOLE archive ${res.status}`);
   if (!res.body) throw new Error("Archive DOLE vide");
 
-  const decompressed = res.body.pipeThrough(new DecompressionStream("gzip"));
-  const untar = new Untar(decompressed.getReader());
+  const untar = res.body
+    .pipeThrough(new DecompressionStream("gzip"))
+    .pipeThrough(new UntarStream());
   const out: BatchItem[] = [];
   const seen = new Set<string>();
 
   for await (const entry of untar) {
-    if (entry.type !== "file" || !entry.fileName.endsWith(".xml")) continue;
+    if (entry.header.type !== "file" || !entry.path.endsWith(".xml") || !entry.readable) continue;
     const text = await new Response(entry.readable).text();
     const doc = new DOMParser().parseFromString(text, "application/xml");
     const root = doc?.querySelector("DOSSIER_LEGISLATIF");
