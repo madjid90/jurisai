@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
-import { Activity, Loader2, Plus } from "lucide-react";
+import { Activity, Loader2, Plus, Play } from "lucide-react";
 import { toast } from "sonner";
 import { getRagEvalAggregate, type RagEvalAggregate } from "@/server/quality.functions";
 
@@ -33,6 +33,7 @@ function RagQualityPage() {
   const [runs, setRuns] = useState<EvalRun[]>([]);
   const [agg, setAgg] = useState<RagEvalAggregate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
 
   const load = async () => {
@@ -56,6 +57,29 @@ function RagQualityPage() {
     if (error) toast.error("Erreur"); else { setNewQuestion(""); void load(); toast.success("Cas ajouté"); }
   };
 
+  const runEvaluation = async () => {
+    setRunning(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Session expirée");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("evaluate-rag", {
+        body: { limit: 50 },
+      });
+      if (error) throw error;
+      const ran = (data as { ran?: number } | null)?.ran ?? 0;
+      toast.success(`Évaluation terminée : ${ran} cas exécutés`);
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de l'évaluation");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const avgP5 = runs.length ? runs.reduce((s, r) => s + (r.precision_at_5 ?? 0), 0) / runs.length : 0;
   const avgMRR = runs.length ? runs.reduce((s, r) => s + (r.mrr ?? 0), 0) / runs.length : 0;
   const halluRate = runs.length ? runs.filter((r) => r.hallucination_detected).length / runs.length : 0;
@@ -63,11 +87,17 @@ function RagQualityPage() {
   return (
     <AppShell>
       <div className="space-y-4">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <Activity className="h-6 w-6 text-accent" /> Évaluation RAG
-          </h1>
-          <p className="text-sm text-muted-foreground">Set d'évaluation et résultats des runs.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+              <Activity className="h-6 w-6 text-accent" /> Évaluation RAG
+            </h1>
+            <p className="text-sm text-muted-foreground">Set d'évaluation et résultats des runs.</p>
+          </div>
+          <Button onClick={runEvaluation} disabled={running || cases.length === 0}>
+            {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            {running ? "Évaluation en cours…" : "Lancer une évaluation"}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
