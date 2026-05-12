@@ -125,6 +125,16 @@ function DashboardPage() {
       } else if (created.routing?.target === "analysis") {
         toast.success("Document analysé. Résultat dans l'assistant.");
       }
+      // Lance la classification + exécution en arrière-plan pour que la run avance,
+      // sinon le focus reste bloqué sur "Comprendre la demande".
+      void (async () => {
+        try {
+          const r1 = (await process({ data: { id: created.id } })) as { status: string };
+          if (r1.status === "ready") await execute({ data: { id: created.id } });
+        } catch (e) {
+          console.error("[dashboard] process/execute background failed:", e);
+        }
+      })();
       applyRouting(created.routing, navigate, created.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Échec de la demande");
