@@ -262,6 +262,63 @@ export const deleteFailedConnectorJobs = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const retryEmptySources = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { connector: "bofip" | "judilibre" | "cdtn-fiches" | "legifrance"; max_items?: number; dry_run?: boolean }) => input)
+  .handler(async ({ data, context }) => {
+    await assertSuperAdmin(context.userId);
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const authHeader = getRequestHeader("authorization");
+    try {
+      const { data: result, error } = await supabaseAdmin.functions.invoke("connector-retry-empty", {
+        body: { connector: data.connector, max_items: data.max_items, dry_run: data.dry_run === true },
+        headers: authHeader ? { Authorization: authHeader } : undefined,
+      });
+      if (error) {
+        let detail = error.message ?? "unknown error";
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.text === "function") {
+          try { const body = await ctx.text(); if (body) detail = body.slice(0, 500); } catch { /* ignore */ }
+        }
+        return { ok: false, connector: data.connector, error: detail };
+      }
+      return { ok: true, connector: data.connector, result };
+    } catch (e) {
+      return { ok: false, connector: data.connector, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+export const countEmptySources = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("legal_sources")
+      .select("id, connector")
+      .limit(50000);
+    if (error) throw new Error(error.message);
+    const sourceIds = (data ?? []).map((r) => r.id as string);
+    if (sourceIds.length === 0) return { by_connector: {} as Record<string, number>, total: 0 };
+    // Sources avec au moins un chunk
+    const { data: ch, error: chErr } = await supabaseAdmin
+      .from("legal_chunks")
+      .select("source_id")
+      .in("source_id", sourceIds)
+      .limit(200000);
+    if (chErr) throw new Error(chErr.message);
+    const withChunks = new Set((ch ?? []).map((c) => c.source_id as string));
+    const byConnector: Record<string, number> = {};
+    let total = 0;
+    for (const r of data ?? []) {
+      if (!withChunks.has(r.id as string)) {
+        const k = (r.connector as string) ?? "unknown";
+        byConnector[k] = (byConnector[k] ?? 0) + 1;
+        total++;
+      }
+    }
+    return { by_connector: byConnector, total };
+  });
+
 export const checkConnectorSecrets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
