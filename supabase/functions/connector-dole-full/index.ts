@@ -6,70 +6,35 @@ import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
+import { legifranceFetch } from "../_shared/piste.ts";
 
 const TIME_BUDGET_MS = 60_000;
-const PISTE_OAUTH_URL = "https://oauth.piste.gouv.fr/api/oauth/token";
-const PISTE_BASE = "https://api.piste.gouv.fr/dila/legifrance/lf-engine-app";
-
 interface BatchItem { id: string; title: string; nature?: string; date?: string; }
 
-async function getPisteToken(): Promise<string> {
-  const id = Deno.env.get("LEGIFRANCE_OAUTH_ID");
-  const secret = Deno.env.get("LEGIFRANCE_OAUTH_SECRET");
-  if (!id || !secret) throw new Error("Missing LEGIFRANCE_OAUTH_ID / LEGIFRANCE_OAUTH_SECRET");
-  const body = new URLSearchParams({ grant_type: "client_credentials", client_id: id, client_secret: secret, scope: "openid" });
-  const r = await fetch(PISTE_OAUTH_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
-  if (!r.ok) throw new Error(`PISTE OAuth ${r.status}`);
-  return (await r.json() as { access_token: string }).access_token;
-}
-
-async function searchDole(token: string, dateStart: string, pageSize: number, page: number) {
-  // DOLE semble refuser les critères texte/champs sur /search alors que les autres
-  // fonds les acceptent. On reste donc sur le payload minimal valide observé sur
-  // les autres fonds PISTE : filtre date + pagination + tri uniquement.
-  // DOLE exige un bloc `champs` non vide. On utilise un critère TOUS_LES_MOTS très
-  // large ("loi") combiné au filtre date pour récupérer tous les dossiers récents.
+async function searchDole(dateStart: string, pageSize: number, page: number) {
   const payload = {
     fond: "DOLE",
     recherche: {
-      champs: [
-        {
-          typeChamp: "ALL",
-          criteres: [
-            { typeRecherche: "TOUS_LES_MOTS", valeur: "loi", operateur: "ET" },
-          ],
-          operateur: "ET",
-        },
-      ],
       filtres: [
         { facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } },
       ],
       pageSize,
       pageNumber: page,
-      sort: "SIGNATURE_DATE_DESC",
+      sort: "PERTINENCE",
       typePagination: "DEFAUT",
       operateur: "ET",
     },
   };
-  const r = await fetch(`${PISTE_BASE}/search`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`DOLE search ${r.status}: ${txt.slice(0, 300)}`);
-  }
-  return await r.json() as { results?: Array<{ titles?: Array<{ id: string; title: string }>; nature?: string; date?: string }>; totalResultNumber?: number };
+  return await legifranceFetch<{ results?: Array<{ titles?: Array<{ id: string; title: string }>; nature?: string; date?: string }>; totalResultNumber?: number }>("/search", payload);
 }
 
-async function loadIndex(token: string, months: number, max: number): Promise<BatchItem[]> {
+async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
   const since = new Date(); since.setMonth(since.getMonth() - months);
   const dateStart = since.toISOString().slice(0, 10);
   const out: BatchItem[] = [];
   const seen = new Set<string>();
   for (let page = 1; page <= 20 && out.length < max; page++) {
-    const res = await searchDole(token, dateStart, 50, page);
+    const res = await searchDole(dateStart, 50, page);
     const arr = res.results ?? [];
     if (!arr.length) break;
     for (const r of arr) {
@@ -83,14 +48,12 @@ async function loadIndex(token: string, months: number, max: number): Promise<Ba
   return out;
 }
 
-async function fetchDossier(token: string, id: string) {
-  const r = await fetch(`${PISTE_BASE}/consult/jorf`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ textCid: id }),
-  });
-  if (!r.ok) return null;
-  return await r.json() as { titre?: string; resume?: string; exposeMotifs?: string; evenements?: Array<{ date?: string; titre?: string; description?: string }> };
+async function fetchDossier(id: string) {
+  try {
+    return await legifranceFetch<{ titre?: string; resume?: string; exposeMotifs?: string; evenements?: Array<{ date?: string; titre?: string; description?: string }> }>("/consult/jorf", { textCid: id });
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -109,13 +72,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({})) as { dry_run?: boolean; months?: number; max_dossiers?: number; resume_batch_id?: string };
     const db = getAdminClient();
     const apiKey = getLovableApiKey();
-    const token = await getPisteToken();
-
     let batchId: string;
     if (body.resume_batch_id) {
       batchId = String(body.resume_batch_id);
     } else {
-      const items = await loadIndex(token, body.months ?? 24, body.max_dossiers ?? 500);
+      const items = await loadIndex(body.months ?? 24, body.max_dossiers ?? 500);
       if (body.dry_run) return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
       batchId = await startBatch(db, "dole-full", "dossiers", items, { months: body.months ?? 24 });
     }
@@ -139,7 +100,7 @@ Deno.serve(async (req) => {
             for (const it of items) {
               if (Date.now() - start > TIME_BUDGET_MS) break;
               try {
-                const d = await fetchDossier(token, it.id);
+                const d = await fetchDossier(it.id);
                 let body = "";
                 if (d) {
                   if (d.resume) body += `## Résumé\n\n${d.resume}\n\n`;
