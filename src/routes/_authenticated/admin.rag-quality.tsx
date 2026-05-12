@@ -70,9 +70,9 @@ function RagQualityPage() {
         body: { limit: 50 },
       });
       if (error) throw error;
-      const ran = (data as { ran?: number } | null)?.ran ?? 0;
-      toast.success(`Évaluation terminée : ${ran} cas exécutés`);
-      void load();
+      const queued = (data as { queued?: number; ran?: number } | null)?.queued ?? 0;
+      toast.success(`Évaluation lancée en arrière-plan : ${queued} cas. Rafraîchissez dans 1-2 min.`);
+      setTimeout(() => void load(), 90_000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erreur lors de l'évaluation");
     } finally {
