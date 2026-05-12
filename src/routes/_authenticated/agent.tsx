@@ -465,8 +465,11 @@ function RunCard({
   onChanged: () => void;
 }) {
   const get = useServerFn(getAgentRun);
+  const processFn = useServerFn(processAgentRun);
+  const executeFn = useServerFn(executeAgentRun);
   const [run, setRun] = useState<Record<string, unknown> | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const kickedRef = useRef(false);
 
   const load = async () => {
     try {
