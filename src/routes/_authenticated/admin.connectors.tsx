@@ -327,6 +327,61 @@ function ConnectorsAdminPage() {
           ))}
         </section>
 
+        {/* Sources vides — retry ciblé */}
+        <Card className="glass-panel border-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wrench className="h-4 w-4" /> Sources sans chunks (catalogue à nettoyer)
+            </CardTitle>
+            <CardDescription>
+              Sources légales présentes mais sans contenu vectorisé (contenu trop court ou échec d'embedding).
+              Le retry re-fetch chaque source : si toujours vide → suppression du catalogue ; sinon ré-ingestion complète (staging→promote).
+              Sans impact sur le RAG ni sur les ingestions en cours.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {emptySourcesQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Chargement…</p>
+            ) : emptySourcesQuery.data && emptySourcesQuery.data.total > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Total : <span className="font-medium text-foreground">{emptySourcesQuery.data.total}</span> sources vides
+                </p>
+                <ul className="space-y-2">
+                  {(["bofip", "judilibre", "cdtn-fiches", "legifrance"] as const).map((conn) => {
+                    const count = emptySourcesQuery.data?.by_connector?.[conn] ?? 0;
+                    const pending = retryEmptyMut.isPending && retryEmptyMut.variables === conn;
+                    return (
+                      <li key={conn} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge variant="outline">{conn}</Badge>
+                          <span className="text-muted-foreground">{count} source{count > 1 ? "s" : ""} vide{count > 1 ? "s" : ""}</span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={count === 0 || pending}
+                          onClick={() => retryEmptyMut.mutate(conn)}
+                        >
+                          {pending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Wrench className="mr-1 h-3 w-3" />}
+                          Réingérer
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {(emptySourcesQuery.data.by_connector?.kali ?? 0) > 0 && (
+                  <p className="pt-2 text-xs text-muted-foreground">
+                    Note : kali ({emptySourcesQuery.data.by_connector.kali}) n'est pas couvert par le retry ciblé (walk d'arbre depuis la convention parente requis). Relance complète du connecteur kali si besoin.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucune source vide. ✓</p>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Jobs */}
         <Card className="glass-panel border-0">
           <CardHeader className="flex flex-row items-center justify-between">
