@@ -49,31 +49,46 @@ function inferNatureFromType(type: string): string | undefined {
   }
 }
 
-async function latestOpenDataArchiveUrl(): Promise<string> {
+function archiveDate(name: string): string {
+  // Freemium_dole_global_YYYYMMDD-HHMMSS.tar.gz | DOLE_YYYYMMDD-HHMMSS.tar.gz
+  const m = name.match(/(\d{8})-\d{6}\.tar\.gz$/);
+  return m ? m[1] : "";
+}
+
+async function listOpenDataArchives(): Promise<string[]> {
   const res = await fetch(DOLE_OPEN_DATA_INDEX);
   if (!res.ok) throw new Error(`DOLE open data index ${res.status}`);
   const html = await res.text();
-  const names = [...html.matchAll(/href="(DOLE_[^"]+\.tar\.gz)"/g)].map((m) => m[1]);
-  const latest = names.sort().at(-1);
-  if (!latest) throw new Error("Aucune archive DOLE trouvée dans l'open data DILA");
-  return `${DOLE_OPEN_DATA_INDEX}${latest}`;
+  const all = [...html.matchAll(/href="((?:Freemium_dole_global_|DOLE_)[^"]+\.tar\.gz)"/g)].map((m) => m[1]);
+
+  // Pick the latest Freemium global snapshot as base, then all DOLE_* increments newer than it.
+  const freemium = all.filter((n) => n.startsWith("Freemium_dole_global_")).sort();
+  const incrs = all.filter((n) => n.startsWith("DOLE_")).sort();
+  const base = freemium.at(-1);
+  if (!base) {
+    // Pas de snapshot global : on prend tous les incréments (peut être lourd)
+    return incrs;
+  }
+  const baseDate = archiveDate(base);
+  const incrAfter = incrs.filter((n) => archiveDate(n) >= baseDate);
+  return [base, ...incrAfter];
 }
 
-async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
-  const since = new Date();
-  since.setMonth(since.getMonth() - months);
-
-  const archiveUrl = await latestOpenDataArchiveUrl();
-  console.log(`[dole-full] download archive ${archiveUrl}`);
-  const res = await fetch(archiveUrl);
+async function ingestArchive(
+  url: string,
+  since: Date,
+  max: number,
+  out: BatchItem[],
+  seen: Set<string>,
+): Promise<void> {
+  console.log(`[dole-full] download archive ${url}`);
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`DOLE archive ${res.status}`);
   if (!res.body) throw new Error("Archive DOLE vide");
 
   const untar = res.body
     .pipeThrough(new DecompressionStream("gzip"))
     .pipeThrough(new UntarStream());
-  const out: BatchItem[] = [];
-  const seen = new Set<string>();
 
   for await (const entry of untar) {
     if (entry.header.type !== "file" || !entry.path.endsWith(".xml") || !entry.readable) {
@@ -86,7 +101,7 @@ async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
     const id = pick(text, "ID");
     const title = pick(text, "TITRE");
     const date = pick(text, "DATE_DERNIERE_MODIFICATION") || pick(text, "DATE_CREATION");
-    if (!id || !title || seen.has(id)) continue;
+    if (!id || !title) continue;
     if (date && new Date(`${date.slice(0, 10)}T00:00:00Z`) < since) continue;
 
     const parts = [
@@ -98,16 +113,42 @@ async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
     ].filter(Boolean) as string[];
     const content = parts.join("\n\n").trim();
 
-    seen.add(id);
-    out.push({
+    // Les incréments écrasent l'entrée précédente du même id (mise à jour).
+    const existingIdx = out.findIndex((b) => b.id === id);
+    const item: BatchItem = {
       id,
       title,
       nature: inferNatureFromType(pick(text, "TYPE")),
       date: date || undefined,
       content,
       officialUrl: `${LEGIFRANCE_DOSSIER_BASE}${id}`,
-    });
-    if (out.length >= max) break;
+    };
+    if (existingIdx >= 0) {
+      out[existingIdx] = item;
+    } else {
+      if (seen.size >= max) continue;
+      seen.add(id);
+      out.push(item);
+    }
+  }
+}
+
+async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
+  const since = new Date();
+  since.setMonth(since.getMonth() - months);
+
+  const archives = await listOpenDataArchives();
+  console.log(`[dole-full] ${archives.length} archives à traiter (base + incréments)`);
+  const out: BatchItem[] = [];
+  const seen = new Set<string>();
+
+  for (const name of archives) {
+    try {
+      await ingestArchive(`${DOLE_OPEN_DATA_INDEX}${name}`, since, max, out, seen);
+    } catch (e) {
+      console.warn(`[dole-full] archive ${name} ignorée: ${(e as Error).message}`);
+    }
+    if (seen.size >= max) break;
   }
 
   return out.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
