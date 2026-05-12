@@ -24,13 +24,20 @@ async function getPisteToken(): Promise<string> {
 }
 
 async function searchDole(token: string, dateStart: string, pageSize: number, page: number) {
+  // Payload conforme au fond DOLE (Dossiers Législatifs) :
+  // - facette valide : DATE_SIGNATURE (DATE_VERSION n'existe pas pour DOLE)
+  // - champs valide : ALL (TITLE n'est pas accepté pour DOLE)
   const payload = {
     fond: "DOLE",
     recherche: {
-      filtres: [{ facette: "DATE_VERSION", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } }],
-      pageSize, pageNumber: page, sort: "PERTINENCE",
+      filtres: [
+        { facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } },
+      ],
+      pageSize, pageNumber: page, sort: "SIGNATURE_DATE_DESC",
       typePagination: "DEFAUT", operateur: "ET",
-      champs: [{ typeChamp: "TITLE", criteres: [{ typeRecherche: "EXACTE", valeur: "loi", operateur: "ET" }], operateur: "ET" }],
+      champs: [
+        { typeChamp: "ALL", criteres: [{ typeRecherche: "UN_DES_MOTS", valeur: "loi", operateur: "ET" }], operateur: "ET" },
+      ],
     },
   };
   const r = await fetch(`${PISTE_BASE}/search`, {
@@ -38,7 +45,10 @@ async function searchDole(token: string, dateStart: string, pageSize: number, pa
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error(`DOLE search ${r.status}`);
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(`DOLE search ${r.status}: ${txt.slice(0, 300)}`);
+  }
   return await r.json() as { results?: Array<{ titles?: Array<{ id: string; title: string }>; nature?: string; date?: string }>; totalResultNumber?: number };
 }
 
