@@ -245,6 +245,17 @@ function ConnectorsAdminPage() {
   });
 
   const relaunchConnector = (connectorId: string, jobId?: string) => {
+    // Cas spécial : jobs retry-empty-<connector> → on relance via retryEmptySources
+    if (connectorId.startsWith("retry-empty-")) {
+      const sub = connectorId.slice("retry-empty-".length) as
+        | "bofip" | "judilibre" | "cdtn-fiches" | "legifrance";
+      if (!["bofip", "judilibre", "cdtn-fiches", "legifrance"].includes(sub)) {
+        toast.error(`Retry ${connectorId} non supporté`);
+        return;
+      }
+      retryEmptyMut.mutate(sub);
+      return;
+    }
     const cfg = CONNECTORS.find((c) => c.id === connectorId);
     if (!cfg) {
       toast.error(`Connecteur ${connectorId} inconnu`);
