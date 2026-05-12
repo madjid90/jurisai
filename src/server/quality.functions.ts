@@ -33,10 +33,12 @@ export type DataQualitySnapshot = {
 export const getDataQualitySnapshot = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<DataQualitySnapshot> => {
-    const { userId } = context as { userId: string };
+    const { userId, supabase } = context as { userId: string; supabase: typeof supabaseAdmin };
     await requireSuperAdmin(userId);
+    // IMPORTANT: appel via le client authentifié (RLS) pour que auth.uid() soit
+    // disponible dans la RPC SECURITY DEFINER (qui vérifie is_super_admin(auth.uid())).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await supabaseAdmin.rpc("get_data_quality_snapshot");
+    const { data, error } = await supabase.rpc("get_data_quality_snapshot");
     if (error) throw new Error(error.message);
     return data as DataQualitySnapshot;
   });

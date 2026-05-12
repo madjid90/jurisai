@@ -113,7 +113,7 @@ export async function runGenerateWorkflow(
       domain: data.domain ?? null,
       category: data.category ?? null,
       llm_model: GEN_MODEL,
-      status: "in_progress", // P0.3 — statut harmonisé
+      status: "running", // doit matcher workflow_generation_runs_status_check
     })
     .select("id")
     .single();
