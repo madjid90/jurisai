@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
-import { Activity, Loader2, Plus } from "lucide-react";
+import { Activity, Loader2, Plus, Play } from "lucide-react";
 import { toast } from "sonner";
 import { getRagEvalAggregate, type RagEvalAggregate } from "@/server/quality.functions";
 
