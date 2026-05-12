@@ -179,40 +179,54 @@ Deno.serve(async (req) => {
       );
     }
 
-    const results: EvalResult[] = [];
-    for (const c of cases as EvalCase[]) {
-      try {
-        const r = await runOneCase(authToken, c, db, userId, tenantId);
-        results.push(r);
-        await db.from("rag_eval_runs").insert(r);
-      } catch (e) {
-        console.error(`Eval case ${c.id} failed:`, e);
+    // Exécution en arrière-plan : évite le timeout 150s de l'edge function.
+    // On répond immédiatement, le batch continue côté serveur.
+    const runBatch = async () => {
+      const results: EvalResult[] = [];
+      for (const c of cases as EvalCase[]) {
+        try {
+          const r = await runOneCase(authToken, c, db, userId, tenantId);
+          results.push(r);
+          await db.from("rag_eval_runs").insert(r);
+        } catch (e) {
+          console.error(`Eval case ${c.id} failed:`, e);
+        }
       }
-    }
-
-    const summary = {
-      ok: true,
-      ran: results.length,
-      avg_precision_at_5:
-        results.reduce((s, r) => s + r.precision_at_5, 0) / Math.max(results.length, 1),
-      avg_mrr: results.reduce((s, r) => s + r.mrr, 0) / Math.max(results.length, 1),
-      hallucination_rate:
-        results.filter((r) => r.hallucination_detected).length / Math.max(results.length, 1),
-      avg_latency_ms:
-        results.reduce((s, r) => s + r.latency_ms, 0) / Math.max(results.length, 1),
+      const summary = {
+        ran: results.length,
+        avg_precision_at_5:
+          results.reduce((s, r) => s + r.precision_at_5, 0) / Math.max(results.length, 1),
+        avg_mrr: results.reduce((s, r) => s + r.mrr, 0) / Math.max(results.length, 1),
+        hallucination_rate:
+          results.filter((r) => r.hallucination_detected).length / Math.max(results.length, 1),
+        avg_latency_ms:
+          results.reduce((s, r) => s + r.latency_ms, 0) / Math.max(results.length, 1),
+      };
+      await db.from("system_metrics").insert([
+        { metric_name: "rag_eval_precision_at_5", metric_value: summary.avg_precision_at_5 },
+        { metric_name: "rag_eval_mrr", metric_value: summary.avg_mrr },
+        { metric_name: "rag_eval_hallucination_rate", metric_value: summary.hallucination_rate },
+        { metric_name: "rag_eval_avg_latency_ms", metric_value: summary.avg_latency_ms },
+      ]);
+      console.log("[evaluate-rag] batch done", summary);
     };
 
-    // Record system metric
-    await db.from("system_metrics").insert([
-      { metric_name: "rag_eval_precision_at_5", metric_value: summary.avg_precision_at_5 },
-      { metric_name: "rag_eval_mrr", metric_value: summary.avg_mrr },
-      { metric_name: "rag_eval_hallucination_rate", metric_value: summary.hallucination_rate },
-      { metric_name: "rag_eval_avg_latency_ms", metric_value: summary.avg_latency_ms },
-    ]);
+    // @ts-expect-error EdgeRuntime global fourni par Supabase
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      // @ts-expect-error EdgeRuntime global
+      EdgeRuntime.waitUntil(runBatch());
+    } else {
+      void runBatch();
+    }
 
-    return new Response(JSON.stringify(summary), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        queued: cases.length,
+        message: `Évaluation lancée en arrière-plan sur ${cases.length} cas. Rafraîchissez dans 1-2 min.`,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err) {
     const status = err instanceof Error && err.message.includes("403") ? 403 : 500;
     console.error("evaluate-rag error:", err);
