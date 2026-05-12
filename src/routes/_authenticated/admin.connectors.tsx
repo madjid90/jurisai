@@ -211,6 +211,30 @@ function ConnectorsAdminPage() {
     onError: (err: Error) => toast.error("Suppression impossible", { description: err.message.slice(0, 200) }),
   });
 
+  const emptySourcesQuery = useQuery({
+    queryKey: ["admin", "empty-sources"],
+    queryFn: () => countEmptySources(),
+    refetchInterval: 30_000,
+  });
+
+  const retryEmptyMut = useMutation({
+    mutationFn: (connector: "bofip" | "judilibre" | "cdtn-fiches" | "legifrance") =>
+      retryEmptySources({ data: { connector } }),
+    onSuccess: (res) => {
+      if (res.ok === false) {
+        toast.error(`Retry ${res.connector} échoué`, { description: (res.error ?? "").slice(0, 200) });
+      } else {
+        toast.success(`Retry sources vides ${res.connector} lancé`, {
+          description: JSON.stringify(res.result ?? {}).slice(0, 120),
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["admin", "connector-jobs"] });
+      qc.invalidateQueries({ queryKey: ["admin", "empty-sources"] });
+      qc.invalidateQueries({ queryKey: ["admin", "connector-stats"] });
+    },
+    onError: (err: Error) => toast.error("Retry impossible", { description: err.message.slice(0, 200) }),
+  });
+
   const deleteFailedMut = useMutation({
     mutationFn: () => deleteFailedConnectorJobs({ data: {} }),
     onSuccess: () => {
