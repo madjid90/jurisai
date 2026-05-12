@@ -15,12 +15,10 @@ async function searchDole(dateStart: string, pageSize: number, page: number) {
   const payload = {
     fond: "DOLE",
     recherche: {
-      filtres: [
-        { facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } },
-      ],
-      pageSize,
+      filtres: [{ facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } }],
       pageNumber: page,
-      sort: "PERTINENCE",
+      pageSize,
+      sort: "SIGNATURE_DATE_DESC",
       typePagination: "DEFAUT",
       operateur: "ET",
     },
