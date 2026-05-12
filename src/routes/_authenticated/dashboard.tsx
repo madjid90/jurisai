@@ -68,6 +68,8 @@ function DashboardPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const create = useServerFn(createAgentRun);
+  const process = useServerFn(processAgentRun);
+  const execute = useServerFn(executeAgentRun);
   const ocr = useServerFn(runOcrDocument);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
