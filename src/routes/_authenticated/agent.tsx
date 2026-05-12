@@ -465,8 +465,11 @@ function RunCard({
   onChanged: () => void;
 }) {
   const get = useServerFn(getAgentRun);
+  const processFn = useServerFn(processAgentRun);
+  const executeFn = useServerFn(executeAgentRun);
   const [run, setRun] = useState<Record<string, unknown> | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const kickedRef = useRef(false);
 
   const load = async () => {
     try {
@@ -485,6 +488,20 @@ function RunCard({
     }
     void load();
     const inFlight = ["pending", "running", "ready"].includes(summary.status);
+    // Auto-kick : si la run est restée en pending sans intent (créée depuis le
+    // dashboard sans que process() ait été appelé), on lance la classification.
+    if (summary.status === "pending" && !kickedRef.current) {
+      kickedRef.current = true;
+      void (async () => {
+        try {
+          const r1 = (await processFn({ data: { id: summary.id } })) as { status: string };
+          if (r1.status === "ready") await executeFn({ data: { id: summary.id } });
+          await load();
+        } catch (e) {
+          console.error("[agent] auto-kick process failed:", e);
+        }
+      })();
+    }
     const channel = supabase
       .channel(`agent_run:${summary.id}`)
       .on(

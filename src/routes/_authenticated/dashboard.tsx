@@ -22,7 +22,7 @@ import {
   getDashboardSummary,
   type DashboardSummary,
 } from "@/server/dashboard.functions";
-import { createAgentRun } from "@/server/agent-runs.functions";
+import { createAgentRun, processAgentRun, executeAgentRun } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { applyRouting, type AgentRouting } from "@/lib/agent/home-intake";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +68,8 @@ function DashboardPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const create = useServerFn(createAgentRun);
+  const process = useServerFn(processAgentRun);
+  const execute = useServerFn(executeAgentRun);
   const ocr = useServerFn(runOcrDocument);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -123,6 +125,16 @@ function DashboardPage() {
       } else if (created.routing?.target === "analysis") {
         toast.success("Document analysé. Résultat dans l'assistant.");
       }
+      // Lance la classification + exécution en arrière-plan pour que la run avance,
+      // sinon le focus reste bloqué sur "Comprendre la demande".
+      void (async () => {
+        try {
+          const r1 = (await process({ data: { id: created.id } })) as { status: string };
+          if (r1.status === "ready") await execute({ data: { id: created.id } });
+        } catch (e) {
+          console.error("[dashboard] process/execute background failed:", e);
+        }
+      })();
       applyRouting(created.routing, navigate, created.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Échec de la demande");
