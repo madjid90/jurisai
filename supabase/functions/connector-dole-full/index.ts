@@ -191,14 +191,10 @@ Deno.serve(async (req) => {
             for (const it of items) {
               if (Date.now() - start > TIME_BUDGET_MS) break;
               try {
-                const d = await fetchDossier(it.id);
+                const d = await fetchDossier(it.url);
                 let body = "";
                 if (d) {
-                  if (d.resume) body += `## Résumé\n\n${d.resume}\n\n`;
-                  if (d.exposeMotifs) body += `## Exposé des motifs\n\n${d.exposeMotifs}\n\n`;
-                  if (d.evenements?.length) {
-                    body += `## Étapes\n\n` + d.evenements.map((e) => `- ${e.date ?? ""} — ${e.titre ?? ""} ${e.description ?? ""}`).join("\n");
-                  }
+                  body = d.body;
                 }
                 body = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
                 if (body.length < 50) body = `Dossier législatif ${it.title} (${it.nature ?? "loi"}, ${it.date ?? ""})`;
@@ -211,11 +207,11 @@ Deno.serve(async (req) => {
                 await ingestSource(db, apiKey, "dole", {
                   external_id: it.id,
                   source_type: "dossier_legislatif",
-                  title: it.title.slice(0, 500),
+                  title: (d?.title || it.title).slice(0, 500),
                   content,
-                  official_url: `https://www.legifrance.gouv.fr/dossierlegislatif/${it.id}`,
+                  official_url: d?.officialUrl ?? it.url,
                   legal_date: it.date ? it.date.slice(0, 10) : null,
-                  raw_metadata: { nature: it.nature, content_hash: hash },
+                  raw_metadata: { nature: it.nature, content_hash: hash, source_url: it.url },
                 });
                 ing++; ok.push(it);
               } catch (err) {
