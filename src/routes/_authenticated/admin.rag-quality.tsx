@@ -33,6 +33,7 @@ function RagQualityPage() {
   const [runs, setRuns] = useState<EvalRun[]>([]);
   const [agg, setAgg] = useState<RagEvalAggregate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
 
   const load = async () => {
