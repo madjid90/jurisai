@@ -2,149 +2,108 @@
 // Batch resumable. Veille proactive sur les lois en préparation.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { Untar } from "jsr:@std/archive/untar";
 import { corsHeadersFor, getAdminClient, getLovableApiKey, ingestSource } from "../_shared/ingest.ts";
 import { AuthError, requireSuperAdmin } from "../_shared/auth.ts";
 import { finalizeBatch, getNextItems, heartbeat, markFailed, markProcessed, startBatch } from "../_shared/batch-state.ts";
 import { sha256, shouldIngest } from "../_shared/content-hash.ts";
 
 const TIME_BUDGET_MS = 60_000;
-const VIE_PUBLIQUE_BASE = "https://www.vie-publique.fr";
-interface BatchItem { id: string; title: string; nature?: string; date?: string; url: string; }
-
-const MONTHS: Record<string, string> = {
-  janvier: "01",
-  fevrier: "02",
-  février: "02",
-  mars: "03",
-  avril: "04",
-  mai: "05",
-  juin: "06",
-  juillet: "07",
-  aout: "08",
-  août: "08",
-  septembre: "09",
-  octobre: "10",
-  novembre: "11",
-  decembre: "12",
-  décembre: "12",
-};
+const DOLE_OPEN_DATA_INDEX = "https://echanges.dila.gouv.fr/OPENDATA/DOLE/";
+const LEGIFRANCE_DOSSIER_BASE = "https://www.legifrance.gouv.fr/dossierlegislatif/";
+interface BatchItem { id: string; title: string; nature?: string; date?: string; content: string; officialUrl: string; }
 
 function normalizeText(value: string): string {
   return value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function normalizeMonth(value: string): string {
-  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function nodeText(parent: Element, selector: string): string {
+  return normalizeText(parent.querySelector(selector)?.textContent ?? "");
 }
 
-function parseFrenchDate(value: string): string | undefined {
-  const match = value.match(/\b(\d{1,2}|1er)\s+([A-Za-zÀ-ÿ]+)\s+(\d{4})\b/u);
-  if (!match) return undefined;
-  const day = String(match[1] === "1er" ? 1 : Number(match[1])).padStart(2, "0");
-  const month = MONTHS[normalizeMonth(match[2])];
-  if (!month) return undefined;
-  return `${match[3]}-${month}-${day}`;
+function xmlSection(parent: Element, selector: string, heading: string): string | null {
+  const node = parent.querySelector(selector);
+  if (!node) return null;
+  const text = normalizeText(node.textContent ?? "");
+  if (!text) return null;
+  return `## ${heading}\n\n${text}`;
 }
 
-function inferNature(title: string): string | undefined {
-  const lower = title.toLowerCase();
-  if (lower.startsWith("ordonnance")) return "ordonnance";
-  if (lower.startsWith("loi organique")) return "loi organique";
-  if (lower.startsWith("loi")) return "loi";
-  if (lower.startsWith("projet de loi")) return "projet de loi";
-  if (lower.startsWith("proposition de loi")) return "proposition de loi";
-  return undefined;
-}
-
-async function fetchHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { Accept: "text/html,application/xhtml+xml" } });
-  if (!res.ok) throw new Error(`Vie publique ${res.status} on ${url}`);
-  return await res.text();
-}
-
-function parseHtml(html: string): Document {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  if (!doc) throw new Error("Impossible de parser la page Vie publique");
-  return doc;
-}
-
-async function listLegislatureUrls(): Promise<string[]> {
-  const html = await fetchHtml(`${VIE_PUBLIQUE_BASE}/liste/legislatures`);
-  const doc = parseHtml(html);
-  const urls = new Set<string>();
-  for (const a of doc.querySelectorAll('a[href*="/liste/dossierslegislatifs/"]')) {
-    const href = a.getAttribute("href");
-    if (!href) continue;
-    urls.add(href.startsWith("http") ? href : `${VIE_PUBLIQUE_BASE}${href}`);
+function inferNatureFromType(type: string): string | undefined {
+  switch (type) {
+    case "LOI_PUBLIEE": return "loi";
+    case "LOI_ORGANIQUE": return "loi organique";
+    case "ORDONNANCE": return "ordonnance";
+    case "PROJET_LOI": return "projet de loi";
+    case "PROPOSITION_LOI": return "proposition de loi";
+    default: return type ? type.toLowerCase() : undefined;
   }
-  return [...urls];
+}
+
+async function latestOpenDataArchiveUrl(): Promise<string> {
+  const res = await fetch(DOLE_OPEN_DATA_INDEX);
+  if (!res.ok) throw new Error(`DOLE open data index ${res.status}`);
+  const html = await res.text();
+  const names = [...html.matchAll(/href="(DOLE_[^"]+\.tar\.gz)"/g)].map((m) => m[1]);
+  const latest = names.sort().at(-1);
+  if (!latest) throw new Error("Aucune archive DOLE trouvée dans l'open data DILA");
+  return `${DOLE_OPEN_DATA_INDEX}${latest}`;
 }
 
 async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
   const since = new Date();
   since.setMonth(since.getMonth() - months);
+
+  const archiveUrl = await latestOpenDataArchiveUrl();
+  const res = await fetch(archiveUrl);
+  if (!res.ok) throw new Error(`DOLE archive ${res.status}`);
+  if (!res.body) throw new Error("Archive DOLE vide");
+
+  const decompressed = res.body.pipeThrough(new DecompressionStream("gzip"));
+  const untar = new Untar(decompressed.getReader());
   const out: BatchItem[] = [];
   const seen = new Set<string>();
-  const legislatureUrls = await listLegislatureUrls();
 
-  for (const pageUrl of legislatureUrls) {
-    if (out.length >= max) break;
-    const html = await fetchHtml(pageUrl);
-    const doc = parseHtml(html);
-    const links = doc.querySelectorAll('a[href*="/dossierlegislatif/"]');
-    for (const link of links) {
-      const href = link.getAttribute("href");
-      const title = normalizeText(link.textContent ?? "");
-      if (!href || !title) continue;
-      const match = href.match(/\/dossierlegislatif\/([^/?#]+)/);
-      if (!match) continue;
-      const id = match[1];
-      if (seen.has(id)) continue;
-      const date = parseFrenchDate(title);
-      if (date && new Date(`${date}T00:00:00Z`) < since) continue;
-      if (!date && pageUrl !== legislatureUrls[0]) continue;
-      seen.add(id);
-      out.push({
-        id,
-        title,
-        nature: inferNature(title),
-        date,
-        url: href.startsWith("http") ? href : `${VIE_PUBLIQUE_BASE}${href}`,
-      });
-      if (out.length >= max) break;
-    }
-  }
+  for await (const entry of untar) {
+    if (entry.type !== "file" || !entry.fileName.endsWith(".xml")) continue;
+    const text = await new Response(entry.readable).text();
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    const root = doc?.querySelector("DOSSIER_LEGISLATIF");
+    if (!root) continue;
 
-  return out;
-}
+    const meta = root.querySelector("META_DOSSIER_LEGISLATIF");
+    if (!meta) continue;
+    const id = nodeText(root, "META_COMMUN > ID");
+    const title = nodeText(meta, "TITRE");
+    const date = nodeText(meta, "DATE_DERNIERE_MODIFICATION") || nodeText(meta, "DATE_CREATION");
+    if (!id || !title || seen.has(id)) continue;
+    if (date && new Date(`${date}T00:00:00Z`) < since) continue;
 
-async function fetchDossier(url: string) {
-  try {
-    const html = await fetchHtml(url);
-    const doc = parseHtml(html);
-    const main = doc.querySelector("main") ?? doc.body;
-    for (const node of main.querySelectorAll("script, style, noscript")) node.remove();
+    const contenu = root.querySelector("CONTENU");
+    const parts = [
+      xmlSection(contenu ?? root, "EXPOSE_MOTIF", "Exposé des motifs"),
+      xmlSection(contenu ?? root, "TEXTE_ADOPTE", "Texte adopté"),
+      xmlSection(contenu ?? root, "ECHEANCIER", "Échéancier"),
+      xmlSection(contenu ?? root, "TEXTE_DEPOT", "Texte déposé"),
+      xmlSection(contenu ?? root, "RAPPORTS", "Rapports"),
+      xmlSection(contenu ?? root, "TRAVAUX_PREPARATOIRES", "Travaux préparatoires"),
+      xmlSection(contenu ?? root, "CONTENU", "Contenu"),
+    ].filter(Boolean) as string[];
+    const content = parts.join("\n\n").replace(/\s+/g, " ").trim();
 
-    const title = normalizeText(doc.querySelector("h1")?.textContent ?? "");
-    const officialUrl = (doc.querySelector('a[href*="legifrance.gouv.fr/"]')?.getAttribute("href") ?? "").trim() || url;
-
-    const blocks: string[] = [];
-    for (const node of main.querySelectorAll("h2, h3, h4, p, li")) {
-      const text = normalizeText(node.textContent ?? "");
-      if (!text || text.length < 3) continue;
-      if (text.startsWith("Accepter") || text.startsWith("Refuser") || text.startsWith("Gérer les cookies")) continue;
-      blocks.push(text);
-    }
-
-    const deduped = blocks.filter((text, index) => blocks.indexOf(text) === index);
-    return {
+    seen.add(id);
+    out.push({
+      id,
       title,
-      officialUrl,
-      body: deduped.join("\n\n").slice(0, 60_000),
-    };
-  } catch {
-    return null;
+      nature: inferNatureFromType(nodeText(meta, "TYPE")),
+      date: date || undefined,
+      content,
+      officialUrl: `${LEGIFRANCE_DOSSIER_BASE}${id}`,
+    });
+    if (out.length >= max) break;
   }
+
+  return out.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 }
 
 Deno.serve(async (req) => {
