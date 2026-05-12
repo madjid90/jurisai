@@ -62,6 +62,7 @@ export function safeParseJSON(raw: string): any {
 export async function classifyIntent(
   message: string,
   ctx: AgentCtx,
+  priorAnswers?: Record<string, unknown> | null,
 ): Promise<{
   intent: string;
   domain: string;
@@ -74,6 +75,10 @@ export async function classifyIntent(
   suggested_actions: Array<{ kind: string; label: string; payload?: Record<string, unknown> }>;
   missing_information: string[];
 }> {
+  const answersBlock =
+    priorAnswers && Object.keys(priorAnswers).length > 0
+      ? `\n\nInformations DÉJÀ fournies par l'utilisateur (ne JAMAIS les redemander) :\n${JSON.stringify(priorAnswers, null, 2)}`
+      : "";
   const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
     method: "POST",
     headers: {
@@ -99,9 +104,14 @@ export async function classifyIntent(
   "suggested_actions": [{"kind":"search_law|propose_document|identify_risk|create_task|create_deadline|schedule_reminder|request_validation","label":"action humainement compréhensible","payload":{}}],
   "missing_information": ["info manquante 1","..."]
 }
+RÈGLES STRICTES :
+- "missing_information" ne doit lister QUE les infos RÉELLEMENT indispensables pour traiter la demande, max 3.
+- Si une info est déjà présente dans le message ou dans les "Informations déjà fournies", NE PAS la lister.
+- Si toutes les infos nécessaires sont là, "missing_information": [] et "requires_form": false.
+- Pas de questions de confort/curiosité — on ne redemande jamais une donnée déjà connue.
 Aucun texte hors JSON.`,
         },
-        { role: "user", content: message.slice(0, 3000) },
+        { role: "user", content: message.slice(0, 3000) + answersBlock },
       ],
     }),
   });
