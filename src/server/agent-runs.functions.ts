@@ -398,19 +398,26 @@ export const processAgentRun = createServerFn({ method: "POST" })
       const message = (run as { message: string }).message;
       const ctx: AgentCtx = { userId, tenantId, idcc: null, apiKey, sources: [] };
 
-      // 2. Comprendre
-      const classification = await classifyIntent(message, ctx);
-
+      // 2. Comprendre (en tenant compte des réponses déjà fournies)
       const draft = ((run as { draft: DraftShape }).draft ?? {}) as DraftShape;
+      const priorAnswers = (draft.form as Record<string, unknown> | undefined) ?? null;
+      const classification = await classifyIntent(message, ctx, priorAnswers);
+
       draft.classification = classification;
-      draft.questions = classification.missing_information ?? [];
+      // Filtre de sécurité : ne jamais re-demander une info déjà répondue
+      const answeredKeys = priorAnswers ? Object.keys(priorAnswers).map((k) => k.toLowerCase()) : [];
+      const filteredMissing = (classification.missing_information ?? []).filter((q) => {
+        const s = String(q).toLowerCase();
+        return !answeredKeys.some((k) => k && (s.includes(k) || k.includes(s.slice(0, 20))));
+      });
+      classification.missing_information = filteredMissing;
+      draft.questions = filteredMissing;
 
       // 3. Décider du prochain état
       let nextStatus: AgentRunStatus;
       if (
         classification.requires_form ||
-        (Array.isArray(classification.missing_information) &&
-          classification.missing_information.length > 0)
+        (Array.isArray(filteredMissing) && filteredMissing.length > 0)
       ) {
         nextStatus = "waiting_info";
       } else if (classification.requires_validation) {
