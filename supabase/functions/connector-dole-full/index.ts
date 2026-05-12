@@ -24,28 +24,18 @@ async function getPisteToken(): Promise<string> {
 }
 
 async function searchDole(token: string, dateStart: string, pageSize: number, page: number) {
-  // Payload minimal conforme à l'API Légifrance DOLE :
-  // - typeChamp "TITLE" + typeRecherche "EXACTE" + valeur non vide (loi)
-  // - facette "DATE_SIGNATURE" pour la fenêtre temporelle
-  // - typePagination "DEFAUT", sort "PERTINENCE"
+  // DOLE semble refuser les critères texte/champs sur /search alors que les autres
+  // fonds les acceptent. On reste donc sur le payload minimal valide observé sur
+  // les autres fonds PISTE : filtre date + pagination + tri uniquement.
   const payload = {
     fond: "DOLE",
     recherche: {
-      champs: [
-        {
-          typeChamp: "TITLE",
-          criteres: [
-            { typeRecherche: "EXACTE", valeur: "loi", operateur: "ET", proximite: 2 },
-          ],
-          operateur: "ET",
-        },
-      ],
       filtres: [
         { facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } },
       ],
       pageSize,
       pageNumber: page,
-      sort: "PERTINENCE",
+      sort: "SIGNATURE_DATE_DESC",
       typePagination: "DEFAUT",
       operateur: "ET",
     },
