@@ -22,7 +22,7 @@ import {
   getDashboardSummary,
   type DashboardSummary,
 } from "@/server/dashboard.functions";
-import { createAgentRun } from "@/server/agent-runs.functions";
+import { createAgentRun, processAgentRun, executeAgentRun } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { applyRouting, type AgentRouting } from "@/lib/agent/home-intake";
 import { supabase } from "@/integrations/supabase/client";
