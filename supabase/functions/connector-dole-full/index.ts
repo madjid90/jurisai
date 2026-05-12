@@ -24,20 +24,30 @@ async function getPisteToken(): Promise<string> {
 }
 
 async function searchDole(token: string, dateStart: string, pageSize: number, page: number) {
-  // Payload conforme au fond DOLE (Dossiers Législatifs) :
-  // - facette valide : DATE_SIGNATURE (DATE_VERSION n'existe pas pour DOLE)
-  // - champs valide : ALL (TITLE n'est pas accepté pour DOLE)
+  // Payload minimal conforme à l'API Légifrance DOLE :
+  // - typeChamp "TITLE" + typeRecherche "EXACTE" + valeur non vide (loi)
+  // - facette "DATE_SIGNATURE" pour la fenêtre temporelle
+  // - typePagination "DEFAUT", sort "PERTINENCE"
   const payload = {
     fond: "DOLE",
     recherche: {
+      champs: [
+        {
+          typeChamp: "TITLE",
+          criteres: [
+            { typeRecherche: "EXACTE", valeur: "loi", operateur: "ET", proximite: 2 },
+          ],
+          operateur: "ET",
+        },
+      ],
       filtres: [
         { facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } },
       ],
-      pageSize, pageNumber: page, sort: "SIGNATURE_DATE_DESC",
-      typePagination: "DEFAUT", operateur: "ET",
-      champs: [
-        { typeChamp: "ALL", criteres: [{ typeRecherche: "UN_DES_MOTS", valeur: "loi", operateur: "ET" }], operateur: "ET" },
-      ],
+      pageSize,
+      pageNumber: page,
+      sort: "PERTINENCE",
+      typePagination: "DEFAUT",
+      operateur: "ET",
     },
   };
   const r = await fetch(`${PISTE_BASE}/search`, {
