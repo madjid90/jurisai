@@ -5370,6 +5370,13 @@ export type Database = {
       }
       cleanup_rate_limits: { Args: never; Returns: undefined }
       cleanup_zombie_batches: { Args: never; Returns: number }
+      count_empty_sources_by_connector: {
+        Args: never
+        Returns: {
+          connector: string
+          count: number
+        }[]
+      }
       create_notification: {
         Args: {
           _body?: string
@@ -5452,6 +5459,15 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_empty_sources: {
+        Args: { p_connector: string }
+        Returns: {
+          external_id: string
+          official_url: string
+          raw_metadata: Json
+          source_id: string
+        }[]
+      }
       log_server_error: {
         Args: {
           _context: Json
