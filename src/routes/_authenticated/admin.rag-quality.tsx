@@ -87,11 +87,17 @@ function RagQualityPage() {
   return (
     <AppShell>
       <div className="space-y-4">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <Activity className="h-6 w-6 text-accent" /> Évaluation RAG
-          </h1>
-          <p className="text-sm text-muted-foreground">Set d'évaluation et résultats des runs.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+              <Activity className="h-6 w-6 text-accent" /> Évaluation RAG
+            </h1>
+            <p className="text-sm text-muted-foreground">Set d'évaluation et résultats des runs.</p>
+          </div>
+          <Button onClick={runEvaluation} disabled={running || cases.length === 0}>
+            {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            {running ? "Évaluation en cours…" : "Lancer une évaluation"}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
