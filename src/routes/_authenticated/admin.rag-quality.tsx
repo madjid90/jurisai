@@ -57,6 +57,29 @@ function RagQualityPage() {
     if (error) toast.error("Erreur"); else { setNewQuestion(""); void load(); toast.success("Cas ajouté"); }
   };
 
+  const runEvaluation = async () => {
+    setRunning(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        toast.error("Session expirée");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("evaluate-rag", {
+        body: { limit: 50 },
+      });
+      if (error) throw error;
+      const ran = (data as { ran?: number } | null)?.ran ?? 0;
+      toast.success(`Évaluation terminée : ${ran} cas exécutés`);
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur lors de l'évaluation");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const avgP5 = runs.length ? runs.reduce((s, r) => s + (r.precision_at_5 ?? 0), 0) / runs.length : 0;
   const avgMRR = runs.length ? runs.reduce((s, r) => s + (r.mrr ?? 0), 0) / runs.length : 0;
   const halluRate = runs.length ? runs.filter((r) => r.hallucination_detected).length / runs.length : 0;
