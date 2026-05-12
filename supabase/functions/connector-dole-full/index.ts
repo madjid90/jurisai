@@ -27,9 +27,20 @@ async function searchDole(token: string, dateStart: string, pageSize: number, pa
   // DOLE semble refuser les critères texte/champs sur /search alors que les autres
   // fonds les acceptent. On reste donc sur le payload minimal valide observé sur
   // les autres fonds PISTE : filtre date + pagination + tri uniquement.
+  // DOLE exige un bloc `champs` non vide. On utilise un critère TOUS_LES_MOTS très
+  // large ("loi") combiné au filtre date pour récupérer tous les dossiers récents.
   const payload = {
     fond: "DOLE",
     recherche: {
+      champs: [
+        {
+          typeChamp: "ALL",
+          criteres: [
+            { typeRecherche: "TOUS_LES_MOTS", valeur: "loi", operateur: "ET" },
+          ],
+          operateur: "ET",
+        },
+      ],
       filtres: [
         { facette: "DATE_SIGNATURE", dates: { start: dateStart, end: new Date().toISOString().slice(0, 10) } },
       ],
