@@ -511,7 +511,8 @@ function RunCard({
       )
       .subscribe();
     if (inFlight) {
-      pollingRef.current = setInterval(load, 8000);
+      // Polling allégé : 20s (Realtime gère les mises à jour rapides)
+      pollingRef.current = setInterval(load, 20000);
     }
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -1282,7 +1283,8 @@ function ToolCallsLive({ runId }: { runId: string }) {
         () => { void fetchRows(); },
       )
       .subscribe();
-    const interval = setInterval(fetchRows, 4000);
+    // Polling allégé : 15s (Realtime gère les mises à jour rapides)
+    const interval = setInterval(fetchRows, 15000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -1547,7 +1549,8 @@ function FollowUpThread({
         () => { void reload(); },
       )
       .subscribe();
-    const interval = setInterval(reload, 8000);
+    // Polling allégé : 20s (Realtime gère les mises à jour rapides)
+    const interval = setInterval(reload, 20000);
     return () => {
       clearInterval(interval);
       void supabase.removeChannel(channel);

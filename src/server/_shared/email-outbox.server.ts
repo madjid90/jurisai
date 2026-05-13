@@ -62,13 +62,38 @@ type OutboxRow = {
  * Hook d'envoi réel — laissé volontairement minimal (provider à brancher).
  * Retourne true si envoyé, sinon throw une erreur explicite.
  */
-async function sendEmail(_row: OutboxRow): Promise<boolean> {
-  // Branchement Resend / SMTP à venir. Pour l'instant, on no-op si pas configuré.
-  // throw → marquera l'email comme failed et il sera retenté plus tard.
-  if (!process.env.RESEND_API_KEY) {
+async function sendEmail(row: OutboxRow): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
     throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
   }
-  // TODO: appel Resend ici
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "JurisAI <notifications@jurisai.fr>";
+
+  const body: Record<string, unknown> = {
+    from: fromEmail,
+    to: [row.to_email],
+    subject: row.subject,
+  };
+
+  if (row.body_html) body.html = row.body_html;
+  else if (row.body_text) body.text = row.body_text;
+  else body.text = row.subject; // Fallback minimal
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Resend ${res.status}: ${errText.slice(0, 500)}`);
+  }
+
   return true;
 }
 
