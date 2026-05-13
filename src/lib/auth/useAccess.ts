@@ -12,7 +12,7 @@ export type { UserAccess } from "@/lib/auth/access-types";
 // Dynamic import : évite que le bundle client charge `src/server/**` au boot
 // (import-protection bloque ce dossier côté client).
 async function getMyAccess(): Promise<UserAccess> {
-  const mod = await import("@/server/permissions.functions");
+  const mod = await import("@/lib/auth/permissions.functions");
   return (await mod.getMyAccess()) as UserAccess;
 }
 

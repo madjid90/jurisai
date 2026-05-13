@@ -36,7 +36,7 @@ import { QuotaBadge } from "@/components/app/QuotaBadge";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { GlobalSearch } from "@/components/app/GlobalSearch";
 import { useAccess, hasPermission } from "@/lib/auth/useAccess";
-import type { UserAccess } from "@/server/permissions.functions";
+import type { UserAccess } from "@/lib/auth/permissions.functions";
 import { FormSlideOverProvider } from "@/components/agent/FormSlideOver";
 
 type NavItemDef = {
