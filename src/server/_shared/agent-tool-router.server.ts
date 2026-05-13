@@ -13,6 +13,7 @@ import {
   createTask,
   createDeadline,
   searchDossier,
+  updateTask,
   createDossierTool,
   startWorkflowTool,
   analyzeDocumentTool,
@@ -94,6 +95,17 @@ const HANDLERS: Record<string, ToolHandler> = {
       {
         query: String(a.query ?? ""),
         limit: a.limit ? Number(a.limit) : undefined,
+      },
+      c,
+    ),
+  update_task: (a, c) =>
+    updateTask(
+      {
+        task_id: String(a.task_id ?? ""),
+        dossier_id: String(a.dossier_id ?? ""),
+        status: a.status ? String(a.status) : undefined,
+        priority: a.priority ? String(a.priority) : undefined,
+        title: a.title ? String(a.title) : undefined,
       },
       c,
     ),

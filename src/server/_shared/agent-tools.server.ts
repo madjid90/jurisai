@@ -110,7 +110,17 @@ RÈGLES STRICTES :
 - Si une info est déjà présente dans le message ou dans les "Informations déjà fournies", NE PAS la lister.
 - Si toutes les infos nécessaires sont là, "missing_information": [] et "requires_form": false.
 - Pas de questions de confort/curiosité — on ne redemande jamais une donnée déjà connue.
-Aucun texte hors JSON.`,
+Aucun texte hors JSON.
+
+EXEMPLES :
+Demande : "Quel est le délai de préavis pour un licenciement d'un cadre avec 5 ans d'ancienneté ?"
+→ {"intent":"question_juridique","domain":"rh","topic":"Délai préavis licenciement cadre 5 ans","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les textes sur le préavis de licenciement"}],"missing_information":[]}
+
+Demande : "Rédige-moi une lettre de mise en demeure pour impayé"
+→ {"intent":"redaction_document","domain":"commercial","topic":"Lettre mise en demeure impayé","confidence":0.9,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":true,"suggested_actions":[{"kind":"propose_document","label":"Générer une lettre de mise en demeure"}],"missing_information":["Nom du débiteur","Montant de la créance","Date de la facture impayée"]}
+
+Demande : "Ajoute une échéance pour le renouvellement du bail au 15 mars"
+→ {"intent":"suivi_echeance","domain":"commercial","topic":"Échéance renouvellement bail","confidence":0.85,"requires_rag":false,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"create_deadline","label":"Créer échéance renouvellement bail 15 mars"}],"missing_information":[]}`,
         },
         { role: "user", content: message.slice(0, 3000) + answersBlock },
       ],
@@ -140,62 +150,37 @@ export async function searchLaw(
   ctx: AgentCtx,
 ): Promise<ToolOutcome> {
   try {
-    const emb = await embedText(query, { apiKey: ctx.apiKey, context: "search_law" });
-    if (!emb.ok) {
-      return {
-        result: {
-          error: embedErrorMessage(emb.kind),
-          kind: emb.kind,
-          status: emb.status,
-          detail: emb.detail,
-          attempts: emb.attempts,
-        },
-        succeeded: false,
-        errorMessage: `embed:${emb.kind}${emb.status ? `:${emb.status}` : ""}`,
-      };
-    }
-    const embedding = emb.embedding;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: results, error } = await (supabaseAdmin as any).rpc("hybrid_search", {
-      query_embedding: embedding,
-      query_text: query,
-      match_count: 16,
-      idcc_filter: ctx.idcc,
+    const { searchLegalSources } = await import("./legal-rag.server");
+    const result = await searchLegalSources(query, {
+      idcc: ctx.idcc,
+      limit: 8,
     });
-    if (error) return { result: { error: error.message }, succeeded: false };
-    const chunks = (results ?? []) as Array<{
-      chunk_id: string;
-      source_title: string;
-      reference_code: string | null;
-      official_url: string | null;
-      content: string;
-    }>;
-    if (!chunks.length) {
+    if (!result.ok || result.sources.length === 0) {
       return {
         result: {
           sources: [],
-          warning: "Aucune source pertinente trouvée. Refuse l'affirmation juridique sur ce point.",
+          warning: result.reason ?? "Aucune source pertinente trouvée. Refuse l'affirmation juridique sur ce point.",
         },
         succeeded: true,
       };
     }
     return {
       result: {
-        sources: chunks.map((c) => {
+        sources: result.sources.map((s) => {
           const n = ctx.sources.length + 1;
           ctx.sources.push({
             n,
-            title: c.source_title,
-            ref: c.reference_code,
-            url: c.official_url,
+            title: s.title,
+            ref: s.reference,
+            url: s.url,
           });
           return {
             n,
-            title: c.source_title,
-            reference: c.reference_code,
-            url: c.official_url,
-            excerpt: c.content.slice(0, 700),
+            title: s.title,
+            reference: s.reference,
+            url: s.url,
+            source_type: s.source_type,
+            excerpt: s.excerpt.slice(0, 700),
           };
         }),
       },
@@ -544,6 +529,58 @@ export async function createDeadline(
     metadata: { source: "agent" },
   });
   return { result: { deadline: data }, succeeded: true };
+}
+
+// ------------------------------------------------------------------ update_task
+export async function updateTask(
+  args: { task_id: string; dossier_id: string; status?: string; priority?: string; title?: string },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabaseAdmin as any;
+  const { data: task } = await sb
+    .from("dossier_tasks")
+    .select("id, title, status, dossier_id")
+    .eq("id", args.task_id)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  if (!task) return { result: { error: "Tâche introuvable" }, succeeded: false };
+
+  const updates: Record<string, unknown> = {};
+  if (args.status) {
+    const allowed = new Set(["todo", "in_progress", "done", "cancelled"]);
+    if (allowed.has(args.status)) updates.status = args.status;
+  }
+  if (args.priority) {
+    const allowed = new Set(["low", "normal", "high", "urgent"]);
+    if (allowed.has(args.priority)) updates.priority = args.priority;
+  }
+  if (args.title) updates.title = args.title.slice(0, 200);
+
+  if (Object.keys(updates).length === 0) {
+    return { result: { error: "Aucune modification fournie" }, succeeded: false };
+  }
+
+  const { data, error } = await sb
+    .from("dossier_tasks")
+    .update(updates)
+    .eq("id", args.task_id)
+    .select("id, title, status, priority, due_date")
+    .single();
+  if (error) return { result: { error: error.message }, succeeded: false };
+
+  const dossierId = args.dossier_id || task.dossier_id;
+  if (dossierId) {
+    await logTimelineEvent({
+      tenantId: ctx.tenantId,
+      dossierId,
+      actorId: ctx.userId,
+      eventType: "task.updated",
+      title: `Tâche mise à jour : ${data.title} → ${data.status}`,
+      metadata: { source: "agent", updates },
+    });
+  }
+  return { result: { task: data }, succeeded: true };
 }
 
 // ------------------------------------------------------------------ search_dossier
