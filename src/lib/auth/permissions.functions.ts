@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getTenantId } from "./_shared/tenant.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
 import type { AppRole, UserAccess } from "@/lib/auth/access-types";
 
 export type { AppRole, UserAccess };
