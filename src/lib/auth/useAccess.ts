@@ -6,7 +6,8 @@
 // getMyAccess à chaque montage. Invalidation : changement d'utilisateur.
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getMyAccess, type UserAccess } from "@/server/permissions.functions";
+import { getMyAccess, type UserAccess } from "@/lib/auth/permissions.functions";
+export type { UserAccess } from "@/lib/auth/access-types";
 
 const EMPTY: UserAccess = {
   tenantId: "",
