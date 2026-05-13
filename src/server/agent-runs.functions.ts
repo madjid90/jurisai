@@ -601,6 +601,35 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
   });
 
 // ---------------------------------------------------------------------------
+// WATCHDOG — récupère les runs bloquées en `running` depuis plus de 5 min.
+// Appelable manuellement ou via un cron. Reset le statut à `pending` pour relance.
+// ---------------------------------------------------------------------------
+const STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+export const recoverStuckRuns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = (context as { userId: string }).userId;
+    const tenantId = await getTenantId(userId);
+
+    const threshold = new Date(Date.now() - STUCK_THRESHOLD_MS).toISOString();
+    const { data: stuck, error } = await supabaseAdmin
+      .from("agent_runs")
+      .update({ status: "pending", error_message: "Auto-recovery: run bloquée en running" } as never)
+      .eq("tenant_id", tenantId)
+      .eq("status", "running")
+      .lt("updated_at", threshold)
+      .select("id");
+
+    if (error) throw new Error(error.message);
+    const recovered = (stuck ?? []).length;
+    if (recovered > 0) {
+      console.warn(`[watchdog] Recovered ${recovered} stuck runs for tenant ${tenantId}`);
+    }
+    return { recovered, ids: (stuck ?? []).map((r: { id: string }) => r.id) };
+  });
+
+// ---------------------------------------------------------------------------
 // EXÉCUTION FINALE — status=ready → executed.
 // Sourcing RAG obligatoire si requires_rag, rédaction de la réponse + procédure.
 // (Génération des documents pré-remplis viendra dans une étape suivante en

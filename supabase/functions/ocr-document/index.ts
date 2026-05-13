@@ -6,7 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 import { corsHeadersFor } from "../_shared/cors.ts";
-const VISION_MODEL = "google/gemini-3-flash-preview";
+const VISION_MODEL = "google/gemini-2.5-flash";
 
 const OCR_PROMPT = `Tu es un OCR juridique. Pour ce document :
 1. **Transcris fidèlement** tout le texte visible (titres, paragraphes, signatures, dates).

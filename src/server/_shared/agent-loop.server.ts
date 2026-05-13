@@ -13,6 +13,9 @@ import type { AgentCtx, ToolOutcome } from "./agent-tools.server";
 import { routeTool } from "./agent-tool-router.server";
 import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 
+/** Timeout dur par appel outil (évite qu'un appel DB bloqué gèle la boucle). */
+const TOOL_TIMEOUT_MS = 30_000;
+
 export type AgentLoopTrace = {
   tool: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,14 +43,29 @@ export type AgentLoopResult = {
   trace: AgentLoopTrace[];
 };
 
+/** Exécute un outil avec timeout dur. */
+async function routeToolWithTimeout(
+  name: string,
+  args: Record<string, unknown>,
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  return Promise.race([
+    routeTool(name, args, ctx),
+    new Promise<ToolOutcome>((_, reject) =>
+      setTimeout(() => reject(new Error(`Outil ${name} timeout (${TOOL_TIMEOUT_MS / 1000}s)`)), TOOL_TIMEOUT_MS),
+    ),
+  ]);
+}
+
 export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabaseAdmin as any;
   const messages = [...p.initialMessages];
   const trace: AgentLoopTrace[] = [];
   let answer = "";
+  const maxRounds = p.maxRounds ?? 6;
 
-  for (let round = 0; round < (p.maxRounds ?? 6); round++) {
+  for (let round = 0; round < maxRounds; round++) {
     const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${p.apiKey}`, "Content-Type": "application/json" },
@@ -84,7 +102,13 @@ export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
         const t0 = Date.now();
         let args: Record<string, unknown> = {};
         try { args = JSON.parse(call.function.arguments || "{}"); } catch { /* noop */ }
-        const outcome: ToolOutcome = await routeTool(call.function.name, args, p.ctx);
+        let outcome: ToolOutcome;
+        try {
+          outcome = await routeToolWithTimeout(call.function.name, args, p.ctx);
+        } catch (e) {
+          const errorMessage = e instanceof Error ? e.message : "tool failed";
+          outcome = { result: { error: errorMessage }, succeeded: false, errorMessage };
+        }
         return { call, args, outcome, duration: Date.now() - t0 };
       }),
     );
@@ -102,7 +126,12 @@ export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
       duration_ms: r.duration,
     }));
     if (traceRows.length > 0) {
-      try { await sb.from("agent_tool_runs").insert(traceRows); } catch { /* noop */ }
+      try {
+        await sb.from("agent_tool_runs").insert(traceRows);
+      } catch (e) {
+        // AL-2: log l'erreur au lieu de l'avaler silencieusement
+        console.error(`[agent-loop] trace insert failed (run=${p.runId}):`, e instanceof Error ? e.message : e);
+      }
     }
 
     for (const r of results) {
@@ -118,6 +147,36 @@ export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
         tool_call_id: r.call.id,
         content: JSON.stringify(r.outcome.result).slice(0, 8000),
       });
+    }
+  }
+
+  // AL-3: si max rounds atteint sans réponse finale, forcer un dernier appel
+  // avec tool_choice="none" pour obtenir une synthèse textuelle.
+  if (!answer && trace.length > 0) {
+    try {
+      const finalRes = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${p.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: p.model,
+          temperature: LLM_TEMPERATURES.chat,
+          max_tokens: LLM_MAX_TOKENS.chat,
+          messages: [
+            ...messages,
+            {
+              role: "user",
+              content: "Le nombre maximal d'étapes est atteint. Synthétise ta réponse maintenant avec les informations collectées. Cite les sources [source:N] si disponibles.",
+            },
+          ],
+          tool_choice: "none",
+        }),
+      });
+      if (finalRes.ok) {
+        const finalJson = await finalRes.json();
+        answer = (finalJson.choices?.[0]?.message?.content ?? "").toString();
+      }
+    } catch (e) {
+      console.error(`[agent-loop] final synthesis failed (run=${p.runId}):`, e instanceof Error ? e.message : e);
     }
   }
 
