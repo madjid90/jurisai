@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { prefillSession } from "@/server/_shared/prefill.server";
+import { AI_GATEWAY } from "@/server/_shared/constants.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
 import { shouldRequestValidation, type TemplateField, type PrefillSource } from "@/lib/templates/template-config";
@@ -257,7 +258,7 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
       const apiKey = process.env.LOVABLE_API_KEY;
       if (apiKey) {
         try {
-          const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({

@@ -8,8 +8,7 @@ import { logTimelineEvent } from "./timeline.server";
 import { llmFetch } from "./llm-fetch.server";
 import { resolveChatModel } from "./llm-models.server";
 import { embedText, embedErrorMessage } from "./llm-embeddings.server";
-
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 
 export type AgentCtx = {
   userId: string;
@@ -87,6 +86,8 @@ export async function classifyIntent(
     },
     body: JSON.stringify({
       model: await resolveChatModel(ctx.tenantId),
+      temperature: LLM_TEMPERATURES.classification,
+      max_tokens: LLM_MAX_TOKENS.classification,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -712,6 +713,8 @@ export async function analyzeDocumentTool(
     headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: await resolveChatModel(ctx.tenantId),
+      temperature: LLM_TEMPERATURES.analysis,
+      max_tokens: LLM_MAX_TOKENS.analysis,
       response_format: { type: "json_object" },
       messages: [
         {

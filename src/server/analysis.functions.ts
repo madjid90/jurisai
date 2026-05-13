@@ -7,6 +7,7 @@ import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
+import { AI_GATEWAY } from "@/server/_shared/constants.server";
 import {
   CONTRACT_RISKS,
   CONTRACT_RISK_KEYS,
@@ -169,7 +170,7 @@ async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; 
 
   const safeUserBlock = sanitizePromptInput(text, { maxLength: MAX_TEXT_CHARS, label: "DOCUMENT" });
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch(`${AI_GATEWAY}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

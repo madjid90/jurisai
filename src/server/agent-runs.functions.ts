@@ -607,8 +607,7 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 import { resolveChatModel } from "./_shared/llm-models.server";
-
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./_shared/constants.server";
 
 const EXEC_SYSTEM = `Tu es JurisAI, copilote juridique transverse.
 Tu reçois une demande utilisateur, sa classification, les infos collectées et des extraits juridiques sourcés.
@@ -729,6 +728,8 @@ ${sourcesBlock || "(aucune)"}`;
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: await resolveChatModel(run.tenant_id as string),
+          temperature: LLM_TEMPERATURES.chat,
+          max_tokens: LLM_MAX_TOKENS.chat,
           messages: [
             { role: "system", content: EXEC_SYSTEM },
             ...conversation,

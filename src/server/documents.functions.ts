@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { fillTemplate as sharedFillTemplate } from "@/server/_shared/template";
+import { AI_GATEWAY } from "@/server/_shared/constants.server";
 
 const db = supabaseAdmin as unknown as {
   from: (table: string) => any;
@@ -245,7 +246,7 @@ Instruction de l'utilisateur : ${data.prompt}
 Réponds avec le HTML final du document.`;
 
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const res = await fetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

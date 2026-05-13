@@ -11,8 +11,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { llmFetch } from "./llm-fetch.server";
 import type { AgentCtx, ToolOutcome } from "./agent-tools.server";
 import { routeTool } from "./agent-tool-router.server";
-
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 
 export type AgentLoopTrace = {
   tool: string;
@@ -54,6 +53,8 @@ export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
       headers: { Authorization: `Bearer ${p.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: p.model,
+        temperature: LLM_TEMPERATURES.chat,
+        max_tokens: LLM_MAX_TOKENS.chat,
         messages,
         tools: p.tools,
         tool_choice: "auto",

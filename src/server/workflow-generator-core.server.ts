@@ -16,7 +16,7 @@ import {
 } from "./_shared/workflow-validators.server";
 import { logWorkflowAudit } from "./_shared/workflow-audit.server";
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./_shared/constants.server";
 const GEN_MODEL = "google/gemini-2.5-pro";
 const CACHE_THRESHOLD = 0.85;
 
@@ -229,6 +229,8 @@ export async function runGenerateWorkflow(
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: GEN_MODEL,
+        temperature: LLM_TEMPERATURES.workflow,
+        max_tokens: LLM_MAX_TOKENS.workflow,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: GEN_SYSTEM },

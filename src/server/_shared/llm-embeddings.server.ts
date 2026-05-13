@@ -11,7 +11,7 @@
 import { llmFetch, LlmTimeoutError } from "./llm-fetch.server";
 import { DEFAULT_EMBED_MODEL } from "./llm-models.server";
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY } from "./constants.server";
 const EMBED_MAX_CHARS = 30_000;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_ATTEMPTS = 3;

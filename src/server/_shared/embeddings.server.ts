@@ -2,7 +2,7 @@
 // Toute opération qui doit produire un vecteur 1536 (text-embedding-3-small)
 // passe par ici pour garantir l'unicité du modèle et du format.
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY } from "./constants.server";
 const EMBED_MODEL = "openai/text-embedding-3-small";
 
 export async function embedText(input: string): Promise<number[] | null> {

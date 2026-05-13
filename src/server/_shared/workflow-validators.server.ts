@@ -18,7 +18,7 @@ import { searchLegalSources } from "./legal-rag.server";
 import { detectSensitiveActions, type WorkflowStepLike, type SensitiveDetectionResult } from "./sensitive-actions.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1";
+import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 const FLASH = "google/gemini-2.5-flash";
 const PRO = "google/gemini-2.5-pro";
 const FLASH_LITE = "google/gemini-2.5-flash-lite"; // 3ᵉ avis (V3 §18)
@@ -133,6 +133,8 @@ async function consensusOne(model: string, apiKey: string, draft: WorkflowDraft)
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
+        temperature: LLM_TEMPERATURES.consensus,
+        max_tokens: LLM_MAX_TOKENS.consensus,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: CONSENSUS_SYSTEM },
