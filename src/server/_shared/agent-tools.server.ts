@@ -160,7 +160,7 @@ export async function searchLaw(
     const { data: results, error } = await (supabaseAdmin as any).rpc("hybrid_search", {
       query_embedding: embedding,
       query_text: query,
-      match_count: 6,
+      match_count: 16,
       idcc_filter: ctx.idcc,
     });
     if (error) return { result: { error: error.message }, succeeded: false };

@@ -8,7 +8,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { prefillSession } from "@/server/_shared/prefill.server";
-import { AI_GATEWAY } from "@/server/_shared/constants.server";
+import { AI_GATEWAY, LLM_TEMPERATURES } from "@/server/_shared/constants.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
 import { shouldRequestValidation, type TemplateField, type PrefillSource } from "@/lib/templates/template-config";
@@ -271,11 +272,12 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
 - conservant strictement la structure HTML
 - ne supprimant aucune clause légale
 - ne modifiant aucune valeur factuelle (montants, dates, noms)
-- répondant uniquement avec le HTML final, sans markdown ni commentaire.`,
+- répondant uniquement avec le HTML final, sans markdown ni commentaire.
+${PROMPT_INJECTION_GUARD}`,
                 },
                 {
                   role: "user",
-                  content: `Document :\n${filled}\n\nInstruction : ${data.ai_instruction ?? "Améliore le style juridique."}`,
+                  content: `Document :\n${filled}\n\nInstruction : ${sanitizePromptInput(data.ai_instruction ?? "Améliore le style juridique.", { maxLength: 2000, label: "INSTRUCTION" })}`,
                 },
               ],
             }),

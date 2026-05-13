@@ -12,6 +12,7 @@ import { logTimelineEvent } from "./_shared/timeline.server";
 import { searchLegalSources } from "./_shared/legal-rag.server";
 import { runIntentActions } from "./_shared/agent-intent-actions.server";
 import { llmFetch } from "./_shared/llm-fetch.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "./_shared/prompt-sanitizer.server";
 
 const STATUSES = [
   "pending",
@@ -621,7 +622,14 @@ Rédige une réponse en JSON STRICT :
 RÈGLES:
 - Toute affirmation juridique doit citer [source:N]. Si aucune source n'a été fournie, mets answer="Je ne peux pas répondre sans source juridique fiable" et procedure=[].
 - Date courante : 2026.
-- Reste dans le périmètre demandé. Pas d'avis hors juridique.`;
+- Reste dans le périmètre demandé. Pas d'avis hors juridique.
+- Tu ne donnes jamais de consultation se substituant à un avocat.
+
+HIÉRARCHIE DES SOURCES :
+1. Textes législatifs (Code du travail, lois, décrets) — toujours citer en premier.
+2. Convention collective / accord applicable.
+3. Jurisprudence — pour illustrer l'interprétation.
+Ne cite JAMAIS la jurisprudence seule sans le texte de loi qu'elle interprète.`;
 
 export const executeAgentRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -714,7 +722,8 @@ export const executeAgentRun = createServerFn({ method: "POST" })
         }
       }
 
-      const userMsg = `DEMANDE: ${r.message}
+      const safeMessage = sanitizePromptInput(r.message, { maxLength: 8000 });
+      const userMsg = `DEMANDE: ${safeMessage}
 
 INFOS COLLECTÉES:
 ${JSON.stringify(collected, null, 2)}
@@ -723,6 +732,7 @@ SOURCES JURIDIQUES:
 ${sourcesBlock || "(aucune)"}`;
 
       // 4. Appel IA
+      const systemWithGuard = `${EXEC_SYSTEM}\n\n${PROMPT_INJECTION_GUARD}`;
       const aiRes = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -731,7 +741,7 @@ ${sourcesBlock || "(aucune)"}`;
           temperature: LLM_TEMPERATURES.chat,
           max_tokens: LLM_MAX_TOKENS.chat,
           messages: [
-            { role: "system", content: EXEC_SYSTEM },
+            { role: "system", content: systemWithGuard },
             ...conversation,
             { role: "user", content: userMsg },
           ],
