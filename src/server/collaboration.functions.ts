@@ -200,7 +200,22 @@ export const updateTask = createServerFn({ method: "POST" })
       dueDate: z.string().datetime().nullable().optional(),
     }).parse(i),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { userId } = context as { userId: string };
+    // Vérification tenant : empêche la modification de tâches hors tenant
+    const { data: profile } = await supabaseAdmin
+      .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
+    const tenantId = (profile as ProfileRow | null)?.tenant_id;
+    if (!tenantId) throw new Error("No tenant");
+    const { data: existing } = await supabaseAdmin
+      .from("dossier_tasks")
+      .select("tenant_id")
+      .eq("id", data.taskId)
+      .maybeSingle();
+    if (!existing || (existing as { tenant_id: string }).tenant_id !== tenantId) {
+      throw new Error("Accès refusé");
+    }
+
     const patch: Record<string, unknown> = {};
     if (data.title !== undefined) patch.title = data.title;
     if (data.description !== undefined) patch.description = data.description;

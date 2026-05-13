@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     // 1. Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return jsonErr("Missing authorization", 401);
+      return jsonErr("Missing authorization", 401, corsHeaders);
     }
     const accessToken = authHeader.replace(/^Bearer\s+/i, "");
 
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: userData, error: userErr } = await supabaseUser.auth.getUser(accessToken);
-    if (userErr || !userData.user) return jsonErr("Invalid session", 401);
+    if (userErr || !userData.user) return jsonErr("Invalid session", 401, corsHeaders);
     const userId = userData.user.id;
 
     // 2. Body
@@ -81,13 +81,13 @@ Deno.serve(async (req) => {
       history: Array<{ role: "user" | "assistant"; content: string }>;
     };
     if (!conversationId || !message?.trim()) {
-      return jsonErr("Missing conversationId or message", 400);
+      return jsonErr("Missing conversationId or message", 400, corsHeaders);
     }
 
     // Sanitize: anti prompt-injection + length cap. Used for embedding & retrieval.
     // Original `message` is still persisted as-is (user's literal input).
     const safeQuery = sanitizeQuery(message);
-    if (!safeQuery) return jsonErr("Question vide après filtrage.", 400);
+    if (!safeQuery) return jsonErr("Question vide après filtrage.", 400, corsHeaders);
 
     const t0 = Date.now();
 
@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
       .eq("id", conversationId)
       .single();
     if (convoErr || !convo || convo.user_id !== userId) {
-      return jsonErr("Conversation not found", 404);
+      return jsonErr("Conversation not found", 404, corsHeaders);
     }
 
     // 4. Tenant IDCC for filtering
@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
       return jsonErr(
         `Trop de requêtes (${rl[0].current_count}/min). Réessayez dans une minute.`,
         429,
+        corsHeaders,
       );
     }
 
@@ -140,7 +141,7 @@ Deno.serve(async (req) => {
       throw new Error("Quota check failed");
     }
     if (!quotaOk) {
-      return jsonErr("Quota mensuel atteint. Passez au plan supérieur pour continuer.", 402);
+      return jsonErr("Quota mensuel atteint. Passez au plan supérieur pour continuer.", 402, corsHeaders);
     }
 
     // 6. Persist user message
@@ -403,15 +404,15 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.error("AI gateway fetch failed:", e);
-      return jsonErr("Le service IA est temporairement indisponible. Réessayez.", 503);
+      return jsonErr("Le service IA est temporairement indisponible. Réessayez.", 503, corsHeaders);
     }
 
     if (!aiResponse.ok) {
-      if (aiResponse.status === 429) return jsonErr("Trop de requêtes. Réessayez dans un instant.", 429);
-      if (aiResponse.status === 402) return jsonErr("Crédits IA épuisés. Contactez votre administrateur.", 402);
+      if (aiResponse.status === 429) return jsonErr("Trop de requêtes. Réessayez dans un instant.", 429, corsHeaders);
+      if (aiResponse.status === 402) return jsonErr("Crédits IA épuisés. Contactez votre administrateur.", 402, corsHeaders);
       const errText = await aiResponse.text();
       console.error("AI gateway error", aiResponse.status, errText);
-      return jsonErr("Erreur du service IA", 500);
+      return jsonErr("Erreur du service IA", 500, corsHeaders);
     }
 
     // 11. Send sources metadata FIRST as a SSE prelude, then forward the LLM stream
@@ -581,13 +582,13 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("legal-chat error:", e);
-    return jsonErr(e instanceof Error ? e.message : "Unknown error", 500);
+    return jsonErr(e instanceof Error ? e.message : "Unknown error", 500, corsHeaders);
   }
 });
 
-function jsonErr(msg: string, status: number) {
+function jsonErr(msg: string, status: number, hdrs: Record<string, string> = {}) {
   return new Response(JSON.stringify({ error: msg }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...hdrs, "Content-Type": "application/json" },
   });
 }

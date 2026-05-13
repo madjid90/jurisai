@@ -1,6 +1,7 @@
 // Router central des tool calls de l'agent JurisAI.
 // Extrait du switch historique de agent.functions.ts pour permettre la réutilisation
 // (boucle agentique principale, replays, tests). Toujours typé via AgentCtx + ToolOutcome.
+// TODO: Remove `as never` casts — each handler should properly type its arguments
 
 import {
   type AgentCtx,
@@ -41,7 +42,7 @@ const HANDLERS: Record<string, ToolHandler> = {
   start_workflow: (a, c) => startWorkflowTool(a as never, c),
   analyze_document: (a, c) => analyzeDocumentTool(a as never, c),
   generate_report: (a, c) => generateReportTool(a as never, c),
-  generate_workflow: (a, c) => generateWorkflowTool(a as never, c),
+  generate_workflow: (a, c) => generateWorkflowTool(a as { prompt: string; category?: string }, c),
   run_workflow_step: (a, c) => runWorkflowStepTool(a as never, c),
 };
 

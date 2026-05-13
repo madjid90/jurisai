@@ -23,11 +23,11 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return jsonErr("Missing env", 500);
+      return jsonErr("Missing env", 500, corsHeaders);
     }
 
     const auth = req.headers.get("Authorization");
-    if (!auth) return jsonErr("Missing authorization", 401);
+    if (!auth) return jsonErr("Missing authorization", 401, corsHeaders);
     const accessToken = auth.replace(/^Bearer\s+/i, "");
 
     const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: userData, error: userErr } = await userClient.auth.getUser(accessToken);
-    if (userErr || !userData.user) return jsonErr("Invalid session", 401);
+    if (userErr || !userData.user) return jsonErr("Invalid session", 401, corsHeaders);
     const userId = userData.user.id;
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await supabase
       .from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
     const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id;
-    if (!tenantId) return jsonErr("No tenant", 403);
+    if (!tenantId) return jsonErr("No tenant", 403, corsHeaders);
 
     const body = await req.json();
     const storage_path: string = String(body.storage_path ?? "");
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const dossier_id: string | null = body.dossier_id ? String(body.dossier_id) : null;
 
     if (!storage_path.startsWith(`${tenantId}/`)) {
-      return jsonErr("Forbidden — path outside tenant", 403);
+      return jsonErr("Forbidden — path outside tenant", 403, corsHeaders);
     }
 
     // Rate limit
@@ -62,17 +62,17 @@ Deno.serve(async (req) => {
       p_user_id: userId, p_endpoint: "ocr-document", p_max_per_minute: 5,
     });
     if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
-      return jsonErr("Trop de requêtes (5/min)", 429);
+      return jsonErr("Trop de requêtes (5/min)", 429, corsHeaders);
     }
 
     // Download file
     const { data: file, error: dlErr } = await supabase.storage
       .from("dossier-files").download(storage_path);
-    if (dlErr || !file) return jsonErr("File not found in storage", 404);
+    if (dlErr || !file) return jsonErr("File not found in storage", 404, corsHeaders);
 
     const buf = await file.arrayBuffer();
     if (buf.byteLength > 15 * 1024 * 1024) {
-      return jsonErr("Fichier trop volumineux (max 15 Mo pour OCR)", 413);
+      return jsonErr("Fichier trop volumineux (max 15 Mo pour OCR)", 413, corsHeaders);
     }
     const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
     const mediaType = file_type;
@@ -121,9 +121,9 @@ Deno.serve(async (req) => {
           error_message: `AI gateway ${aiRes.status}`,
         }).eq("id", analysisId);
       }
-      if (aiRes.status === 429) return jsonErr("Trop de requêtes IA", 429);
-      if (aiRes.status === 402) return jsonErr("Crédits IA épuisés", 402);
-      return jsonErr("OCR a échoué", 500);
+      if (aiRes.status === 429) return jsonErr("Trop de requêtes IA", 429, corsHeaders);
+      if (aiRes.status === 402) return jsonErr("Crédits IA épuisés", 402, corsHeaders);
+      return jsonErr("OCR a échoué", 500, corsHeaders);
     }
 
     const aiJson = await aiRes.json();
@@ -154,12 +154,12 @@ Deno.serve(async (req) => {
     );
   } catch (e) {
     console.error("ocr-document error:", e);
-    return jsonErr(e instanceof Error ? e.message : "Unknown", 500);
+    return jsonErr(e instanceof Error ? e.message : "Unknown", 500, corsHeaders);
   }
 });
 
-function jsonErr(msg: string, status: number) {
+function jsonErr(msg: string, status: number, hdrs: Record<string, string> = {}) {
   return new Response(JSON.stringify({ error: msg }), {
-    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status, headers: { ...hdrs, "Content-Type": "application/json" },
   });
 }

@@ -561,7 +561,7 @@ export async function searchDossier(
     .from("dossiers")
     .select("id, title, status, category, risk_level, created_at")
     .eq("tenant_id", ctx.tenantId)
-    .or(`title.ilike.%${q.replace(/[%,]/g, "")}%,description.ilike.%${q.replace(/[%,]/g, "")}%`)
+    .or(`title.ilike.%${q.replace(/[%,().*!&|\\]/g, "")}%,description.ilike.%${q.replace(/[%,().*!&|\\]/g, "")}%`)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) return { result: { error: error.message }, succeeded: false };

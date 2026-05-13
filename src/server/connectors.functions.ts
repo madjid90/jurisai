@@ -322,7 +322,6 @@ export const checkConnectorSecrets = createServerFn({ method: "POST" })
           description: s.description,
           sensitive: "sensitive" in s ? s.sensitive : false,
           present: value.length > 0,
-          value, // exposé uniquement aux super-admins (middleware ci-dessus)
         };
       }),
     };

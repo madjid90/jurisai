@@ -23,9 +23,9 @@ Deno.serve(async (req) => {
   if (!isServiceRole) {
     const token = auth.replace(/^Bearer\s+/i, "");
     const { data: u } = await admin.auth.getUser(token);
-    if (!u?.user) return jsonErr("Unauthorized", 401);
+    if (!u?.user) return jsonErr("Unauthorized", 401, corsHeaders);
     const { data: isAdmin } = await admin.rpc("is_super_admin", { _user_id: u.user.id });
-    if (!isAdmin) return jsonErr("Forbidden", 403);
+    if (!isAdmin) return jsonErr("Forbidden", 403, corsHeaders);
   }
 
   const t0 = Date.now();
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
   if (srcErr) {
     console.error("legal-watch fetch error", srcErr);
-    return jsonErr(srcErr.message, 500);
+    return jsonErr(srcErr.message, 500, corsHeaders);
   }
 
   let created = 0;
@@ -108,9 +108,9 @@ Deno.serve(async (req) => {
   );
 });
 
-function jsonErr(msg: string, status: number) {
+function jsonErr(msg: string, status: number, hdrs: Record<string, string> = {}) {
   return new Response(JSON.stringify({ error: msg }), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...hdrs, "Content-Type": "application/json" },
   });
 }
