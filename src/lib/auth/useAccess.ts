@@ -6,7 +6,15 @@
 // getMyAccess à chaque montage. Invalidation : changement d'utilisateur.
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getMyAccess, type UserAccess } from "@/server/permissions.functions";
+import type { UserAccess } from "@/lib/auth/access-types";
+export type { UserAccess } from "@/lib/auth/access-types";
+
+// Dynamic import : évite que le bundle client charge `src/server/**` au boot
+// (import-protection bloque ce dossier côté client).
+async function getMyAccess(): Promise<UserAccess> {
+  const mod = await import("@/server/permissions.functions");
+  return (await mod.getMyAccess()) as UserAccess;
+}
 
 const EMPTY: UserAccess = {
   tenantId: "",
