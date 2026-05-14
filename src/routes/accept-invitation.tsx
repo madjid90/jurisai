@@ -5,7 +5,7 @@ import { Loader2, CheckCircle2, AlertCircle, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { acceptInvitation } from "@/lib/server-fns/invitations.functions";
+import { acceptInvitation } from "@/server/invitations.functions";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 
 type Search = { token?: string };

@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { decideValidation } from "@/lib/server-fns/dossier360.functions";
+import { decideValidation } from "@/server/dossier360.functions";
 import { Empty, SectionHeader } from "../shared";
 import type { Validation } from "../types";
 

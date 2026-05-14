@@ -17,7 +17,7 @@ import { useCallback, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { executeSuggestedAction } from "@/lib/agent/agent-actions.functions";
+import { executeSuggestedAction } from "@/server/agent-actions.functions";
 import type {
   AgentRun,
   AgentRunSuggestedAction,

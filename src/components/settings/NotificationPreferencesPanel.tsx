@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
-} from "@/lib/server-fns/notifications.functions";
+} from "@/server/notifications.functions";
 
 type Prefs = {
   email_enabled: boolean;

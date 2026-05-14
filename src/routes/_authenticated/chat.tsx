@@ -12,8 +12,8 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ResultRenderer, type AgentRun } from "@/components/agent/ResultRenderer";
-import { runLegalAgent } from "@/lib/agent/agent.functions";
-import { getAgentRun } from "@/lib/agent/agent-runs.functions";
+import { runLegalAgent } from "@/server/agent.functions";
+import { getAgentRun } from "@/server/agent-runs.functions";
 import { useExecuteSuggestedAction } from "@/hooks/use-execute-suggested-action";
 import { toast } from "sonner";
 

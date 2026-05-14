@@ -21,9 +21,9 @@ import {
   getAgentRun,
   listChildRuns,
   attachRunToDossier,
-} from "@/lib/agent/agent-runs.functions";
-import { runOcrDocument } from "@/lib/server-fns/ocr.functions";
-import { getGeneratedDocument } from "@/lib/server-fns/generation.functions";
+} from "@/server/agent-runs.functions";
+import { runOcrDocument } from "@/server/ocr.functions";
+import { getGeneratedDocument } from "@/server/generation.functions";
 import { WorkflowRuntimeBlock } from "@/components/agent/WorkflowRuntimeBlock";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";

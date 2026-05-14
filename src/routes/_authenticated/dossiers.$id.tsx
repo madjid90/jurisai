@@ -25,8 +25,8 @@ import {
   getDossier,
   updateDeadline,
   updateDossier,
-} from "@/lib/server-fns/crm.functions";
-import { exportDossierPDF } from "@/lib/server-fns/exports.functions";
+} from "@/server/crm.functions";
+import { exportDossierPDF } from "@/server/exports.functions";
 
 export const Route = createFileRoute("/_authenticated/dossiers/$id")({
   head: () => ({ meta: [{ title: "Dossier · JurisAI" }] }),

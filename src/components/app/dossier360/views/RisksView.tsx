@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { updateRiskStatus } from "@/lib/server-fns/dossier360.functions";
+import { updateRiskStatus } from "@/server/dossier360.functions";
 import { Empty, SectionHeader } from "../shared";
 import { RISK_STATUS_LABEL, SEVERITY_LABEL, SEVERITY_STYLE, type Risk } from "../types";
 

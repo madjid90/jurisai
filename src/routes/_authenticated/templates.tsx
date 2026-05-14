@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Loader2, FileText, ShieldAlert, ShieldCheck, BookOpen, Search, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-import { listDocumentTemplates } from "@/lib/server-fns/templates.functions";
+import { listDocumentTemplates } from "@/server/templates.functions";
 import { GenerationWizard } from "@/components/app/GenerationWizard";
 import { cn } from "@/lib/utils";
 

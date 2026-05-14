@@ -21,9 +21,9 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   getDashboardSummary,
   type DashboardSummary,
-} from "@/lib/server-fns/dashboard.functions";
-import { createAgentRun, processAgentRun, executeAgentRun } from "@/lib/agent/agent-runs.functions";
-import { runOcrDocument } from "@/lib/server-fns/ocr.functions";
+} from "@/server/dashboard.functions";
+import { createAgentRun, processAgentRun, executeAgentRun } from "@/server/agent-runs.functions";
+import { runOcrDocument } from "@/server/ocr.functions";
 import { applyRouting, type AgentRouting } from "@/lib/agent/home-intake";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";

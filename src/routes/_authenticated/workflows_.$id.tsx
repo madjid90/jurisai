@@ -10,8 +10,8 @@ import {
   generateDocFromWorkflowStep,
   getTemplateBySlug,
   sourceWorkflowStep,
-} from "@/lib/server-fns/workflows.functions";
-import { validateWorkflowStep } from "@/lib/server-fns/workflow-validation.functions";
+} from "@/server/workflows.functions";
+import { validateWorkflowStep } from "@/server/workflow-validation.functions";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 

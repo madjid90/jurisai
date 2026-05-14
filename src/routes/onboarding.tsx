@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { Field } from "@/routes/login";
-import { completeOnboarding } from "@/lib/server-fns/onboarding.functions";
+import { completeOnboarding } from "@/server/onboarding.functions";
 import { cn } from "@/lib/utils";
 import { IDCCAutocomplete } from "@/components/onboarding/IDCCAutocomplete";
 
