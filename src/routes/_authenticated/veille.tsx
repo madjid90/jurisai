@@ -25,13 +25,13 @@ import {
   dismissAlert,
   getAlertSubscription,
   updateAlertSubscription,
-} from "@/server/alerts.functions";
+} from "@/lib/server-fns/alerts.functions";
 import { Settings2 } from "lucide-react";
 import {
   listLegalUpdates,
   createLegalUpdateAction,
   updateLegalUpdateActionStatus,
-} from "@/server/legal-updates.functions";
+} from "@/lib/server-fns/legal-updates.functions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 

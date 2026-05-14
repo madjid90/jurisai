@@ -21,7 +21,7 @@ import {
   analyzeDocument,
   deleteAnalysis,
   listAnalyses,
-} from "@/server/analysis.functions";
+} from "@/lib/server-fns/analysis.functions";
 
 export const Route = createFileRoute("/_authenticated/analyses")({
   head: () => ({ meta: [{ title: "Analyses · JurisAI" }] }),

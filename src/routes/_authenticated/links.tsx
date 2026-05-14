@@ -16,7 +16,7 @@ import {
   listPendingLinks,
   confirmDocumentLink,
   rejectDocumentLink,
-} from "@/server/document-links.functions";
+} from "@/lib/server-fns/document-links.functions";
 
 export const Route = createFileRoute("/_authenticated/links")({
   head: () => ({ meta: [{ title: "Suggestions de liaison · JurisAI" }] }),

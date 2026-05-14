@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { updateDocument } from "@/server/documents.functions";
+import { updateDocument } from "@/lib/server-fns/documents.functions";
 import { exportElementToPdf, exportHtmlAsDoc } from "@/lib/documents/export";
 
 export const Route = createFileRoute("/_authenticated/documents/$id")({

@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { cn } from "@/lib/utils";
-import { deleteAnalysis, getAnalysis, validateExtractedField } from "@/server/analysis.functions";
+import { deleteAnalysis, getAnalysis, validateExtractedField } from "@/lib/server-fns/analysis.functions";
 
 export const Route = createFileRoute("/_authenticated/analyses/$id")({
   head: () => ({ meta: [{ title: "Analyse · JurisAI" }] }),

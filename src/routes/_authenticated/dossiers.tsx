@@ -37,7 +37,7 @@ import {
   listDeadlines,
   listDossiers,
   updateDeadline,
-} from "@/server/crm.functions";
+} from "@/lib/server-fns/crm.functions";
 import { VirtualList } from "@/components/shared/VirtualList";
 
 export const Route = createFileRoute("/_authenticated/dossiers")({

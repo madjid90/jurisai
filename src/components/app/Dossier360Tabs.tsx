@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { getDossier360 } from "@/server/dossier360.functions";
+import { getDossier360 } from "@/lib/server-fns/dossier360.functions";
 
 import type { Dossier360Data, TabKey } from "./dossier360/types";
 import { TimelineView } from "./dossier360/views/TimelineView";

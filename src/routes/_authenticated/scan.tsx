@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { runOcrDocument } from "@/server/ocr.functions";
+import { runOcrDocument } from "@/lib/server-fns/ocr.functions";
 import { AppShell } from "@/components/app/AppShell";
 import { Loader2, UploadCloud, ScanLine, FileText, X } from "lucide-react";
 import { toast } from "sonner";

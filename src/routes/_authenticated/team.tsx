@@ -18,8 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   sendInvitation,
   revokeInvitation,
-} from "@/server/invitations.functions";
-import { removeMember } from "@/server/settings.functions";
+} from "@/lib/server-fns/invitations.functions";
+import { removeMember } from "@/lib/server-fns/settings.functions";
 import { cn } from "@/lib/utils";
 import {
   ASSIGNABLE_ROLES,

@@ -14,6 +14,7 @@ import {
 import { routeTool } from "@/server/_shared/agent-tool-router.server";
 import { recallMemory, memoryPreamble } from "@/server/_shared/agent-memory.server";
 import { runPostResponsePipeline } from "@/server/_shared/agent-post-response.server";
+import type { AgentLoopResult, AgentLoopTrace } from "@/server/_shared/agent-loop.server";
 import { resolveChatModel } from "@/server/_shared/llm-models.server";
 
 const MAX_ROUNDS = 6;
@@ -203,9 +204,9 @@ export const runLegalAgent = createServerFn({ method: "POST" })
       { role: "user", content: userPreamble },
     ];
 
-    const { runAgentLoop } = await import("./_shared/agent-loop.server");
+    const { runAgentLoop } = await import("@/server/_shared/agent-loop.server");
     const chatModel = await resolveChatModel(tenantId);
-    const loopResult = await runAgentLoop({
+    const loopResult: AgentLoopResult = await runAgentLoop({
       apiKey,
       model: chatModel,
       tools: TOOLS,
@@ -216,7 +217,7 @@ export const runLegalAgent = createServerFn({ method: "POST" })
       maxRounds: MAX_ROUNDS,
     });
     let answer = loopResult.answer;
-    const trace = loopResult.trace;
+    const trace: AgentLoopTrace[] = loopResult.trace;
 
     let refused = false;
     let refusalReason: string | null = null;

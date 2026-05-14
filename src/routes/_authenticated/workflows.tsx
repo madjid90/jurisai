@@ -10,7 +10,7 @@ import {
   startWorkflow,
   cancelWorkflow,
   type WorkflowStep,
-} from "@/server/workflows.functions";
+} from "@/lib/server-fns/workflows.functions";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
