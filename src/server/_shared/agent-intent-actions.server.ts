@@ -29,9 +29,11 @@ type Extras = {
   deadlines?: unknown[];
   suggestedTemplates?: unknown[];
   risks?: Array<{ id: string; title: string; severity: string }>;
+  workflowInstanceId?: string | null;
 };
 
-const DOC_INTENTS = new Set(["redaction_document", "lancer_procedure"]);
+const DOC_INTENTS = new Set(["redaction_document"]);
+const PROCEDURE_INTENTS = new Set(["lancer_procedure"]);
 const ANALYSIS_INTENTS = new Set(["analyse_document", "analyse_contrat"]);
 const SEARCH_INTENTS = new Set(["recherche_dossier", "gestion_dossier"]);
 
@@ -73,6 +75,46 @@ export async function runIntentActions(opts: {
 
     if (DOC_INTENTS.has(intent)) {
       // Génération document : suggérer + générer un brouillon HTML pré-rempli
+      const suggested = await suggestTemplates({
+        tenantId,
+        topic: run.topic ?? run.message,
+      });
+      out.suggestedTemplates = suggested;
+      if (suggested.length > 0) {
+        const docId = await generateDraftDocument({
+          tenantId,
+          userId,
+          runId,
+          dossierId: run.dossier_id,
+          templateId: suggested[0].id as string,
+          collected: (draft.form as Record<string, unknown>) ?? {},
+          uploadedAnalysisId: collectAttachmentIds(draft)[0] ?? null,
+        });
+        if (docId) out.documentIds.push(docId);
+      }
+    }
+
+    if (PROCEDURE_INTENTS.has(intent)) {
+      // Procédure : chercher un workflow existant → sinon en générer un → démarrer l'instance.
+      const workflowResult = await findOrGenerateWorkflow({
+        tenantId,
+        userId,
+        runId,
+        dossierId: run.dossier_id,
+        topic: run.topic ?? run.message,
+        message: run.message,
+        collected: (draft.form as Record<string, unknown>) ?? {},
+      });
+      if (workflowResult) {
+        draft.workflow = workflowResult;
+        out.workflowInstanceId = workflowResult.instance_id;
+        // Si un document a été généré pour la première étape
+        if (workflowResult.first_document_id) {
+          out.documentIds.push(workflowResult.first_document_id);
+        }
+      }
+
+      // Aussi générer les documents pertinents (lettres, convocations)
       const suggested = await suggestTemplates({
         tenantId,
         topic: run.topic ?? run.message,
@@ -347,4 +389,174 @@ async function generateDraftDocument(opts: {
   }
 
   return doc.id as string;
+}
+
+// ---------------------------------------------------------------------------
+// Workflow : chercher un existant ou en générer un à la volée
+// ---------------------------------------------------------------------------
+
+type WorkflowResult = {
+  definition_id: string;
+  definition_title: string;
+  instance_id: string | null;
+  generated: boolean;
+  first_document_id: string | null;
+};
+
+async function findOrGenerateWorkflow(opts: {
+  tenantId: string;
+  userId: string;
+  runId: string;
+  dossierId: string | null;
+  topic: string;
+  message: string;
+  collected: Record<string, unknown>;
+}): Promise<WorkflowResult | null> {
+  try {
+    // 1. Chercher un workflow validé qui matche le sujet (scoring lexical)
+    const { data: defs } = await db
+      .from("workflow_definitions")
+      .select("id, title, slug, category, steps")
+      .or(`tenant_id.is.null,tenant_id.eq.${opts.tenantId}`)
+      .in("lifecycle_status", ["ai_validated_auto", "human_validated"])
+      .in("status", ["validated", "template"])
+      .limit(50);
+
+    const allDefs = (defs ?? []) as Array<{
+      id: string;
+      title: string;
+      slug: string;
+      category: string | null;
+      steps: unknown[];
+    }>;
+
+    const topicLower = opts.topic.toLowerCase();
+    const msgLower = opts.message.toLowerCase();
+    const searchStr = `${topicLower} ${msgLower}`;
+    const tokens = searchStr.split(/\s+/).filter((w) => w.length >= 4);
+
+    let bestDef: (typeof allDefs)[0] | null = null;
+    let bestScore = 0;
+
+    for (const d of allDefs) {
+      const hay = `${d.title} ${d.slug} ${d.category ?? ""}`.toLowerCase();
+      const hits = tokens.filter((w) => hay.includes(w)).length;
+      const score = tokens.length > 0 ? hits / tokens.length : 0;
+      if (score > bestScore && score >= 0.3) {
+        bestScore = score;
+        bestDef = d;
+      }
+    }
+
+    let definitionId: string;
+    let definitionTitle: string;
+    let generated = false;
+
+    if (bestDef) {
+      // Workflow existant trouvé
+      definitionId = bestDef.id;
+      definitionTitle = bestDef.title;
+      console.log(`[workflow] Matched existing: ${bestDef.slug} (score=${bestScore.toFixed(2)})`);
+    } else {
+      // Aucun workflow existant → générer à la volée
+      console.log(`[workflow] No match found, generating for: ${opts.topic}`);
+      try {
+        const { runGenerateWorkflow } = await import("@/server/workflow-generator-core.server");
+        const genResult = await runGenerateWorkflow(
+          { prompt: opts.message, category: inferDomainFromTopic(opts.topic) },
+          opts.userId,
+        );
+        if (genResult?.error || !genResult?.workflow_definition_id) {
+          console.warn("[workflow] Generation failed:", genResult?.error);
+          return null;
+        }
+        definitionId = genResult.workflow_definition_id;
+        definitionTitle = opts.topic;
+        generated = true;
+
+        // Si c'est un duplicata, utiliser la définition existante
+        if (genResult.duplicate_of?.id) {
+          definitionId = genResult.duplicate_of.id;
+          definitionTitle = genResult.duplicate_of.title ?? definitionTitle;
+          generated = false;
+        }
+      } catch (genErr) {
+        console.error("[workflow] Generation error:", genErr);
+        return null;
+      }
+    }
+
+    // 2. Démarrer une instance du workflow
+    let instanceId: string | null = null;
+    try {
+      const { data: inst, error: instErr } = await db
+        .from("workflow_instances")
+        .insert({
+          tenant_id: opts.tenantId,
+          definition_id: definitionId,
+          title: `${definitionTitle} — ${new Date().toLocaleDateString("fr-FR")}`,
+          dossier_id: opts.dossierId,
+          started_by: opts.userId,
+          context: opts.collected,
+          status: "in_progress",
+          current_step_index: 0,
+        })
+        .select("id")
+        .single();
+
+      if (instErr) {
+        console.error("[workflow] Instance creation failed:", instErr);
+      } else {
+        instanceId = (inst as { id: string }).id;
+
+        // Rattacher l'instance à l'agent_run
+        await db
+          .from("agent_runs")
+          .update({ workflow_instance_id: instanceId })
+          .eq("id", opts.runId);
+
+        // Log timeline si dossier
+        if (opts.dossierId) {
+          await logTimelineEvent({
+            tenantId: opts.tenantId,
+            dossierId: opts.dossierId,
+            actorId: opts.userId,
+            eventType: "workflow.started",
+            title: `Procédure démarrée : ${definitionTitle}`,
+            metadata: {
+              source: "agent",
+              instance_id: instanceId,
+              definition_id: definitionId,
+              generated,
+              run_id: opts.runId,
+            },
+          });
+        }
+      }
+    } catch (instErr) {
+      console.error("[workflow] Instance start error:", instErr);
+    }
+
+    return {
+      definition_id: definitionId,
+      definition_title: definitionTitle,
+      instance_id: instanceId,
+      generated,
+      first_document_id: null,
+    };
+  } catch (err) {
+    console.error("[workflow] findOrGenerateWorkflow failed:", err);
+    return null;
+  }
+}
+
+function inferDomainFromTopic(topic: string): string | undefined {
+  const t = topic.toLowerCase();
+  if (/licenciement|embauche|contrat de travail|salari[eé]|cse|entretien|cdd|cdi|pr[eé]avis|inaptitude|disciplin/.test(t)) return "social";
+  if (/rgpd|donn[eé]es|cnil|dpo|registre|cookie|privacy/.test(t)) return "rgpd";
+  if (/commercial|contrat|fournisseur|client|impay[eé]|cr[eé]ance|mise en demeure/.test(t)) return "commercial";
+  if (/soci[eé]t[eé]|associ[eé]|capital|statuts|ag[eé]|g[eé]rant|pr[eé]sident|assemblée/.test(t)) return "societes";
+  if (/fiscal|imp[oô]t|tva|bic|is|bénéfice|déclaration/.test(t)) return "fiscal";
+  if (/contentieux|tribunal|assignation|conclusions|jugement|appel/.test(t)) return "contentieux";
+  return undefined;
 }

@@ -868,16 +868,22 @@ ${sourcesBlock || "(aucune)"}`;
       if (extras.deadlines) draft.deadlines = extras.deadlines;
       if (extras.suggestedTemplates) draft.suggestedTemplates = extras.suggestedTemplates;
 
+      const updatePayload: Record<string, unknown> = {
+        status: "executed",
+        executed_at: new Date().toISOString(),
+        answer: parsed.answer ?? "",
+        sources,
+        draft,
+        final_document_ids: finalDocIds,
+      };
+      // Rattacher le workflow si un a été démarré par runIntentActions
+      if (extras.workflowInstanceId) {
+        updatePayload.workflow_instance_id = extras.workflowInstanceId;
+      }
+
       await supabaseAdmin
         .from("agent_runs")
-        .update({
-          status: "executed",
-          executed_at: new Date().toISOString(),
-          answer: parsed.answer ?? "",
-          sources,
-          draft,
-          final_document_ids: finalDocIds,
-        } as never)
+        .update(updatePayload as never)
         .eq("id", data.id);
 
       // 6. Timeline
