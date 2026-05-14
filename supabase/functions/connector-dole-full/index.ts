@@ -55,23 +55,21 @@ function archiveDate(name: string): string {
   return m ? m[1] : "";
 }
 
-async function listOpenDataArchives(): Promise<string[]> {
+async function listOpenDataArchives(maxArchives: number, includeBase: boolean): Promise<string[]> {
   const res = await fetch(DOLE_OPEN_DATA_INDEX);
   if (!res.ok) throw new Error(`DOLE open data index ${res.status}`);
   const html = await res.text();
   const all = [...html.matchAll(/href="((?:Freemium_dole_global_|DOLE_)[^"]+\.tar\.gz)"/g)].map((m) => m[1]);
 
-  // Pick the latest Freemium global snapshot as base, then all DOLE_* increments newer than it.
-  const freemium = all.filter((n) => n.startsWith("Freemium_dole_global_")).sort();
+  // Pour la veille : on prend SEULEMENT les N incréments les plus récents.
+  // Le snapshot global Freemium n'est téléchargé que sur demande explicite (premier seed).
   const incrs = all.filter((n) => n.startsWith("DOLE_")).sort();
+  const recentIncrs = incrs.slice(-maxArchives);
+  if (!includeBase) return recentIncrs;
+
+  const freemium = all.filter((n) => n.startsWith("Freemium_dole_global_")).sort();
   const base = freemium.at(-1);
-  if (!base) {
-    // Pas de snapshot global : on prend tous les incréments (peut être lourd)
-    return incrs;
-  }
-  const baseDate = archiveDate(base);
-  const incrAfter = incrs.filter((n) => archiveDate(n) >= baseDate);
-  return [base, ...incrAfter];
+  return base ? [base, ...recentIncrs] : recentIncrs;
 }
 
 async function ingestArchive(
