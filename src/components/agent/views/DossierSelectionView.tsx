@@ -8,7 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { FolderOpen, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { attachRunToDossier } from "@/server/agent-runs.functions";
+import { attachRunToDossier } from "@/lib/agent/agent-runs.functions";
 import type { AgentRun } from "../ResultRenderer";
 
 export function DossierSelectionView({ run }: { run: AgentRun }) {
