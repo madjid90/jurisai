@@ -5,13 +5,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getTenantId } from "./_shared/tenant.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
 import {
   loadInstance,
   executeStep,
   skipStep,
-} from "./_shared/workflow-runtime.server";
-import { computeLegalDeadline, type DelayUnit } from "./_shared/legal-delays.server";
+} from "@/server/_shared/workflow-runtime.server";
+import { computeLegalDeadline, type DelayUnit } from "@/server/_shared/legal-delays.server";
 
 // R69 (BUG-W11) — `getWorkflowInstance` (camelCase, riche) est défini dans
 // workflows.functions.ts. Ici on expose la version "lite" basée sur

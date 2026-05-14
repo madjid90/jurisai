@@ -9,7 +9,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getTenantId } from "./_shared/tenant.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
 
 const NOTIFY_KINDS = [
   "rappel_retard",

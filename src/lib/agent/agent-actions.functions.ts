@@ -9,8 +9,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getTenantId } from "./_shared/tenant.server";
-import { logTimelineEvent } from "./_shared/timeline.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabaseAdmin as any;
