@@ -6,13 +6,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getTenantId } from "./_shared/tenant.server";
-import { classifyIntent, safeParseJSON, searchDossier, type AgentCtx } from "./_shared/agent-tools.server";
-import { logTimelineEvent } from "./_shared/timeline.server";
-import { searchLegalSources } from "./_shared/legal-rag.server";
-import { runIntentActions } from "./_shared/agent-intent-actions.server";
-import { llmFetch } from "./_shared/llm-fetch.server";
-import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "./_shared/prompt-sanitizer.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
+import { classifyIntent, safeParseJSON, searchDossier, type AgentCtx } from "@/server/_shared/agent-tools.server";
+import { logTimelineEvent } from "@/server/_shared/timeline.server";
+import { searchLegalSources } from "@/server/_shared/legal-rag.server";
+import { runIntentActions } from "@/server/_shared/agent-intent-actions.server";
+import { llmFetch } from "@/server/_shared/llm-fetch.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 
 const STATUSES = [
   "pending",
@@ -636,8 +636,8 @@ export const recoverStuckRuns = createServerFn({ method: "POST" })
 // s'appuyant sur templates / generation.functions existants.)
 // ---------------------------------------------------------------------------
 
-import { resolveChatModel } from "./_shared/llm-models.server";
-import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./_shared/constants.server";
+import { resolveChatModel } from "@/server/_shared/llm-models.server";
+import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "@/server/_shared/constants.server";
 
 const EXEC_SYSTEM = `Tu es JurisAI, copilote juridique transverse.
 Tu reçois une demande utilisateur, sa classification, les infos collectées et des extraits juridiques sourcés.

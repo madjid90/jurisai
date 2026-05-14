@@ -21,7 +21,7 @@ import {
   getAgentRun,
   listChildRuns,
   attachRunToDossier,
-} from "@/server/agent-runs.functions";
+} from "@/lib/agent/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
 import { WorkflowRuntimeBlock } from "@/components/agent/WorkflowRuntimeBlock";

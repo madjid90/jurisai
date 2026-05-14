@@ -4,7 +4,7 @@
 // Utilisé par AgentResultCard pour passer du squelette générique à des modales contextualisées
 // par domaine juridique (RH, commercial, sociétés, RGPD, fiscal, contentieux, administratif).
 
-import type { AgentRunOutput } from "@/server/agent.functions";
+import type { AgentRunOutput } from "@/lib/agent/agent.functions";
 
 export type RuleKind =
   | "rupture_conventionnelle"

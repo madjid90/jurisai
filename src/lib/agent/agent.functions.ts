@@ -6,15 +6,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getTenantId } from "./_shared/tenant.server";
+import { getTenantId } from "@/server/_shared/tenant.server";
 import {
   type AgentCtx,
   classifyIntent,
-} from "./_shared/agent-tools.server";
-import { routeTool } from "./_shared/agent-tool-router.server";
-import { recallMemory, memoryPreamble } from "./_shared/agent-memory.server";
-import { runPostResponsePipeline } from "./_shared/agent-post-response.server";
-import { resolveChatModel } from "./_shared/llm-models.server";
+} from "@/server/_shared/agent-tools.server";
+import { routeTool } from "@/server/_shared/agent-tool-router.server";
+import { recallMemory, memoryPreamble } from "@/server/_shared/agent-memory.server";
+import { runPostResponsePipeline } from "@/server/_shared/agent-post-response.server";
+import { resolveChatModel } from "@/server/_shared/llm-models.server";
 
 const MAX_ROUNDS = 6;
 

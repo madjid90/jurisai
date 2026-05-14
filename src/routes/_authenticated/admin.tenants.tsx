@@ -4,7 +4,7 @@ import { Loader2, Users, Building2, Zap } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { listAllTenants } from "@/server/tenant.functions";
+import { listAllTenants } from "@/lib/server-fns/tenant.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/tenants")({
   component: AdminTenantsPage,

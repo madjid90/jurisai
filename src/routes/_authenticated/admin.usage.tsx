@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, BarChart3, Users, Activity } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getTenantUsage, getTenantQuota } from "@/server/tenant.functions";
+import { getTenantUsage, getTenantQuota } from "@/lib/server-fns/tenant.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/usage")({
   component: AdminUsagePage,
