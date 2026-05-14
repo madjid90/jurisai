@@ -191,7 +191,14 @@ export const createAgentRun = createServerFn({ method: "POST" })
     let routing: AgentRouting;
     try {
       const apiKey = process.env.LOVABLE_API_KEY ?? "";
-      const ctx: AgentCtx = { userId, tenantId, idcc: null, apiKey, sources: [] };
+      // Récupérer l'IDCC du tenant pour le routage
+      const { data: tenantForRouting } = await supabaseAdmin
+        .from("tenants")
+        .select("idcc")
+        .eq("id", tenantId)
+        .maybeSingle();
+      const routingIdcc = (tenantForRouting as { idcc: string | null } | null)?.idcc ?? null;
+      const ctx: AgentCtx = { userId, tenantId, idcc: routingIdcc, apiKey, sources: [] };
       routing = await decideRouting(
         ctx,
         (row as { id: string }).id,
@@ -397,12 +404,38 @@ export const processAgentRun = createServerFn({ method: "POST" })
 
     try {
       const message = (run as { message: string }).message;
-      const ctx: AgentCtx = { userId, tenantId, idcc: null, apiKey, sources: [] };
 
-      // 2. Comprendre (en tenant compte des réponses déjà fournies)
+      // 2a. Récupérer l'IDCC du tenant (convention collective choisie à l'onboarding)
+      const { data: tenantRow } = await supabaseAdmin
+        .from("tenants")
+        .select("idcc")
+        .eq("id", tenantId)
+        .maybeSingle();
+      const idcc = (tenantRow as { idcc: string | null } | null)?.idcc ?? null;
+
+      const ctx: AgentCtx = { userId, tenantId, idcc, apiKey, sources: [] };
+
+      // 2b. Comprendre (en tenant compte des réponses déjà fournies)
       const draft = ((run as { draft: DraftShape }).draft ?? {}) as DraftShape;
       const priorAnswers = (draft.form as Record<string, unknown> | undefined) ?? null;
-      const classification = await classifyIntent(message, ctx, priorAnswers);
+
+      // 2c. RAG AVANT classification : chercher les textes de loi applicables
+      // pour que le classifieur connaisse les délais légaux et pose les BONNES questions
+      let legalContext = "";
+      try {
+        const { searchLegalSources } = await import("@/server/_shared/legal-rag.server");
+        const ragResult = await searchLegalSources(message, { idcc, limit: 6 });
+        if (ragResult.ok && ragResult.sources.length > 0) {
+          legalContext = ragResult.sources
+            .map((s, i) => `[source:${i + 1}] ${s.title}${s.reference ? ` (${s.reference})` : ""}: ${s.excerpt?.slice(0, 300) ?? ""}`)
+            .join("\n");
+          draft.sources = ragResult.sources;
+        }
+      } catch (ragErr) {
+        console.warn("[processAgentRun] RAG pre-classification failed", ragErr);
+      }
+
+      const classification = await classifyIntent(message, ctx, priorAnswers, legalContext);
 
       draft.classification = classification;
       // Filtre de sécurité : ne jamais re-demander une info déjà répondue

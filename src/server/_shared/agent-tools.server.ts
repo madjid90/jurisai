@@ -62,6 +62,7 @@ export async function classifyIntent(
   message: string,
   ctx: AgentCtx,
   priorAnswers?: Record<string, unknown> | null,
+  legalContext?: string,
 ): Promise<{
   intent: string;
   domain: string;
@@ -78,6 +79,12 @@ export async function classifyIntent(
     priorAnswers && Object.keys(priorAnswers).length > 0
       ? `\n\nInformations DÉJÀ fournies par l'utilisateur (ne JAMAIS les redemander) :\n${JSON.stringify(priorAnswers, null, 2)}`
       : "";
+  const legalBlock = legalContext
+    ? `\n\nSOURCES JURIDIQUES APPLICABLES (utilise-les pour poser les bonnes questions et NE PAS demander ce que le droit fixe) :\n${legalContext}`
+    : "";
+  const idccBlock = ctx.idcc
+    ? `\nConvention collective du client : IDCC ${ctx.idcc} (déjà connue, ne JAMAIS la demander).`
+    : "";
   const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
     method: "POST",
     headers: {
@@ -92,9 +99,9 @@ export async function classifyIntent(
       messages: [
         {
           role: "system",
-          content: `Tu es un classifieur juridique. Pour une demande, retourne STRICTEMENT un JSON :
+          content: `Tu es un classifieur juridique expert en droit français. Pour une demande, retourne STRICTEMENT un JSON :
 {
-  "intent": "question_juridique|redaction_document|analyse_document|gestion_dossier|suivi_echeance|conformite|veille|recherche_jurisprudence|chiffrage|reclamation|autre",
+  "intent": "question_juridique|redaction_document|analyse_document|analyse_contrat|lancer_procedure|gestion_dossier|suivi_echeance|conformite|veille|recherche_jurisprudence|chiffrage|reclamation|autre",
   "domain": "rh|commercial|societes|rgpd|fiscal|contentieux|administratif|reglementation_metier|general",
   "topic": "court résumé du sujet (max 80 car)",
   "confidence": 0..1,
@@ -102,27 +109,36 @@ export async function classifyIntent(
   "requires_document_upload": true|false,
   "requires_form": true|false,
   "requires_validation": true|false,
-  "suggested_actions": [{"kind":"search_law|propose_document|identify_risk|create_task|create_deadline|schedule_reminder|request_validation","label":"action humainement compréhensible","payload":{}}],
-  "missing_information": ["info manquante 1","..."]
+  "suggested_actions": [{"kind":"search_law|propose_document|identify_risk|create_task|create_deadline|schedule_reminder|request_validation|start_workflow","label":"action humainement compréhensible","payload":{}}],
+  "missing_information": ["question précise 1","..."]
 }
-RÈGLES STRICTES :
-- "missing_information" ne doit lister QUE les infos RÉELLEMENT indispensables pour traiter la demande, max 3.
-- Si une info est déjà présente dans le message ou dans les "Informations déjà fournies", NE PAS la lister.
-- Si toutes les infos nécessaires sont là, "missing_information": [] et "requires_form": false.
-- Pas de questions de confort/curiosité — on ne redemande jamais une donnée déjà connue.
-Aucun texte hors JSON.
+
+RÈGLES STRICTES SUR missing_information :
+1. Ne demande QUE les FAITS que seul l'utilisateur connaît : nom du salarié, motif, ancienneté, montant, etc.
+2. Ne demande JAMAIS ce que le droit fixe : délais légaux, dates de convocation, dates de notification, durée de préavis, montant d'indemnité légale. Tu les CALCULERAS toi-même à partir des textes de loi.
+3. Ne demande JAMAIS la convention collective — elle est déjà connue (IDCC du tenant).
+4. Ne demande JAMAIS de dates de procédure (entretien, notification, etc.) — tu les proposeras en respectant les délais légaux.
+5. Maximum 4 questions, uniquement sur les faits indispensables.
+6. Si une info est déjà dans le message ou les réponses précédentes, NE PAS la relister.
+7. Formule chaque question de façon précise et actionnable avec les options possibles.
+   Exemple BON : "Quel est le motif du licenciement ? (faute simple, faute grave, faute lourde, insuffisance professionnelle, motif économique)"
+   Exemple MAUVAIS : "Date de l'entretien préalable"
+Aucun texte hors JSON.${idccBlock}
 
 EXEMPLES :
-Demande : "Quel est le délai de préavis pour un licenciement d'un cadre avec 5 ans d'ancienneté ?"
-→ {"intent":"question_juridique","domain":"rh","topic":"Délai préavis licenciement cadre 5 ans","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les textes sur le préavis de licenciement"}],"missing_information":[]}
+Demande : "Lance une procédure de licenciement"
+→ {"intent":"lancer_procedure","domain":"rh","topic":"Procédure de licenciement","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":true,"suggested_actions":[{"kind":"start_workflow","label":"Lancer la procédure de licenciement"},{"kind":"search_law","label":"Rechercher les textes applicables"}],"missing_information":["Quel est le motif du licenciement ? (faute simple, faute grave, faute lourde, insuffisance professionnelle, motif économique)","Nom et prénom du salarié concerné","Ancienneté du salarié dans l'entreprise (date d'entrée ou nombre d'années)","Le salarié est-il un salarié protégé ? (délégué du personnel, membre du CSE, délégué syndical)"]}
 
 Demande : "Rédige-moi une lettre de mise en demeure pour impayé"
-→ {"intent":"redaction_document","domain":"commercial","topic":"Lettre mise en demeure impayé","confidence":0.9,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":true,"suggested_actions":[{"kind":"propose_document","label":"Générer une lettre de mise en demeure"}],"missing_information":["Nom du débiteur","Montant de la créance","Date de la facture impayée"]}
+→ {"intent":"redaction_document","domain":"commercial","topic":"Lettre mise en demeure impayé","confidence":0.9,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":true,"suggested_actions":[{"kind":"propose_document","label":"Générer une lettre de mise en demeure"}],"missing_information":["Nom et adresse du débiteur","Montant exact de la créance TTC","Numéro et date de la facture impayée"]}
 
-Demande : "Ajoute une échéance pour le renouvellement du bail au 15 mars"
-→ {"intent":"suivi_echeance","domain":"commercial","topic":"Échéance renouvellement bail","confidence":0.85,"requires_rag":false,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"create_deadline","label":"Créer échéance renouvellement bail 15 mars"}],"missing_information":[]}`,
+Demande : "Analyse ce contrat de travail"
+→ {"intent":"analyse_contrat","domain":"rh","topic":"Analyse contrat de travail","confidence":0.9,"requires_rag":true,"requires_document_upload":true,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Vérifier la conformité avec le Code du travail"}],"missing_information":[]}
+
+Demande : "Quel est le délai de préavis pour un cadre avec 5 ans d'ancienneté ?"
+→ {"intent":"question_juridique","domain":"rh","topic":"Délai préavis licenciement cadre 5 ans","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les textes sur le préavis"}],"missing_information":[]}`,
         },
-        { role: "user", content: message.slice(0, 3000) + answersBlock },
+        { role: "user", content: message.slice(0, 3000) + answersBlock + legalBlock },
       ],
     }),
   });
