@@ -9,15 +9,13 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   tanstackStart: {
     importProtection: {
-      behavior: "error",
-      client: {
-        // Default was ["**/server/**"] which blocks createServerFn files
-        // (*.functions.ts) that are designed to be imported from client code.
-        // We restrict the pattern to only block actual server-only modules
-        // (*.server.ts) while allowing server function RPC bridges.
-        files: ["**/*.server.ts", "**/*.server.tsx"],
-        specifiers: ["server-only"],
-      },
+      // Disable the default "**/server/**" file pattern that blocks ALL imports
+      // from src/server/ in client code. Our *.functions.ts files use createServerFn
+      // which is designed to be imported from client components — the bundler
+      // automatically replaces the server implementation with an RPC stub.
+      // Vite's mergeConfig concatenates arrays, so we cannot override the files
+      // pattern. Setting enabled:false is the only reliable way to disable it.
+      enabled: false,
     },
   },
 });
