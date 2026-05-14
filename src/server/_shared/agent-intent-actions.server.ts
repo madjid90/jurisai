@@ -11,6 +11,7 @@ import { extractEntities } from "./entity-extraction.server";
 import { prefillSession } from "./prefill.server";
 import type { PrefillSource, TemplateField } from "@/lib/templates/template-config";
 import { fillTemplate } from "./template";
+import { calculateIndemnity, saveCalculation, type CalculationInput } from "./indemnity-calculator.server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabaseAdmin as any;
@@ -30,12 +31,14 @@ type Extras = {
   suggestedTemplates?: unknown[];
   risks?: Array<{ id: string; title: string; severity: string }>;
   workflowInstanceId?: string | null;
+  calculationResult?: unknown;
 };
 
 const DOC_INTENTS = new Set(["redaction_document"]);
 const PROCEDURE_INTENTS = new Set(["lancer_procedure"]);
 const ANALYSIS_INTENTS = new Set(["analyse_document", "analyse_contrat"]);
 const SEARCH_INTENTS = new Set(["recherche_dossier", "gestion_dossier"]);
+const CHIFFRAGE_INTENTS = new Set(["chiffrage"]);
 
 export async function runIntentActions(opts: {
   intent: string;
@@ -131,6 +134,51 @@ export async function runIntentActions(opts: {
           uploadedAnalysisId: collectAttachmentIds(draft)[0] ?? null,
         });
         if (docId) out.documentIds.push(docId);
+      }
+    }
+
+    if (CHIFFRAGE_INTENTS.has(intent)) {
+      // Chiffrage : calculer les indemnités à partir des infos collectées dans le formulaire
+      const form = (draft.form as Record<string, string | number | undefined>) ?? {};
+      const salaire = parseFloat(String(form.salaire_mensuel_brut ?? form.salaire ?? form.salaire_brut ?? 0));
+      const anciennete = parseInt(String(form.anciennete_mois ?? form.anciennete ?? 0), 10);
+      const motif = String(form.motif ?? form.type_rupture ?? "licenciement_cause_reelle");
+
+      if (salaire > 0 && anciennete > 0) {
+        try {
+          const calcInput: CalculationInput = {
+            salaireMensuelBrut: salaire,
+            salaireMoyen12m: form.salaire_moyen_12m ? parseFloat(String(form.salaire_moyen_12m)) : undefined,
+            salaireMoyen3m: form.salaire_moyen_3m ? parseFloat(String(form.salaire_moyen_3m)) : undefined,
+            ancienneteMois: anciennete,
+            motif: motif as CalculationInput["motif"],
+            idcc: form.idcc ? String(form.idcc) : undefined,
+            categorie: form.categorie ? String(form.categorie) : undefined,
+            tailleEntreprise: (form.taille_entreprise as "standard" | "small") ?? "standard",
+            joursCongesNonPris: form.jours_conges ? parseInt(String(form.jours_conges), 10) : undefined,
+          };
+
+          const result = await calculateIndemnity(calcInput);
+          const calcId = await saveCalculation(tenantId, userId, run.dossier_id, calcInput, result);
+
+          out.calculationResult = { calculation_id: calcId, ...result };
+
+          // Injecter le résultat dans le draft pour que le LLM l'utilise dans sa réponse
+          draft.calculation = { calculation_id: calcId, ...result };
+
+          if (run.dossier_id) {
+            await logTimelineEvent({
+              tenantId,
+              dossierId: run.dossier_id,
+              actorId: userId,
+              eventType: "calculation.completed",
+              title: `Chiffrage ${motif} : ${result.totalBrut.toFixed(2)}€`,
+              metadata: { calculation_id: calcId, motif, total_brut: result.totalBrut },
+            });
+          }
+        } catch (calcErr) {
+          console.error("[agent-intent-actions] chiffrage failed", calcErr);
+        }
       }
     }
 

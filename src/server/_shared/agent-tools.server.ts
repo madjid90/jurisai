@@ -10,6 +10,7 @@ import { resolveChatModel } from "./llm-models.server";
 import { embedText, embedErrorMessage } from "./llm-embeddings.server";
 import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "./prompt-sanitizer.server";
+import { calculateIndemnity, saveCalculation, type CalculationInput } from "./indemnity-calculator.server";
 
 export type AgentCtx = {
   userId: string;
@@ -1008,6 +1009,83 @@ export async function runWorkflowStepTool(
       },
       isSensitive: res.blocked_for_validation,
       validationRequestId: res.validation_request_id,
+      succeeded: true,
+    };
+  } catch (e) {
+    return {
+      result: { error: (e as Error).message },
+      succeeded: false,
+      errorMessage: (e as Error).message,
+    };
+  }
+}
+
+// ─── calculate_indemnity ────────────────────────────────────────────────
+
+export async function calculateIndemnityTool(
+  args: {
+    salaire_mensuel_brut: number;
+    salaire_moyen_12m?: number;
+    salaire_moyen_3m?: number;
+    anciennete_mois: number;
+    motif: string;
+    idcc?: string;
+    categorie?: string;
+    taille_entreprise?: string;
+    date_effet?: string;
+    jours_conges_non_pris?: number;
+    dossier_id?: string;
+  },
+  ctx: AgentCtx,
+): Promise<ToolOutcome> {
+  try {
+    const input: CalculationInput = {
+      salaireMensuelBrut: args.salaire_mensuel_brut,
+      salaireMoyen12m: args.salaire_moyen_12m,
+      salaireMoyen3m: args.salaire_moyen_3m,
+      ancienneteMois: args.anciennete_mois,
+      motif: args.motif as CalculationInput["motif"],
+      idcc: args.idcc ?? ctx.idcc ?? undefined,
+      categorie: args.categorie,
+      tailleEntreprise: (args.taille_entreprise as "standard" | "small") ?? "standard",
+      dateEffet: args.date_effet,
+      joursCongesNonPris: args.jours_conges_non_pris,
+    };
+
+    const result = await calculateIndemnity(input);
+
+    // Persister le calcul pour audit trail
+    const calcId = await saveCalculation(
+      ctx.tenantId,
+      ctx.userId,
+      args.dossier_id ?? null,
+      input,
+      result,
+    );
+
+    // Log timeline si dossier lié
+    if (args.dossier_id) {
+      await logTimelineEvent({
+        tenantId: ctx.tenantId,
+        dossierId: args.dossier_id,
+        actorId: ctx.userId,
+        eventType: "calculation.completed",
+        title: `Chiffrage ${args.motif} : ${result.totalBrut.toFixed(2)}€`,
+        metadata: {
+          calculation_id: calcId,
+          motif: args.motif,
+          total_brut: result.totalBrut,
+          components_count: result.components.length,
+        },
+      });
+    }
+
+    return {
+      result: {
+        calculation_id: calcId,
+        ...result,
+      },
+      isSensitive: false,
       succeeded: true,
     };
   } catch (e) {

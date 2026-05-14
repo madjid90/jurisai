@@ -20,6 +20,7 @@ import {
   generateReportTool,
   generateWorkflowTool,
   runWorkflowStepTool,
+  calculateIndemnityTool,
 } from "./agent-tools.server";
 
 export type ToolHandler = (
@@ -162,6 +163,23 @@ const HANDLERS: Record<string, ToolHandler> = {
         instance_id: String(a.instance_id ?? ""),
         step_index: Number(a.step_index ?? 0),
         notes: a.notes ? String(a.notes) : undefined,
+      },
+      c,
+    ),
+  calculate_indemnity: (a, c) =>
+    calculateIndemnityTool(
+      {
+        salaire_mensuel_brut: Number(a.salaire_mensuel_brut ?? 0),
+        salaire_moyen_12m: a.salaire_moyen_12m ? Number(a.salaire_moyen_12m) : undefined,
+        salaire_moyen_3m: a.salaire_moyen_3m ? Number(a.salaire_moyen_3m) : undefined,
+        anciennete_mois: Number(a.anciennete_mois ?? 0),
+        motif: String(a.motif ?? "licenciement_cause_reelle"),
+        idcc: a.idcc ? String(a.idcc) : undefined,
+        categorie: a.categorie ? String(a.categorie) : undefined,
+        taille_entreprise: a.taille_entreprise ? String(a.taille_entreprise) : undefined,
+        date_effet: a.date_effet ? String(a.date_effet) : undefined,
+        jours_conges_non_pris: a.jours_conges_non_pris ? Number(a.jours_conges_non_pris) : undefined,
+        dossier_id: a.dossier_id ? String(a.dossier_id) : undefined,
       },
       c,
     ),
