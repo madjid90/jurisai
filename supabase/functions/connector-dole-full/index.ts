@@ -255,13 +255,16 @@ Deno.serve(async (req) => {
     if (!isInternal) {
       await requireSuperAdmin(req);
     }
-    const body = await req.json().catch(() => ({})) as { dry_run?: boolean; months?: number; max_dossiers?: number; resume_batch_id?: string };
+    const body = await req.json().catch(() => ({})) as { dry_run?: boolean; months?: number; max_dossiers?: number; resume_batch_id?: string; max_archives?: number; include_base?: boolean };
     const db = getAdminClient();
     const apiKey = getLovableApiKey();
 
     if (body.dry_run) {
       // Dry-run synchronous: limite stricte pour rester sous le timeout gateway.
-      const items = await loadIndex(body.months ?? 24, Math.min(body.max_dossiers ?? 20, 20));
+      const items = await loadIndex(body.months ?? 3, Math.min(body.max_dossiers ?? 20, 20), {
+        maxArchives: body.max_archives ?? 2,
+        includeBase: body.include_base ?? false,
+      });
       return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
     }
 
