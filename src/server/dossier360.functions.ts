@@ -31,6 +31,7 @@ export const getDossier360 = createServerFn({ method: "POST" })
     z.object({ dossierId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }) => {
+    try {
     const { userId } = context as { userId: string };
     const tenantId = await ensureDossierAccess(userId, data.dossierId);
 
@@ -117,6 +118,10 @@ export const getDossier360 = createServerFn({ method: "POST" })
       workflows: workflows.data ?? [],
       sources,
     };
+    } catch (err) {
+      console.error("[getDossier360]", err);
+      throw new Error("Impossible de récupérer la vue 360° du dossier");
+    }
   });
 
 // ─── Risques ─────────────────────────────────────────────────────────────
@@ -137,40 +142,45 @@ export const createRisk = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const tenantId = await ensureDossierAccess(userId, data.dossierId);
+    try {
+      const { userId } = context as { userId: string };
+      const tenantId = await ensureDossierAccess(userId, data.dossierId);
 
-    const legal_basis = data.legalBasis ? [{ source: data.legalBasis }] : [];
+      const legal_basis = data.legalBasis ? [{ source: data.legalBasis }] : [];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await supabaseAdmin
-      .from("identified_risks")
-      .insert({
-        tenant_id: tenantId,
-        dossier_id: data.dossierId,
-        detected_by: userId,
-        category: data.category ?? "general",
-        severity: data.severity,
-        title: data.title,
-        description: data.description ?? null,
-        legal_basis,
-        mitigation: data.mitigation ?? null,
-        status: "open",
-      })
-      .select("id, title, severity")
-      .single();
-    if (error) throw new Error(error.message);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: row, error } = await supabaseAdmin
+        .from("identified_risks")
+        .insert({
+          tenant_id: tenantId,
+          dossier_id: data.dossierId,
+          detected_by: userId,
+          category: data.category ?? "general",
+          severity: data.severity,
+          title: data.title,
+          description: data.description ?? null,
+          legal_basis,
+          mitigation: data.mitigation ?? null,
+          status: "open",
+        })
+        .select("id, title, severity")
+        .single();
+      if (error) throw new Error(error.message);
 
-    await logTimelineEvent({
-      tenantId,
-      dossierId: data.dossierId,
-      actorId: userId,
-      eventType: "risk.detected",
-      title: `Risque identifié (${data.severity}) : ${data.title}`,
-      metadata: { risk_id: row.id, severity: data.severity, source: "user" },
-    });
+      await logTimelineEvent({
+        tenantId,
+        dossierId: data.dossierId,
+        actorId: userId,
+        eventType: "risk.detected",
+        title: `Risque identifié (${data.severity}) : ${data.title}`,
+        metadata: { risk_id: row.id, severity: data.severity, source: "user" },
+      });
 
-    return { risk: row };
+      return { risk: row };
+    } catch (err) {
+      console.error("[createRisk]", err);
+      throw new Error("Impossible de créer le risque");
+    }
   });
 
 export const updateRiskStatus = createServerFn({ method: "POST" })
@@ -188,48 +198,53 @@ export const updateRiskStatus = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const tenantId = await getTenantId(userId);
+    try {
+      const { userId } = context as { userId: string };
+      const tenantId = await getTenantId(userId);
 
-    const { data: existing } = await supabaseAdmin
-      .from("identified_risks")
-      .select("id, dossier_id, tenant_id, title")
-      .eq("id", data.riskId)
-      .eq("tenant_id", tenantId)
-      .eq("dossier_id", data.dossierId)
-      .maybeSingle();
-    if (!existing) throw new Error("Risque introuvable");
+      const { data: existing } = await supabaseAdmin
+        .from("identified_risks")
+        .select("id, dossier_id, tenant_id, title")
+        .eq("id", data.riskId)
+        .eq("tenant_id", tenantId)
+        .eq("dossier_id", data.dossierId)
+        .maybeSingle();
+      if (!existing) throw new Error("Risque introuvable");
 
-    const patch: Record<string, unknown> = {
-      status: data.status,
-    };
-    if (data.mitigation !== undefined) patch.mitigation = data.mitigation;
-    if (data.status === "resolved") {
-      patch.resolved_at = new Date().toISOString();
-      patch.resolved_by = userId;
+      const patch: Record<string, unknown> = {
+        status: data.status,
+      };
+      if (data.mitigation !== undefined) patch.mitigation = data.mitigation;
+      if (data.status === "resolved") {
+        patch.resolved_at = new Date().toISOString();
+        patch.resolved_by = userId;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabaseAdmin as any)
+        .from("identified_risks")
+        .update(patch)
+        .eq("id", data.riskId)
+        .eq("tenant_id", tenantId)
+        .eq("dossier_id", data.dossierId);
+      if (error) throw new Error(error.message);
+
+      await logTimelineEvent({
+        tenantId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dossierId: (existing as any).dossier_id,
+        actorId: userId,
+        eventType: "risk.status_changed",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        title: `Risque "${(existing as any).title}" → ${data.status}`,
+        metadata: { risk_id: data.riskId, status: data.status },
+      });
+
+      return { ok: true };
+    } catch (err) {
+      console.error("[updateRiskStatus]", err);
+      throw new Error("Impossible de mettre à jour le statut du risque");
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabaseAdmin as any)
-      .from("identified_risks")
-      .update(patch)
-      .eq("id", data.riskId)
-      .eq("tenant_id", tenantId)
-      .eq("dossier_id", data.dossierId);
-    if (error) throw new Error(error.message);
-
-    await logTimelineEvent({
-      tenantId,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      dossierId: (existing as any).dossier_id,
-      actorId: userId,
-      eventType: "risk.status_changed",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      title: `Risque "${(existing as any).title}" → ${data.status}`,
-      metadata: { risk_id: data.riskId, status: data.status },
-    });
-
-    return { ok: true };
   });
 
 // ─── Validations ─────────────────────────────────────────────────────────
@@ -248,75 +263,80 @@ export const requestValidation = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const tenantId = await ensureDossierAccess(userId, data.dossierId);
+    try {
+      const { userId } = context as { userId: string };
+      const tenantId = await ensureDossierAccess(userId, data.dossierId);
 
-    let assignedTo = data.assignedTo;
-    if (!assignedTo) {
-      const { data: admins } = await supabaseAdmin
-        .from("user_roles")
-        .select("user_id")
-        .eq("tenant_id", tenantId)
-        .eq("role", "admin")
-        .limit(1);
-      assignedTo = (admins?.[0] as { user_id: string } | undefined)?.user_id ?? userId;
-    }
+      let assignedTo = data.assignedTo;
+      if (!assignedTo) {
+        const { data: admins } = await supabaseAdmin
+          .from("user_roles")
+          .select("user_id")
+          .eq("tenant_id", tenantId)
+          .eq("role", "admin")
+          .limit(1);
+        assignedTo = (admins?.[0] as { user_id: string } | undefined)?.user_id ?? userId;
+      }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await supabaseAdmin
-      .from("validation_requests")
-      .insert({
-        tenant_id: tenantId,
-        dossier_id: data.dossierId,
-        requested_by: userId,
-        assigned_to: assignedTo,
-        subject_type: data.subjectType,
-        subject_id: data.subjectId ?? null,
-        comment: data.comment ?? null,
-        status: "pending",
-      })
-      .select("id, subject_type, status, assigned_to")
-      .single();
-    if (error) throw new Error(error.message);
-
-    await logTimelineEvent({
-      tenantId,
-      dossierId: data.dossierId,
-      actorId: userId,
-      eventType: "validation.requested",
-      title: `Validation demandée : ${data.subjectType}`,
-      metadata: { validation_id: row.id, assigned_to: assignedTo },
-    });
-
-    // W12 — Notification automatique au validateur assigné (in-app + email
-    // selon préférences). On ne notifie pas le demandeur s'il est lui-même
-    // assigné (cas dégradé : aucun admin trouvé).
-    if (assignedTo && assignedTo !== userId) {
-      const { data: dossier } = await supabaseAdmin
-        .from("dossiers")
-        .select("title")
-        .eq("id", data.dossierId)
-        .maybeSingle();
-      const dossierTitle = (dossier as { title?: string } | null)?.title ?? "Dossier";
-      await notifyUser({
-        userId: assignedTo,
-        tenantId,
-        kind: "validation_requested",
-        title: `Validation à traiter : ${data.subjectType}`,
-        body: `${dossierTitle} — ${data.comment ?? "Aucun commentaire."}`,
-        link: `/dossiers/${data.dossierId}?tab=validations`,
-        metadata: {
-          validation_id: row.id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: row, error } = await supabaseAdmin
+        .from("validation_requests")
+        .insert({
+          tenant_id: tenantId,
           dossier_id: data.dossierId,
-          subject_type: data.subjectType,
           requested_by: userId,
-        },
-      }).catch(() => {
-        /* la notification ne doit pas casser la création */
-      });
-    }
+          assigned_to: assignedTo,
+          subject_type: data.subjectType,
+          subject_id: data.subjectId ?? null,
+          comment: data.comment ?? null,
+          status: "pending",
+        })
+        .select("id, subject_type, status, assigned_to")
+        .single();
+      if (error) throw new Error(error.message);
 
-    return { validation: row };
+      await logTimelineEvent({
+        tenantId,
+        dossierId: data.dossierId,
+        actorId: userId,
+        eventType: "validation.requested",
+        title: `Validation demandée : ${data.subjectType}`,
+        metadata: { validation_id: row.id, assigned_to: assignedTo },
+      });
+
+      // W12 — Notification automatique au validateur assigné (in-app + email
+      // selon préférences). On ne notifie pas le demandeur s'il est lui-même
+      // assigné (cas dégradé : aucun admin trouvé).
+      if (assignedTo && assignedTo !== userId) {
+        const { data: dossier } = await supabaseAdmin
+          .from("dossiers")
+          .select("title")
+          .eq("id", data.dossierId)
+          .maybeSingle();
+        const dossierTitle = (dossier as { title?: string } | null)?.title ?? "Dossier";
+        await notifyUser({
+          userId: assignedTo,
+          tenantId,
+          kind: "validation_requested",
+          title: `Validation à traiter : ${data.subjectType}`,
+          body: `${dossierTitle} — ${data.comment ?? "Aucun commentaire."}`,
+          link: `/dossiers/${data.dossierId}?tab=validations`,
+          metadata: {
+            validation_id: row.id,
+            dossier_id: data.dossierId,
+            subject_type: data.subjectType,
+            requested_by: userId,
+          },
+        }).catch(() => {
+          /* la notification ne doit pas casser la création */
+        });
+      }
+
+      return { validation: row };
+    } catch (err) {
+      console.error("[requestValidation]", err);
+      throw new Error("Impossible de créer la demande de validation");
+    }
   });
 
 export const decideValidation = createServerFn({ method: "POST" })
@@ -331,61 +351,66 @@ export const decideValidation = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const tenantId = await getTenantId(userId);
+    try {
+      const { userId } = context as { userId: string };
+      const tenantId = await getTenantId(userId);
 
-    const { data: existing } = await supabaseAdmin
-      .from("validation_requests")
-      .select("id, dossier_id, tenant_id, assigned_to, subject_type, status")
-      .eq("id", data.validationId)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (!existing) throw new Error("Demande introuvable");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ex = existing as any;
-    if (ex.status && ex.status !== "pending") {
-      throw new Error(`Cette demande a déjà été ${ex.status === "approved" ? "approuvée" : "rejetée"}.`);
-    }
-    if (ex.assigned_to !== userId) {
-      const { data: role } = await supabaseAdmin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
+      const { data: existing } = await supabaseAdmin
+        .from("validation_requests")
+        .select("id, dossier_id, tenant_id, assigned_to, subject_type, status")
+        .eq("id", data.validationId)
         .eq("tenant_id", tenantId)
-        .eq("role", "admin")
         .maybeSingle();
-      if (!role) throw new Error("Vous n'êtes pas habilité à décider de cette validation");
+      if (!existing) throw new Error("Demande introuvable");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ex = existing as any;
+      if (ex.status && ex.status !== "pending") {
+        throw new Error(`Cette demande a déjà été ${ex.status === "approved" ? "approuvée" : "rejetée"}.`);
+      }
+      if (ex.assigned_to !== userId) {
+        const { data: role } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("tenant_id", tenantId)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (!role) throw new Error("Vous n'êtes pas habilité à décider de cette validation");
+      }
+
+      // W11 — UPDATE conditionnel sur status='pending' : bloque une seconde
+      // décision concurrente (deux validateurs cliquent en même temps).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: updated, error } = await supabaseAdmin
+        .from("validation_requests")
+        .update({
+          status: data.decision,
+          decided_at: new Date().toISOString(),
+          decided_by: userId,
+          decision_comment: data.comment ?? null,
+        })
+        .eq("id", data.validationId)
+        .eq("status", "pending")
+        .select("id");
+      if (error) throw new Error(error.message);
+      if (!updated || updated.length === 0) {
+        throw new Error("Décision concurrente détectée — rechargez la demande.");
+      }
+
+      await logTimelineEvent({
+        tenantId,
+        dossierId: ex.dossier_id,
+        actorId: userId,
+        eventType: "validation.decided",
+        title: `Validation ${data.decision === "approved" ? "approuvée" : "rejetée"} : ${ex.subject_type}`,
+        metadata: { validation_id: data.validationId, decision: data.decision },
+      });
+
+      return { ok: true };
+    } catch (err) {
+      console.error("[decideValidation]", err);
+      throw new Error("Impossible de traiter la décision de validation");
     }
-
-    // W11 — UPDATE conditionnel sur status='pending' : bloque une seconde
-    // décision concurrente (deux validateurs cliquent en même temps).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error } = await supabaseAdmin
-      .from("validation_requests")
-      .update({
-        status: data.decision,
-        decided_at: new Date().toISOString(),
-        decided_by: userId,
-        decision_comment: data.comment ?? null,
-      })
-      .eq("id", data.validationId)
-      .eq("status", "pending")
-      .select("id");
-    if (error) throw new Error(error.message);
-    if (!updated || updated.length === 0) {
-      throw new Error("Décision concurrente détectée — rechargez la demande.");
-    }
-
-    await logTimelineEvent({
-      tenantId,
-      dossierId: ex.dossier_id,
-      actorId: userId,
-      eventType: "validation.decided",
-      title: `Validation ${data.decision === "approved" ? "approuvée" : "rejetée"} : ${ex.subject_type}`,
-      metadata: { validation_id: data.validationId, decision: data.decision },
-    });
-
-    return { ok: true };
   });
 
 // ─── Rappels ─────────────────────────────────────────────────────────────
@@ -404,35 +429,40 @@ export const createReminder = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const tenantId = await ensureDossierAccess(userId, data.dossierId);
+    try {
+      const { userId } = context as { userId: string };
+      const tenantId = await ensureDossierAccess(userId, data.dossierId);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: row, error } = await supabaseAdmin
-      .from("reminders")
-      .insert({
-        tenant_id: tenantId,
-        user_id: data.targetUserId ?? userId,
-        created_by: userId,
-        dossier_id: data.dossierId,
-        title: data.title,
-        body: data.body ?? null,
-        remind_at: data.remindAt,
-      })
-      .select("id, title, remind_at")
-      .single();
-    if (error) throw new Error(error.message);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: row, error } = await supabaseAdmin
+        .from("reminders")
+        .insert({
+          tenant_id: tenantId,
+          user_id: data.targetUserId ?? userId,
+          created_by: userId,
+          dossier_id: data.dossierId,
+          title: data.title,
+          body: data.body ?? null,
+          remind_at: data.remindAt,
+        })
+        .select("id, title, remind_at")
+        .single();
+      if (error) throw new Error(error.message);
 
-    await logTimelineEvent({
-      tenantId,
-      dossierId: data.dossierId,
-      actorId: userId,
-      eventType: "reminder.created",
-      title: `Rappel : ${data.title}`,
-      metadata: { reminder_id: row.id, remind_at: data.remindAt },
-    });
+      await logTimelineEvent({
+        tenantId,
+        dossierId: data.dossierId,
+        actorId: userId,
+        eventType: "reminder.created",
+        title: `Rappel : ${data.title}`,
+        metadata: { reminder_id: row.id, remind_at: data.remindAt },
+      });
 
-    return { reminder: row };
+      return { reminder: row };
+    } catch (err) {
+      console.error("[createReminder]", err);
+      throw new Error("Impossible de créer le rappel");
+    }
   });
 
 export const dismissReminder = createServerFn({ method: "POST" })
@@ -441,16 +471,21 @@ export const dismissReminder = createServerFn({ method: "POST" })
     z.object({ reminderId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { userId } = context as { userId: string };
-    const tenantId = await getTenantId(userId);
+    try {
+      const { userId } = context as { userId: string };
+      const tenantId = await getTenantId(userId);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await supabaseAdmin
-      .from("reminders")
-      .update({ dismissed_at: new Date().toISOString() })
-      .eq("id", data.reminderId)
-      .eq("tenant_id", tenantId)
-      .eq("user_id", userId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabaseAdmin
+        .from("reminders")
+        .update({ dismissed_at: new Date().toISOString() })
+        .eq("id", data.reminderId)
+        .eq("tenant_id", tenantId)
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    } catch (err) {
+      console.error("[dismissReminder]", err);
+      throw new Error("Impossible de masquer le rappel");
+    }
   });

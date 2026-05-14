@@ -26,6 +26,15 @@ export function CookieBanner() {
     setVisible(false);
   };
 
+  const refuse = () => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, "refused");
+    } catch {
+      // ignore
+    }
+    setVisible(false);
+  };
+
   if (!visible) return null;
 
   return (
@@ -51,13 +60,20 @@ export function CookieBanner() {
               </Link>
               .
             </p>
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={refuse}
+                className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-[12px] font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+              >
+                Refuser
+              </button>
               <button
                 type="button"
                 onClick={accept}
                 className="inline-flex h-8 items-center rounded-lg bg-gradient-to-br from-primary to-accent px-3 text-[12px] font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-95"
               >
-                J'ai compris
+                Accepter
               </button>
             </div>
           </div>

@@ -19,6 +19,7 @@ import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { SmartDisclaimer } from "@/components/agent/SmartDisclaimer";
 
 export const Route = createFileRoute("/_authenticated/admin/workflow-generator")({
+  head: () => ({ meta: [{ title: "Générateur de workflows · Admin · JurisAI" }] }),
   component: WorkflowGeneratorPage,
 });
 

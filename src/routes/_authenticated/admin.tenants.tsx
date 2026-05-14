@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { listAllTenants } from "@/server/tenant.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/tenants")({
+  head: () => ({ meta: [{ title: "Gestion des tenants · Admin · JurisAI" }] }),
   component: AdminTenantsPage,
 });
 

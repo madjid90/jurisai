@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
+  head: () => ({ meta: [{ title: "Notifications · JurisAI" }] }),
   component: NotificationsPage,
 });
 

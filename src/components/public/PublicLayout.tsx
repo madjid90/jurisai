@@ -1,14 +1,19 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
+import { Menu, X } from "lucide-react";
 
 const FOOTER_LINKS = [
   { label: "Tarifs", to: "/#pricing" },
   { label: "Mentions légales", to: "/mentions-legales" },
   { label: "CGU", to: "/cgu" },
+  { label: "CGV", to: "/cgv" },
   { label: "Confidentialité", to: "/confidentialite" },
 ];
 
 export function PublicHeader() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 w-full">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -41,8 +46,52 @@ export function PublicHeader() {
           >
             Essayer gratuitement
           </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-foreground/70 hover:bg-secondary md:hidden"
+            aria-label="Menu de navigation"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile navigation */}
+      {mobileOpen && (
+        <nav className="border-t border-border/40 bg-background/95 backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-3">
+            <a
+              href="#features"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-[14px] font-medium text-foreground/80 hover:bg-secondary"
+            >
+              Fonctionnalités
+            </a>
+            <a
+              href="#use-cases"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-[14px] font-medium text-foreground/80 hover:bg-secondary"
+            >
+              Cas d'usage
+            </a>
+            <a
+              href="#pricing"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-[14px] font-medium text-foreground/80 hover:bg-secondary"
+            >
+              Tarifs
+            </a>
+            <Link
+              to="/login"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-[14px] font-medium text-foreground/80 hover:bg-secondary"
+            >
+              Connexion
+            </Link>
+          </div>
+        </nav>
+      )}
     </header>
   );
 }

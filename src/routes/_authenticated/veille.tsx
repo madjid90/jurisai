@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/veille")({
+  head: () => ({ meta: [{ title: "Veille juridique · JurisAI" }] }),
   component: VeillePage,
 });
 

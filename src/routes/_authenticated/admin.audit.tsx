@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Shield } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/audit")({
+  head: () => ({ meta: [{ title: "Journal d'audit · Admin · JurisAI" }] }),
   component: AuditPage,
 });
 

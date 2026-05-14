@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTenantUsage, getTenantQuota } from "@/server/tenant.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/usage")({
+  head: () => ({ meta: [{ title: "Utilisation · Admin · JurisAI" }] }),
   component: AdminUsagePage,
 });
 

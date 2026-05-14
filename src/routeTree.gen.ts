@@ -16,6 +16,7 @@ import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ConfidentialiteRouteImport } from './routes/confidentialite'
+import { Route as CgvRouteImport } from './routes/cgv'
 import { Route as CguRouteImport } from './routes/cgu'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
@@ -94,6 +95,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const ConfidentialiteRoute = ConfidentialiteRouteImport.update({
   id: '/confidentialite',
   path: '/confidentialite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CgvRoute = CgvRouteImport.update({
+  id: '/cgv',
+  path: '/cgv',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CguRoute = CguRouteImport.update({
@@ -337,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/cgu': typeof CguRoute
+  '/cgv': typeof CgvRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -389,6 +396,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
   '/cgu': typeof CguRoute
+  '/cgv': typeof CgvRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -443,6 +451,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/accept-invitation': typeof AcceptInvitationRoute
   '/cgu': typeof CguRoute
+  '/cgv': typeof CgvRoute
   '/confidentialite': typeof ConfidentialiteRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -497,6 +506,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accept-invitation'
     | '/cgu'
+    | '/cgv'
     | '/confidentialite'
     | '/forgot-password'
     | '/login'
@@ -549,6 +559,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accept-invitation'
     | '/cgu'
+    | '/cgv'
     | '/confidentialite'
     | '/forgot-password'
     | '/login'
@@ -602,6 +613,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/accept-invitation'
     | '/cgu'
+    | '/cgv'
     | '/confidentialite'
     | '/forgot-password'
     | '/login'
@@ -656,6 +668,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AcceptInvitationRoute: typeof AcceptInvitationRoute
   CguRoute: typeof CguRoute
+  CgvRoute: typeof CgvRoute
   ConfidentialiteRoute: typeof ConfidentialiteRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
@@ -724,6 +737,13 @@ declare module '@tanstack/react-router' {
       path: '/confidentialite'
       fullPath: '/confidentialite'
       preLoaderRoute: typeof ConfidentialiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cgv': {
+      id: '/cgv'
+      path: '/cgv'
+      fullPath: '/cgv'
+      preLoaderRoute: typeof CgvRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cgu': {
@@ -1147,6 +1167,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AcceptInvitationRoute: AcceptInvitationRoute,
   CguRoute: CguRoute,
+  CgvRoute: CgvRoute,
   ConfidentialiteRoute: ConfidentialiteRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
@@ -1168,3 +1189,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

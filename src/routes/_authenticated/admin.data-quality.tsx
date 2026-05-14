@@ -18,6 +18,7 @@ type Check = {
 };
 
 export const Route = createFileRoute("/_authenticated/admin/data-quality")({
+  head: () => ({ meta: [{ title: "Qualité des données · Admin · JurisAI" }] }),
   component: DataQualityPage,
 });
 

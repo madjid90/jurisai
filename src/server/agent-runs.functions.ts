@@ -876,7 +876,7 @@ ${sourcesBlock || "(aucune)"}`;
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: await resolveChatModel(run.tenant_id as string),
+          model: await resolveChatModel(tenantId),
           temperature: LLM_TEMPERATURES.chat,
           max_tokens: LLM_MAX_TOKENS.chat,
           messages: [
@@ -913,7 +913,7 @@ ${sourcesBlock || "(aucune)"}`;
 
       // 5bis. Actions spécifiques selon l'intent (invisibles pour l'utilisateur,
       // alimentent draft + final_document_ids + contract_deadlines + timeline du dossier)
-      const intent = (run as { intent: string | null }).intent ?? "autre";
+      const intent = ((locked as Record<string, unknown>).intent as string | null) ?? "autre";
       const finalDocIds: string[] = [];
       const extras = await runIntentActions({
         intent,
@@ -973,16 +973,16 @@ ${sourcesBlock || "(aucune)"}`;
       try {
         const { runPostResponsePipeline } = await import("@/server/_shared/agent-post-response.server");
         await runPostResponsePipeline({
-          runId: data.id,
+          agentRunId: data.id,
           tenantId,
           userId,
+          message: r.message,
           answer: finalAnswer,
-          sources: sources.map((s: Record<string, unknown>) => ({
-            title: String(s.title ?? ""),
-            ref: s.ref ? String(s.ref) : null,
-            excerpt: String(s.excerpt ?? ""),
-          })),
+          intent,
+          domain: ((locked as Record<string, unknown>).domain as string) ?? "",
+          topic: r.topic ?? "",
           trace: [],
+          refused: false,
           dossierId: r.dossier_id,
         });
       } catch (postErr) {

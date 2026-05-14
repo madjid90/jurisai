@@ -67,94 +67,119 @@ function cleanEmpty<T extends Record<string, unknown>>(obj: T): Partial<T> {
 export const listClients = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { data, error } = await ctx.supabase
-      .from("clients")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .order("full_name", { ascending: true })
-      .limit(500);
-    if (error) throw new Error(error.message);
-    return { clients: data ?? [] };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { data, error } = await ctx.supabase
+        .from("clients")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("full_name", { ascending: true })
+        .limit(500);
+      if (error) throw new Error(error.message);
+      return { clients: data ?? [] };
+    } catch (err) {
+      console.error("[listClients]", err);
+      throw new Error("Impossible de récupérer la liste des clients");
+    }
   });
 
 export const getClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { data: client, error } = await ctx.supabase
-      .from("clients")
-      .select("*")
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!client) throw new Error("Client introuvable");
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { data: client, error } = await ctx.supabase
+        .from("clients")
+        .select("*")
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!client) throw new Error("Client introuvable");
 
-    const { data: dossiers } = await ctx.supabase
-      .from("dossiers")
-      .select("*")
-      .eq("client_id", data.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
+      const { data: dossiers } = await ctx.supabase
+        .from("dossiers")
+        .select("*")
+        .eq("client_id", data.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-    return { client, dossiers: dossiers ?? [] };
+      return { client, dossiers: dossiers ?? [] };
+    } catch (err) {
+      console.error("[getClient]", err);
+      throw new Error("Impossible de récupérer les informations du client");
+    }
   });
 
 export const createClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => clientSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const payload = {
-      ...cleanEmpty(data),
-      tenant_id: tenantId,
-      created_by: ctx.userId,
-    };
-    const { data: client, error } = await ctx.supabase
-      .from("clients")
-      .insert(payload as never)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    return { client };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const payload = {
+        ...cleanEmpty(data),
+        tenant_id: tenantId,
+        created_by: ctx.userId,
+      };
+      const { data: client, error } = await ctx.supabase
+        .from("clients")
+        .insert(payload as never)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return { client };
+    } catch (err) {
+      console.error("[createClient]", err);
+      throw new Error("Impossible de créer le client");
+    }
   });
 
 export const updateClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => updateClientSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { id, ...rest } = data;
-    const { data: client, error } = await ctx.supabase
-      .from("clients")
-      .update(cleanEmpty(rest) as never)
-      .eq("id", id)
-      .eq("tenant_id", tenantId)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    return { client };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { id, ...rest } = data;
+      const { data: client, error } = await ctx.supabase
+        .from("clients")
+        .update(cleanEmpty(rest) as never)
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return { client };
+    } catch (err) {
+      console.error("[updateClient]", err);
+      throw new Error("Impossible de mettre à jour le client");
+    }
   });
 
 export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { error } = await ctx.supabase
-      .from("clients")
-      .delete()
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId);
-    if (error) throw new Error(error.message);
-    return { success: true };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { error } = await ctx.supabase
+        .from("clients")
+        .delete()
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId);
+      if (error) throw new Error(error.message);
+      return { success: true };
+    } catch (err) {
+      console.error("[deleteClient]", err);
+      throw new Error("Impossible de supprimer le client");
+    }
   });
 
 // ─── Dossiers ───────────────────────────────────────────────────────────────
@@ -167,116 +192,141 @@ export const listDossiers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => listDossiersSchema.parse(input ?? {}) ?? {})
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const limit = data?.limit ?? 30;
-    const offset = data?.offset ?? 0;
-    const { data: rows, error, count } = await ctx.supabase
-      .from("dossiers")
-      .select("*, client:clients(id, full_name)", { count: "exact" })
-      .eq("tenant_id", tenantId)
-      .order("updated_at", { ascending: false })
-      .range(offset, offset + limit - 1);
-    if (error) throw new Error(error.message);
-    return { dossiers: rows ?? [], total: count ?? 0, hasMore: (rows?.length ?? 0) === limit };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const limit = data?.limit ?? 30;
+      const offset = data?.offset ?? 0;
+      const { data: rows, error, count } = await ctx.supabase
+        .from("dossiers")
+        .select("*, client:clients(id, full_name)", { count: "exact" })
+        .eq("tenant_id", tenantId)
+        .order("updated_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (error) throw new Error(error.message);
+      return { dossiers: rows ?? [], total: count ?? 0, hasMore: (rows?.length ?? 0) === limit };
+    } catch (err) {
+      console.error("[listDossiers]", err);
+      throw new Error("Impossible de récupérer la liste des dossiers");
+    }
   });
 
 export const getDossier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { data: dossier, error } = await ctx.supabase
-      .from("dossiers")
-      .select("*, client:clients(id, full_name, job_title)")
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!dossier) throw new Error("Dossier introuvable");
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { data: dossier, error } = await ctx.supabase
+        .from("dossiers")
+        .select("*, client:clients(id, full_name, job_title)")
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!dossier) throw new Error("Dossier introuvable");
 
-    const { data: deadlines } = await ctx.supabase
-      .from("dossier_deadlines")
-      .select("*")
-      .eq("dossier_id", data.id)
-      .order("due_date", { ascending: true });
+      const { data: deadlines } = await ctx.supabase
+        .from("dossier_deadlines")
+        .select("*")
+        .eq("dossier_id", data.id)
+        .order("due_date", { ascending: true });
 
-    return { dossier, deadlines: deadlines ?? [] };
+      return { dossier, deadlines: deadlines ?? [] };
+    } catch (err) {
+      console.error("[getDossier]", err);
+      throw new Error("Impossible de récupérer le dossier");
+    }
   });
 
 export const createDossier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => dossierSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const payload = {
-      ...cleanEmpty(data),
-      tenant_id: tenantId,
-      created_by: ctx.userId,
-    };
-    const { data: dossier, error } = await ctx.supabase
-      .from("dossiers")
-      .insert(payload as never)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    await logTimelineEvent({
-      tenantId,
-      dossierId: (dossier as { id: string }).id,
-      actorId: ctx.userId,
-      eventType: "dossier.created",
-      title: `Dossier créé`,
-      description: (dossier as { title?: string }).title ?? null,
-    });
-    return { dossier };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const payload = {
+        ...cleanEmpty(data),
+        tenant_id: tenantId,
+        created_by: ctx.userId,
+      };
+      const { data: dossier, error } = await ctx.supabase
+        .from("dossiers")
+        .insert(payload as never)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      await logTimelineEvent({
+        tenantId,
+        dossierId: (dossier as { id: string }).id,
+        actorId: ctx.userId,
+        eventType: "dossier.created",
+        title: `Dossier créé`,
+        description: (dossier as { title?: string }).title ?? null,
+      });
+      return { dossier };
+    } catch (err) {
+      console.error("[createDossier]", err);
+      throw new Error("Impossible de créer le dossier");
+    }
   });
 
 export const updateDossier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => updateDossierSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { id, ...rest } = data;
-    const cleaned = cleanEmpty(rest) as Record<string, unknown>;
-    if (cleaned.status === "closed") cleaned.closed_at = new Date().toISOString();
-    if (cleaned.status && cleaned.status !== "closed") cleaned.closed_at = null;
-    const { data: dossier, error } = await ctx.supabase
-      .from("dossiers")
-      .update(cleaned as never)
-      .eq("id", id)
-      .eq("tenant_id", tenantId)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    if (cleaned.status) {
-      await logTimelineEvent({
-        tenantId,
-        dossierId: id,
-        actorId: ctx.userId,
-        eventType: "dossier.status_changed",
-        title: `Statut → ${String(cleaned.status)}`,
-        metadata: { new_status: cleaned.status },
-      });
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { id, ...rest } = data;
+      const cleaned = cleanEmpty(rest) as Record<string, unknown>;
+      if (cleaned.status === "closed") cleaned.closed_at = new Date().toISOString();
+      if (cleaned.status && cleaned.status !== "closed") cleaned.closed_at = null;
+      const { data: dossier, error } = await ctx.supabase
+        .from("dossiers")
+        .update(cleaned as never)
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      if (cleaned.status) {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: id,
+          actorId: ctx.userId,
+          eventType: "dossier.status_changed",
+          title: `Statut → ${String(cleaned.status)}`,
+          metadata: { new_status: cleaned.status },
+        });
+      }
+      return { dossier };
+    } catch (err) {
+      console.error("[updateDossier]", err);
+      throw new Error("Impossible de mettre à jour le dossier");
     }
-    return { dossier };
   });
 
 export const deleteDossier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { error } = await ctx.supabase
-      .from("dossiers")
-      .delete()
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId);
-    if (error) throw new Error(error.message);
-    return { success: true };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { error } = await ctx.supabase
+        .from("dossiers")
+        .delete()
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId);
+      if (error) throw new Error(error.message);
+      return { success: true };
+    } catch (err) {
+      console.error("[deleteDossier]", err);
+      throw new Error("Impossible de supprimer le dossier");
+    }
   });
 
 // ─── Deadlines ──────────────────────────────────────────────────────────────
@@ -284,80 +334,100 @@ export const deleteDossier = createServerFn({ method: "POST" })
 export const listDeadlines = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { data, error } = await ctx.supabase
-      .from("dossier_deadlines")
-      .select("*, dossier:dossiers(id, title, client:clients(id, full_name))")
-      .eq("tenant_id", tenantId)
-      .order("due_date", { ascending: true });
-    if (error) throw new Error(error.message);
-    return { deadlines: data ?? [] };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { data, error } = await ctx.supabase
+        .from("dossier_deadlines")
+        .select("*, dossier:dossiers(id, title, client:clients(id, full_name))")
+        .eq("tenant_id", tenantId)
+        .order("due_date", { ascending: true });
+      if (error) throw new Error(error.message);
+      return { deadlines: data ?? [] };
+    } catch (err) {
+      console.error("[listDeadlines]", err);
+      throw new Error("Impossible de récupérer les échéances");
+    }
   });
 
 export const createDeadline = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => deadlineSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { data: dossier } = await ctx.supabase
-      .from("dossiers")
-      .select("id")
-      .eq("id", data.dossier_id)
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    if (!dossier) throw new Error("Dossier introuvable");
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { data: dossier } = await ctx.supabase
+        .from("dossiers")
+        .select("id")
+        .eq("id", data.dossier_id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (!dossier) throw new Error("Dossier introuvable");
 
-    const payload = {
-      dossier_id: data.dossier_id,
-      title: data.title,
-      description: data.description || null,
-      due_date: data.due_date,
-      tenant_id: tenantId,
-      created_by: ctx.userId,
-    };
-    const { data: deadline, error } = await ctx.supabase
-      .from("dossier_deadlines")
-      .insert(payload as never)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    return { deadline };
+      const payload = {
+        dossier_id: data.dossier_id,
+        title: data.title,
+        description: data.description || null,
+        due_date: data.due_date,
+        tenant_id: tenantId,
+        created_by: ctx.userId,
+      };
+      const { data: deadline, error } = await ctx.supabase
+        .from("dossier_deadlines")
+        .insert(payload as never)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return { deadline };
+    } catch (err) {
+      console.error("[createDeadline]", err);
+      throw new Error("Impossible de créer l'échéance");
+    }
   });
 
 export const updateDeadline = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => updateDeadlineSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { id, ...rest } = data;
-    const cleaned = cleanEmpty(rest) as Record<string, unknown>;
-    if (cleaned.completed === true) cleaned.completed_at = new Date().toISOString();
-    if (cleaned.completed === false) cleaned.completed_at = null;
-    const { data: deadline, error } = await ctx.supabase
-      .from("dossier_deadlines")
-      .update(cleaned as never)
-      .eq("id", id)
-      .eq("tenant_id", tenantId)
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-    return { deadline };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { id, ...rest } = data;
+      const cleaned = cleanEmpty(rest) as Record<string, unknown>;
+      if (cleaned.completed === true) cleaned.completed_at = new Date().toISOString();
+      if (cleaned.completed === false) cleaned.completed_at = null;
+      const { data: deadline, error } = await ctx.supabase
+        .from("dossier_deadlines")
+        .update(cleaned as never)
+        .eq("id", id)
+        .eq("tenant_id", tenantId)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return { deadline };
+    } catch (err) {
+      console.error("[updateDeadline]", err);
+      throw new Error("Impossible de mettre à jour l'échéance");
+    }
   });
 
 export const deleteDeadline = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const ctx = context as Ctx;
-    const tenantId = await getTenantId(ctx.userId);
-    const { error } = await ctx.supabase
-      .from("dossier_deadlines")
-      .delete()
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId);
-    if (error) throw new Error(error.message);
-    return { success: true };
+    try {
+      const ctx = context as Ctx;
+      const tenantId = await getTenantId(ctx.userId);
+      const { error } = await ctx.supabase
+        .from("dossier_deadlines")
+        .delete()
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId);
+      if (error) throw new Error(error.message);
+      return { success: true };
+    } catch (err) {
+      console.error("[deleteDeadline]", err);
+      throw new Error("Impossible de supprimer l'échéance");
+    }
   });

@@ -58,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/agent")({
     run: z.string().uuid().optional(),
     mode: z.enum(["chat", "document", "procedure", "dossier_selection"]).optional(),
   }),
+  head: () => ({ meta: [{ title: "Agent 360 · JurisAI" }] }),
   component: AssistantPage,
 });
 

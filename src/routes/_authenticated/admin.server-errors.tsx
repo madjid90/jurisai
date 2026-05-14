@@ -8,6 +8,7 @@ import { listServerErrors, type ServerErrorRow } from "@/server/quality.function
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/server-errors")({
+  head: () => ({ meta: [{ title: "Erreurs serveur · Admin · JurisAI" }] }),
   component: ServerErrorsPage,
 });
 

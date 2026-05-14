@@ -8,6 +8,7 @@
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { embedText } from "./llm-embeddings.server";
+import { multiQueryRag, type RagSource } from "./multi-query-rag.server";
 
 export type LegalSource = {
   n: number;
@@ -140,7 +141,15 @@ async function embedQuery(query: string): Promise<number[] | null> {
  */
 export async function searchLegalSources(
   query: string,
-  opts: { idcc?: string | null; limit?: number; minScore?: number } = {},
+  opts: {
+    idcc?: string | null;
+    limit?: number;
+    minScore?: number;
+    /** Opt-in : expansion multi-query pour meilleur recall (nécessite apiKey). */
+    useMultiQuery?: boolean;
+    /** Clé API gateway (obligatoire si useMultiQuery=true). Défaut : process.env.LOVABLE_API_KEY */
+    apiKey?: string;
+  } = {},
 ): Promise<SourcingResult> {
   const limit = opts.limit ?? 8;
   // D1 FIX: Seuil minimum de pertinence pour éviter d'injecter des résultats non pertinents
@@ -149,6 +158,32 @@ export async function searchLegalSources(
   const trimmed = query.trim();
   if (trimmed.length < 4) {
     return { sources: [], query: trimmed, ok: false, reason: "Requête trop courte" };
+  }
+
+  // ─── Multi-query expansion (opt-in) ──────────────────────────────
+  if (opts.useMultiQuery) {
+    const apiKey = opts.apiKey ?? process.env.LOVABLE_API_KEY;
+    if (apiKey) {
+      try {
+        const mqResult = await multiQueryRag(trimmed, {
+          topN: Math.max(limit * 3, 24),
+          idcc: opts.idcc ?? null,
+          apiKey,
+        });
+        if (mqResult.sources.length > 0) {
+          // Convert RagSource[] → RawChunk[] for MMR reranking + formatSources
+          const pool: RawChunk[] = mqResult.sources.map(ragSourceToRawChunk);
+          const reranked = mmrRerank(pool, limit);
+          return formatSources(reranked, trimmed, opts.minScore);
+        }
+        // Multi-query returned nothing — fall through to single-query
+      } catch (err) {
+        console.warn("[legal-rag] multi-query expansion failed, falling back to single-query:", err);
+        // Fall through to single-query below
+      }
+    } else {
+      console.warn("[legal-rag] useMultiQuery requested but no apiKey available, using single-query");
+    }
   }
 
   const embedding = await embedQuery(trimmed);
@@ -207,6 +242,21 @@ export async function searchLegalSources(
     score: 0.5,
   }));
   return formatSources(mapped, trimmed, opts.minScore);
+}
+
+/** Convertit un RagSource (multi-query) en RawChunk (legal-rag interne). */
+function ragSourceToRawChunk(rs: RagSource): RawChunk {
+  return {
+    chunk_id: rs.chunk_id,
+    source_id: rs.source_id,
+    content: rs.excerpt,
+    heading: null,
+    source_title: rs.title,
+    source_type: rs.source_type,
+    reference_code: rs.reference ?? null,
+    official_url: rs.url ?? null,
+    score: rs.rank_score ?? 0.5,
+  };
 }
 
 function formatSources(

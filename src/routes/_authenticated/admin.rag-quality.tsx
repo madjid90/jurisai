@@ -25,6 +25,7 @@ type EvalRun = {
 };
 
 export const Route = createFileRoute("/_authenticated/admin/rag-quality")({
+  head: () => ({ meta: [{ title: "Qualité RAG · Admin · JurisAI" }] }),
   component: RagQualityPage,
 });
 
