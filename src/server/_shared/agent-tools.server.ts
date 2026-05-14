@@ -76,10 +76,10 @@ export async function classifyIntent(
   suggested_actions: Array<{ kind: string; label: string; payload?: Record<string, unknown> }>;
   missing_information: string[];
 }> {
-  const answersBlock =
-    priorAnswers && Object.keys(priorAnswers).length > 0
-      ? `\n\nInformations DÉJÀ fournies par l'utilisateur (ne JAMAIS les redemander) :\n${JSON.stringify(priorAnswers, null, 2)}`
-      : "";
+  const hasPrior = priorAnswers && Object.keys(priorAnswers).length > 0;
+  const answersBlock = hasPrior
+    ? `\n\n⚠️ INFORMATIONS DÉJÀ FOURNIES — NE PAS REDEMANDER CES INFORMATIONS :\n${Object.entries(priorAnswers).map(([q, a]) => `• Question : ${q}\n  Réponse : ${String(a)}`).join("\n")}\n\nSi toutes les informations nécessaires sont déjà fournies ci-dessus, retourne missing_information: [] (tableau vide). Ne pose de nouvelles questions que si une info ESSENTIELLE manque encore.`
+    : "";
   const legalBlock = legalContext
     ? `\n\nSOURCES JURIDIQUES APPLICABLES (utilise-les pour poser les bonnes questions et NE PAS demander ce que le droit fixe) :\n${legalContext}`
     : "";

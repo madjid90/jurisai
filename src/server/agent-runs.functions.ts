@@ -438,21 +438,38 @@ export const processAgentRun = createServerFn({ method: "POST" })
       const classification = await classifyIntent(message, ctx, priorAnswers, legalContext);
 
       draft.classification = classification;
-      // Filtre de sécurité : ne jamais re-demander une info déjà répondue
-      const answeredKeys = priorAnswers ? Object.keys(priorAnswers).map((k) => k.toLowerCase()) : [];
+
+      // Filtre de sécurité : ne jamais re-demander une info déjà répondue.
+      // Comparaison souple : on tokenise les mots-clés significatifs (≥ 4 chars)
+      // pour éviter que le LLM contourne le filtre en reformulant la question.
+      const hasAnswers = priorAnswers && Object.keys(priorAnswers).length > 0;
+      const answeredTokenSets = hasAnswers
+        ? Object.keys(priorAnswers).map((k) => {
+            const words = k.toLowerCase().replace(/[?(),:;!]/g, " ").split(/\s+/).filter((w) => w.length >= 4);
+            return new Set(words);
+          })
+        : [];
+
       const filteredMissing = (classification.missing_information ?? []).filter((q) => {
-        const s = String(q).toLowerCase();
-        return !answeredKeys.some((k) => k && (s.includes(k) || k.includes(s.slice(0, 20))));
+        const s = String(q).toLowerCase().replace(/[?(),:;!]/g, " ");
+        const qWords = s.split(/\s+/).filter((w) => w.length >= 4);
+        // Si au moins 50% des mots-clés de la question matchent une réponse existante → déjà répondu
+        return !answeredTokenSets.some((tokenSet) => {
+          if (tokenSet.size === 0) return false;
+          const overlap = qWords.filter((w) => tokenSet.has(w)).length;
+          return overlap >= Math.max(2, Math.ceil(Math.min(qWords.length, tokenSet.size) * 0.5));
+        });
       });
       classification.missing_information = filteredMissing;
       draft.questions = filteredMissing;
 
-      // 3. Décider du prochain état
+      // 3. Décider du prochain état.
+      // Si l'utilisateur a déjà répondu aux questions ET le filtre a éliminé
+      // toutes les questions restantes → on avance (ready/waiting_validation).
+      // `requires_form` ne bloque plus si toutes les infos sont déjà collectées.
       let nextStatus: AgentRunStatus;
-      if (
-        classification.requires_form ||
-        (Array.isArray(filteredMissing) && filteredMissing.length > 0)
-      ) {
+      const stillMissing = Array.isArray(filteredMissing) && filteredMissing.length > 0;
+      if (stillMissing) {
         nextStatus = "waiting_info";
       } else if (classification.requires_validation) {
         nextStatus = "waiting_validation";
