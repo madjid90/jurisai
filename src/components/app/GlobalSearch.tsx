@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Search, FolderOpen, Users, FileText, Loader2 } from "lucide-react";
-import { globalSearch } from "@/server/collaboration.functions";
+import { globalSearch } from "@/lib/server-fns/collaboration.functions";
 
 type Results = {
   dossiers: Array<{ id: string; title: string; status: string; category: string }>;

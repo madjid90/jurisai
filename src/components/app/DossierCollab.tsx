@@ -8,7 +8,7 @@ import {
   listComments, addComment, deleteComment,
   listTasks, createTask, updateTask, deleteTask,
   listTenantMembers,
-} from "@/server/collaboration.functions";
+} from "@/lib/server-fns/collaboration.functions";
 
 type Member = { id: string; full_name: string | null; email: string; avatar_url: string | null };
 type Comment = { id: string; body: string; user_id: string; created_at: string; author: Member | null };
