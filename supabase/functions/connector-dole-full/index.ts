@@ -131,12 +131,18 @@ async function ingestArchive(
   }
 }
 
-async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
+async function loadIndex(
+  months: number,
+  max: number,
+  opts: { maxArchives?: number; includeBase?: boolean } = {},
+): Promise<BatchItem[]> {
   const since = new Date();
   since.setMonth(since.getMonth() - months);
 
-  const archives = await listOpenDataArchives();
-  console.log(`[dole-full] ${archives.length} archives à traiter (base + incréments)`);
+  const maxArchives = opts.maxArchives ?? 5;
+  const includeBase = opts.includeBase ?? false;
+  const archives = await listOpenDataArchives(maxArchives, includeBase);
+  console.log(`[dole-full] ${archives.length} archives à traiter (base=${includeBase}, max=${maxArchives})`);
   const out: BatchItem[] = [];
   const seen = new Set<string>();
 
@@ -155,16 +161,20 @@ async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
 async function runBackground(
   db: ReturnType<typeof getAdminClient>,
   apiKey: string,
-  body: { months?: number; max_dossiers?: number; resume_batch_id?: string },
+  body: { months?: number; max_dossiers?: number; resume_batch_id?: string; max_archives?: number; include_base?: boolean },
 ): Promise<void> {
   let batchId: string;
   if (body.resume_batch_id) {
     batchId = String(body.resume_batch_id);
   } else {
-    const items = await loadIndex(body.months ?? 24, body.max_dossiers ?? 500);
+    const items = await loadIndex(body.months ?? 3, body.max_dossiers ?? 200, {
+      maxArchives: body.max_archives ?? 5,
+      includeBase: body.include_base ?? false,
+    });
     console.log(`[dole-full] index built: ${items.length} dossiers`);
-    batchId = await startBatch(db, "dole-full", "dossiers", items, { months: body.months ?? 24 });
+    batchId = await startBatch(db, "dole-full", "dossiers", items, { months: body.months ?? 3 });
   }
+
 
   const start = Date.now();
   let ingested = 0, skipped = 0, failed = 0;
