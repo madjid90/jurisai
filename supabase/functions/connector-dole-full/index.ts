@@ -55,23 +55,21 @@ function archiveDate(name: string): string {
   return m ? m[1] : "";
 }
 
-async function listOpenDataArchives(): Promise<string[]> {
+async function listOpenDataArchives(maxArchives: number, includeBase: boolean): Promise<string[]> {
   const res = await fetch(DOLE_OPEN_DATA_INDEX);
   if (!res.ok) throw new Error(`DOLE open data index ${res.status}`);
   const html = await res.text();
   const all = [...html.matchAll(/href="((?:Freemium_dole_global_|DOLE_)[^"]+\.tar\.gz)"/g)].map((m) => m[1]);
 
-  // Pick the latest Freemium global snapshot as base, then all DOLE_* increments newer than it.
-  const freemium = all.filter((n) => n.startsWith("Freemium_dole_global_")).sort();
+  // Pour la veille : on prend SEULEMENT les N incréments les plus récents.
+  // Le snapshot global Freemium n'est téléchargé que sur demande explicite (premier seed).
   const incrs = all.filter((n) => n.startsWith("DOLE_")).sort();
+  const recentIncrs = incrs.slice(-maxArchives);
+  if (!includeBase) return recentIncrs;
+
+  const freemium = all.filter((n) => n.startsWith("Freemium_dole_global_")).sort();
   const base = freemium.at(-1);
-  if (!base) {
-    // Pas de snapshot global : on prend tous les incréments (peut être lourd)
-    return incrs;
-  }
-  const baseDate = archiveDate(base);
-  const incrAfter = incrs.filter((n) => archiveDate(n) >= baseDate);
-  return [base, ...incrAfter];
+  return base ? [base, ...recentIncrs] : recentIncrs;
 }
 
 async function ingestArchive(
@@ -133,12 +131,18 @@ async function ingestArchive(
   }
 }
 
-async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
+async function loadIndex(
+  months: number,
+  max: number,
+  opts: { maxArchives?: number; includeBase?: boolean } = {},
+): Promise<BatchItem[]> {
   const since = new Date();
   since.setMonth(since.getMonth() - months);
 
-  const archives = await listOpenDataArchives();
-  console.log(`[dole-full] ${archives.length} archives à traiter (base + incréments)`);
+  const maxArchives = opts.maxArchives ?? 5;
+  const includeBase = opts.includeBase ?? false;
+  const archives = await listOpenDataArchives(maxArchives, includeBase);
+  console.log(`[dole-full] ${archives.length} archives à traiter (base=${includeBase}, max=${maxArchives})`);
   const out: BatchItem[] = [];
   const seen = new Set<string>();
 
@@ -157,16 +161,20 @@ async function loadIndex(months: number, max: number): Promise<BatchItem[]> {
 async function runBackground(
   db: ReturnType<typeof getAdminClient>,
   apiKey: string,
-  body: { months?: number; max_dossiers?: number; resume_batch_id?: string },
+  body: { months?: number; max_dossiers?: number; resume_batch_id?: string; max_archives?: number; include_base?: boolean },
 ): Promise<void> {
   let batchId: string;
   if (body.resume_batch_id) {
     batchId = String(body.resume_batch_id);
   } else {
-    const items = await loadIndex(body.months ?? 24, body.max_dossiers ?? 500);
+    const items = await loadIndex(body.months ?? 3, body.max_dossiers ?? 200, {
+      maxArchives: body.max_archives ?? 5,
+      includeBase: body.include_base ?? false,
+    });
     console.log(`[dole-full] index built: ${items.length} dossiers`);
-    batchId = await startBatch(db, "dole-full", "dossiers", items, { months: body.months ?? 24 });
+    batchId = await startBatch(db, "dole-full", "dossiers", items, { months: body.months ?? 3 });
   }
+
 
   const start = Date.now();
   let ingested = 0, skipped = 0, failed = 0;
@@ -247,13 +255,16 @@ Deno.serve(async (req) => {
     if (!isInternal) {
       await requireSuperAdmin(req);
     }
-    const body = await req.json().catch(() => ({})) as { dry_run?: boolean; months?: number; max_dossiers?: number; resume_batch_id?: string };
+    const body = await req.json().catch(() => ({})) as { dry_run?: boolean; months?: number; max_dossiers?: number; resume_batch_id?: string; max_archives?: number; include_base?: boolean };
     const db = getAdminClient();
     const apiKey = getLovableApiKey();
 
     if (body.dry_run) {
       // Dry-run synchronous: limite stricte pour rester sous le timeout gateway.
-      const items = await loadIndex(body.months ?? 24, Math.min(body.max_dossiers ?? 20, 20));
+      const items = await loadIndex(body.months ?? 3, Math.min(body.max_dossiers ?? 20, 20), {
+        maxArchives: body.max_archives ?? 2,
+        includeBase: body.include_base ?? false,
+      });
       return json({ dry_run: true, found: items.length, sample: items.slice(0, 5) });
     }
 
