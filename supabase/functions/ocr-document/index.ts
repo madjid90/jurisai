@@ -74,7 +74,14 @@ Deno.serve(async (req) => {
     if (buf.byteLength > 15 * 1024 * 1024) {
       return jsonErr("Fichier trop volumineux (max 15 Mo pour OCR)", 413, corsHeaders);
     }
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    // Chunked base64 encoding — spread operator on large arrays exceeds max call stack
+    const bytes = new Uint8Array(buf);
+    const CHUNK = 8192;
+    let binaryStr = "";
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binaryStr += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
+    }
+    const base64 = btoa(binaryStr);
     const mediaType = file_type;
 
     // Create pending analysis row
@@ -91,26 +98,43 @@ Deno.serve(async (req) => {
       }).select("id").single();
     const analysisId = (row as { id: string } | null)?.id;
 
-    // Call vision model
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: VISION_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: OCR_PROMPT },
-              { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } },
-            ],
-          },
-        ],
-      }),
-    });
+    // Call vision model with 60s timeout to avoid hanging requests
+    const ocrCtrl = new AbortController();
+    const ocrTimeout = setTimeout(() => ocrCtrl.abort("OCR timeout after 60s"), 60_000);
+    let aiRes: Response;
+    try {
+      aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: VISION_MODEL,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: OCR_PROMPT },
+                { type: "image_url", image_url: { url: `data:${mediaType};base64,${base64}` } },
+              ],
+            },
+          ],
+        }),
+        signal: ocrCtrl.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(ocrTimeout);
+      if (analysisId) {
+        await supabase.from("document_analyses").update({
+          status: "failed",
+          error_message: "OCR timeout ou erreur réseau",
+        }).eq("id", analysisId);
+      }
+      return jsonErr("OCR timeout — le fichier est peut-être trop complexe", 504, corsHeaders);
+    } finally {
+      clearTimeout(ocrTimeout);
+    }
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();

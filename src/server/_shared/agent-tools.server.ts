@@ -9,6 +9,7 @@ import { llmFetch } from "./llm-fetch.server";
 import { resolveChatModel } from "./llm-models.server";
 import { embedText, embedErrorMessage } from "./llm-embeddings.server";
 import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "./prompt-sanitizer.server";
 
 export type AgentCtx = {
   userId: string;
@@ -125,6 +126,8 @@ RÈGLES STRICTES SUR missing_information :
    Exemple MAUVAIS : "Date de l'entretien préalable"
 Aucun texte hors JSON.${idccBlock}
 
+${PROMPT_INJECTION_GUARD}
+
 EXEMPLES :
 Demande : "Lance une procédure de licenciement"
 → {"intent":"lancer_procedure","domain":"rh","topic":"Procédure de licenciement","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":true,"suggested_actions":[{"kind":"start_workflow","label":"Lancer la procédure de licenciement"},{"kind":"search_law","label":"Rechercher les textes applicables"}],"missing_information":["Quel est le motif du licenciement ? (faute simple, faute grave, faute lourde, insuffisance professionnelle, motif économique)","Nom et prénom du salarié concerné","Ancienneté du salarié dans l'entreprise (date d'entrée ou nombre d'années)","Le salarié est-il un salarié protégé ? (délégué du personnel, membre du CSE, délégué syndical)"]}
@@ -138,7 +141,7 @@ Demande : "Analyse ce contrat de travail"
 Demande : "Quel est le délai de préavis pour un cadre avec 5 ans d'ancienneté ?"
 → {"intent":"question_juridique","domain":"rh","topic":"Délai préavis licenciement cadre 5 ans","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les textes sur le préavis"}],"missing_information":[]}`,
         },
-        { role: "user", content: message.slice(0, 3000) + answersBlock + legalBlock },
+        { role: "user", content: sanitizePromptInput(message.slice(0, 3000), { label: "DEMANDE_UTILISATEUR" }) + answersBlock + legalBlock },
       ],
     }),
   });
@@ -761,6 +764,8 @@ export async function analyzeDocumentTool(
   if (!text.trim()) return { result: { error: "Document vide" }, succeeded: false };
 
   // LLM : extraction de risques + résumé court
+  const safeTitle = sanitizePromptInput(String(doc.title ?? ""), { label: "TITRE_DOCUMENT", maxLength: 500 });
+  const safeText = sanitizePromptInput(text, { label: "CONTENU_DOCUMENT" });
   const res = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${ctx.apiKey}`, "Content-Type": "application/json" },
@@ -779,9 +784,11 @@ export async function analyzeDocumentTool(
   "risks": [{"title":"...","severity":"low|medium|high|critical","rationale":"..."}],
   "missing_clauses": ["..."],
   "key_points": ["..."]
-}`,
+}
+
+${PROMPT_INJECTION_GUARD}`,
         },
-        { role: "user", content: `Titre : ${doc.title}\n\nContenu :\n${text}` },
+        { role: "user", content: `Titre : ${safeTitle}\n\nContenu :\n${safeText}` },
       ],
     }),
   });

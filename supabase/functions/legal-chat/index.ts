@@ -304,11 +304,21 @@ Deno.serve(async (req) => {
       systemPrompt += `\n\n<SOURCES>\n(Aucune source officielle pertinente trouvée.)\n</SOURCES>`;
     }
 
-    // 9b. LOT 5 — Fenêtre glissante : si l'historique > 10 messages, on résume
+    // 9b. Sanitize history entries — client-sent content is untrusted.
+    // Cap each message to 6000 chars and strip injection patterns.
+    const sanitizedHistory = (history ?? [])
+      .filter((m: { role: string; content: string }) => m && typeof m.content === "string" && ["user", "assistant"].includes(m.role))
+      .map((m: { role: "user" | "assistant"; content: string }) => ({
+        role: m.role,
+        content: m.role === "user" ? sanitizeQuery(m.content.slice(0, 6000)) : m.content.slice(0, 6000),
+      }))
+      .filter((m: { content: string }) => m.content.trim().length > 0);
+
+    // LOT 5 — Fenêtre glissante : si l'historique > 10 messages, on résume
     // les anciens via un appel LLM léger et on conserve les 10 derniers tels quels.
     // Évite l'explosion du contexte tout en préservant la mémoire conversationnelle.
     const MAX_FULL_TURNS = 10;
-    const fullHistory = history ?? [];
+    const fullHistory = sanitizedHistory;
     let condensedHistory = fullHistory;
     if (fullHistory.length > MAX_FULL_TURNS) {
       const toSummarize = fullHistory.slice(0, fullHistory.length - MAX_FULL_TURNS);

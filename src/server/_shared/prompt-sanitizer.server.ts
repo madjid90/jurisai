@@ -10,6 +10,7 @@
 //     prompt système doit instruire le modèle à ne PAS interpréter
 
 const INJECTION_PATTERNS: Array<RegExp> = [
+  // English patterns
   /ignore (all |the )?previous (instructions?|prompts?|rules?)/gi,
   /disregard (the |all )?(above|previous|prior) (instructions?|prompts?)/gi,
   /you are (now |actually )?(an? )?[A-Z][a-zA-Z]+ (gpt|ai|assistant|model)/gi,
@@ -17,6 +18,15 @@ const INJECTION_PATTERNS: Array<RegExp> = [
   /\bjailbreak\b/gi,
   /\bDAN\b\s+(mode|prompt)/gi,
   /<\/?(system|assistant|user|tool)>/gi,
+  // French patterns
+  /ignor(e[zr]?|ons) (toutes? )?(les )?(instructions?|consignes?|r[eè]gles?) (pr[eé]c[eé]dentes?|ant[eé]rieures?|ci-dessus)/gi,
+  /oublie[zr]? (toutes? )?(les )?(instructions?|consignes?|r[eè]gles?)/gi,
+  /tu es (maintenant|d[eé]sormais|en r[eé]alit[eé]) /gi,
+  /change[zr]? (de |ton |votre )?r[oô]le/gi,
+  /r[eé]v[eè]le[zr]? (le |ton |ce |votre )?(prompt|syst[eè]me|instructions?)/gi,
+  /ne (tiens?|tenez) (plus |pas )?compte (des |de )/gi,
+  /fais? (comme si|semblant)/gi,
+  /mode (d[eé]veloppeur|admin|debug|test)/gi,
 ];
 
 const ROLE_MARKERS = [

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { fillTemplate as sharedFillTemplate } from "@/server/_shared/template";
 import { AI_GATEWAY } from "@/server/_shared/constants.server";
+import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 
 const db = supabaseAdmin as unknown as {
   from: (table: string) => any;
@@ -236,12 +237,15 @@ RÈGLES :
 - Conserve la structure HTML fournie (paragraphes, titres, listes).
 - Adapte uniquement le ton, ajoute les précisions demandées et corrige le style.
 - Ne supprime pas les sections obligatoires.
-- Réponds UNIQUEMENT avec le HTML du document final, sans markdown, sans explication.`;
+- Réponds UNIQUEMENT avec le HTML du document final, sans markdown, sans explication.
 
+${PROMPT_INJECTION_GUARD}`;
+
+    const safePrompt = sanitizePromptInput(data.prompt!, { label: "INSTRUCTION_UTILISATEUR", maxLength: 2000 });
     const userPrompt = `Document de base (HTML) :
 ${filled}
 
-Instruction de l'utilisateur : ${data.prompt}
+Instruction de l'utilisateur : ${safePrompt}
 
 Réponds avec le HTML final du document.`;
 
