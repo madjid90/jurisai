@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Search } from "lucide-react";
-import { searchIDCC } from "@/lib/server-fns/tenant.functions";
+import { searchIDCC } from "@/server/tenant.functions";
 import { cn } from "@/lib/utils";
 
 interface IDCCAutocompleteProps {

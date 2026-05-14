@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { runWorkflowStep, skipWorkflowStep } from "@/lib/server-fns/workflow-runtime.functions";
+import { runWorkflowStep, skipWorkflowStep } from "@/server/workflow-runtime.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, Clock, AlertTriangle, SkipForward, Loader2 } from "lucide-react";

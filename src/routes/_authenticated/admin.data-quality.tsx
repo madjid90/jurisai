@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Database } from "lucide-react";
 import { toast } from "sonner";
-import { getDataQualitySnapshot, type DataQualitySnapshot } from "@/lib/server-fns/quality.functions";
+import { getDataQualitySnapshot, type DataQualitySnapshot } from "@/server/quality.functions";
 
 type Check = {
   id: string;

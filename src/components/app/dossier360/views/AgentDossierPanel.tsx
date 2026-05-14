@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { runLegalAgent } from "@/lib/agent/agent.functions";
+import { runLegalAgent } from "@/server/agent.functions";
 
 export function AgentDossierPanel({ dossierId, onActed }: { dossierId: string; onActed: () => void }) {
   const runFn = useServerFn(runLegalAgent);

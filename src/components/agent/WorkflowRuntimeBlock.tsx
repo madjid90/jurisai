@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { loadWorkflowInstanceState as getWorkflowInstance } from "@/lib/server-fns/workflow-runtime.functions";
+import { loadWorkflowInstanceState as getWorkflowInstance } from "@/server/workflow-runtime.functions";
 import { WorkflowStatusBanner } from "./WorkflowStatusBanner";
 import { WorkflowStepInline } from "./WorkflowStepInline";
 

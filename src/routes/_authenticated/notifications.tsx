@@ -7,7 +7,7 @@ import {
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,
-} from "@/lib/server-fns/notifications.functions";
+} from "@/server/notifications.functions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";

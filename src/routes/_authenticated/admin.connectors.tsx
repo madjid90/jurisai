@@ -34,7 +34,7 @@ import {
   retryEmptySources,
   triggerConnector,
   type ConnectorErrorRow,
-} from "@/lib/server-fns/connectors.functions";
+} from "@/server/connectors.functions";
 import { Trash2, Wrench } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/connectors")({

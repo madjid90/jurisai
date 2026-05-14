@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Activity, Loader2, Plus, Play } from "lucide-react";
 import { toast } from "sonner";
-import { getRagEvalAggregate, type RagEvalAggregate } from "@/lib/server-fns/quality.functions";
+import { getRagEvalAggregate, type RagEvalAggregate } from "@/server/quality.functions";
 
 type EvalCase = {
   id: string;

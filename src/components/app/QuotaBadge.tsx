@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Zap } from "lucide-react";
-import { getTenantQuota } from "@/lib/server-fns/tenant.functions";
+import { getTenantQuota } from "@/server/tenant.functions";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/AuthProvider";
 

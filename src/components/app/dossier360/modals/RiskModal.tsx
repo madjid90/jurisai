@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { createRisk } from "@/lib/server-fns/dossier360.functions";
+import { createRisk } from "@/server/dossier360.functions";
 import { Input, ModalShell, SubmitRow } from "../shared";
 import type { Risk } from "../types";
 

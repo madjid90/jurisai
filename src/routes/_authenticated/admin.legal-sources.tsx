@@ -48,7 +48,7 @@ import {
   deleteLegalSource,
   ingestLegalUrl,
   type LegalSourceRow,
-} from "@/lib/server-fns/legal-sources.functions";
+} from "@/server/legal-sources.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/legal-sources")({
   head: () => ({ meta: [{ title: "Sources légales · JurisAI" }] }),
