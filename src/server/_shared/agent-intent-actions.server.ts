@@ -32,6 +32,9 @@ type Extras = {
   risks?: Array<{ id: string; title: string; severity: string }>;
   workflowInstanceId?: string | null;
   calculationResult?: unknown;
+  upcomingDeadlines?: unknown[];
+  prescriptionInfo?: unknown[];
+  conformiteChecklist?: unknown;
 };
 
 const DOC_INTENTS = new Set(["redaction_document"]);
@@ -39,6 +42,9 @@ const PROCEDURE_INTENTS = new Set(["lancer_procedure"]);
 const ANALYSIS_INTENTS = new Set(["analyse_document", "analyse_contrat"]);
 const SEARCH_INTENTS = new Set(["recherche_dossier", "gestion_dossier"]);
 const CHIFFRAGE_INTENTS = new Set(["chiffrage"]);
+const RECLAMATION_INTENTS = new Set(["reclamation"]);
+const ECHEANCE_INTENTS = new Set(["suivi_echeance"]);
+const CONFORMITE_INTENTS = new Set(["conformite"]);
 
 export async function runIntentActions(opts: {
   intent: string;
@@ -179,6 +185,239 @@ export async function runIntentActions(opts: {
         } catch (calcErr) {
           console.error("[agent-intent-actions] chiffrage failed", calcErr);
         }
+      }
+    }
+
+    if (RECLAMATION_INTENTS.has(intent)) {
+      // Réclamation : suggérer des templates de courrier (mise en demeure, réclamation,
+      // contestation) ET chercher les délais de prescription applicables.
+      const suggested = await suggestTemplates({
+        tenantId,
+        topic: `${run.topic ?? run.message} réclamation contestation mise en demeure`,
+      });
+      out.suggestedTemplates = suggested;
+
+      // Générer un brouillon si un template matche
+      if (suggested.length > 0) {
+        const docId = await generateDraftDocument({
+          tenantId,
+          userId,
+          runId,
+          dossierId: run.dossier_id,
+          templateId: suggested[0].id as string,
+          collected: (draft.form as Record<string, unknown>) ?? {},
+          uploadedAnalysisId: collectAttachmentIds(draft)[0] ?? null,
+        });
+        if (docId) out.documentIds.push(docId);
+      }
+
+      // Chercher les délais de prescription pertinents
+      const topicLower = (run.topic ?? run.message).toLowerCase();
+      const { data: prescriptions } = await db
+        .from("prescription_periods")
+        .select("type, label, duration_value, duration_unit, starting_point, source_ref, notes")
+        .is("valid_to", null)
+        .order("type");
+
+      if (prescriptions && prescriptions.length > 0) {
+        // Filtrer par pertinence avec le sujet
+        const tokens = topicLower.split(/\s+/).filter((w: string) => w.length >= 4);
+        const relevant = (prescriptions as Array<{ type: string; label: string; [k: string]: unknown }>)
+          .filter((p) => {
+            const hay = `${p.type} ${p.label}`.toLowerCase();
+            return tokens.some((t: string) => hay.includes(t));
+          })
+          .slice(0, 5);
+
+        // Si pas de match spécifique, renvoyer les 5 plus courants
+        out.prescriptionInfo = relevant.length > 0 ? relevant : (prescriptions as unknown[]).slice(0, 5);
+        draft.prescription_info = out.prescriptionInfo;
+      }
+
+      // Créer une tâche de suivi si dossier lié
+      if (run.dossier_id) {
+        await db.from("dossier_tasks").insert({
+          tenant_id: tenantId,
+          dossier_id: run.dossier_id,
+          title: `Réclamation : ${(run.topic ?? "à qualifier").slice(0, 100)}`,
+          priority: "high",
+          status: "todo",
+          created_by: userId,
+        });
+
+        await logTimelineEvent({
+          tenantId,
+          dossierId: run.dossier_id,
+          actorId: userId,
+          eventType: "reclamation.initiated",
+          title: `Réclamation initiée : ${(run.topic ?? "—").slice(0, 100)}`,
+          metadata: { run_id: runId, templates_suggested: suggested.length },
+        });
+      }
+    }
+
+    if (ECHEANCE_INTENTS.has(intent)) {
+      // Suivi échéances : charger toutes les échéances proches (30 jours) du tenant
+      // + les échéances du dossier actif si applicable
+      const today = new Date().toISOString().split("T")[0];
+      const in30days = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
+
+      // Échéances dossier_deadlines
+      let deadlineQuery = db
+        .from("dossier_deadlines")
+        .select("id, title, due_date, status, dossier_id")
+        .eq("tenant_id", tenantId)
+        .gte("due_date", today)
+        .lte("due_date", in30days)
+        .order("due_date", { ascending: true })
+        .limit(20);
+
+      if (run.dossier_id) {
+        deadlineQuery = deadlineQuery.eq("dossier_id", run.dossier_id);
+      }
+
+      const { data: deadlines } = await deadlineQuery;
+
+      // Échéances contrats (contract_deadlines)
+      let contractQuery = db
+        .from("contract_deadlines")
+        .select("id, label, due_date, category, dossier_id")
+        .eq("tenant_id", tenantId)
+        .gte("due_date", today)
+        .lte("due_date", in30days)
+        .order("due_date", { ascending: true })
+        .limit(20);
+
+      if (run.dossier_id) {
+        contractQuery = contractQuery.eq("dossier_id", run.dossier_id);
+      }
+
+      const { data: contractDeadlines } = await contractQuery;
+
+      // Tâches en retard
+      const { data: overdueTasks } = await db
+        .from("dossier_tasks")
+        .select("id, title, due_date, priority, status, dossier_id")
+        .eq("tenant_id", tenantId)
+        .in("status", ["todo", "in_progress"])
+        .not("due_date", "is", null)
+        .lt("due_date", today)
+        .order("due_date", { ascending: true })
+        .limit(10);
+
+      // Rappels à venir
+      const { data: reminders } = await db
+        .from("reminders")
+        .select("id, title, remind_at, channel, dossier_id")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", userId)
+        .eq("is_read", false)
+        .gte("remind_at", today)
+        .lte("remind_at", in30days)
+        .order("remind_at", { ascending: true })
+        .limit(10);
+
+      out.upcomingDeadlines = [
+        ...(deadlines ?? []).map((d: any) => ({ ...d, source: "dossier_deadline" })),
+        ...(contractDeadlines ?? []).map((d: any) => ({ ...d, source: "contract_deadline" })),
+        ...(overdueTasks ?? []).map((d: any) => ({ ...d, source: "overdue_task" })),
+        ...(reminders ?? []).map((d: any) => ({ ...d, source: "reminder" })),
+      ];
+
+      // Injecter dans le draft pour le LLM
+      draft.upcoming_deadlines = out.upcomingDeadlines;
+      draft.deadlines_summary = {
+        total: (out.upcomingDeadlines as unknown[]).length,
+        overdue_tasks: (overdueTasks ?? []).length,
+        deadlines_30j: (deadlines ?? []).length + (contractDeadlines ?? []).length,
+        reminders: (reminders ?? []).length,
+      };
+    }
+
+    if (CONFORMITE_INTENTS.has(intent)) {
+      // Conformité : générer une checklist d'obligations selon le domaine détecté
+      const topicLower = (run.topic ?? run.message).toLowerCase();
+      const form = (draft.form as Record<string, string | undefined>) ?? {};
+
+      // Détecter le domaine de conformité
+      const isRGPD = /rgpd|donn[eé]es|cnil|dpo|privacy|cookie|gdpr/.test(topicLower);
+      const isSocial = /duerp|cse|registre|affichage|visite|m[eé]decine|s[eé]curit[eé]|at.mp|accident/.test(topicLower);
+      const isCommercial = /cgu|cgv|mentions|l[eé]gales|facturation|devis/.test(topicLower);
+
+      const checklist: Array<{
+        category: string;
+        item: string;
+        obligatoire: boolean;
+        reference: string;
+        status: "unknown";
+      }> = [];
+
+      if (isRGPD || (!isSocial && !isCommercial)) {
+        checklist.push(
+          { category: "RGPD", item: "Registre des traitements", obligatoire: true, reference: "Art. 30 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Désignation DPO (si nécessaire)", obligatoire: false, reference: "Art. 37 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Analyse d'impact (AIPD) pour traitements à risque", obligatoire: true, reference: "Art. 35 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Mentions d'information sur les formulaires", obligatoire: true, reference: "Art. 13 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Politique de confidentialité à jour", obligatoire: true, reference: "Art. 12 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Contrats sous-traitants (DPA)", obligatoire: true, reference: "Art. 28 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Procédure de gestion des droits (accès, rectification, suppression)", obligatoire: true, reference: "Art. 15-21 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Registre des violations de données", obligatoire: true, reference: "Art. 33 RGPD", status: "unknown" },
+          { category: "RGPD", item: "Consentement cookies (bandeau)", obligatoire: true, reference: "Art. 82 Loi Informatique et Libertés", status: "unknown" },
+        );
+      }
+
+      if (isSocial || (!isRGPD && !isCommercial)) {
+        checklist.push(
+          { category: "Social", item: "Document Unique d'Évaluation des Risques (DUERP)", obligatoire: true, reference: "Art. R4121-1 CT", status: "unknown" },
+          { category: "Social", item: "Affichages obligatoires", obligatoire: true, reference: "Art. R2262-1 CT", status: "unknown" },
+          { category: "Social", item: "Registre unique du personnel", obligatoire: true, reference: "Art. L1221-13 CT", status: "unknown" },
+          { category: "Social", item: "Règlement intérieur (≥50 salariés)", obligatoire: false, reference: "Art. L1311-2 CT", status: "unknown" },
+          { category: "Social", item: "Mise en place CSE (≥11 salariés)", obligatoire: false, reference: "Art. L2311-2 CT", status: "unknown" },
+          { category: "Social", item: "Entretien professionnel tous les 2 ans", obligatoire: true, reference: "Art. L6315-1 CT", status: "unknown" },
+          { category: "Social", item: "Visite médicale d'embauche / suivi", obligatoire: true, reference: "Art. R4624-10 CT", status: "unknown" },
+          { category: "Social", item: "Déclaration Préalable à l'Embauche (DPAE)", obligatoire: true, reference: "Art. L1221-10 CT", status: "unknown" },
+          { category: "Social", item: "Index égalité femmes-hommes (≥50 salariés)", obligatoire: false, reference: "Art. L1142-8 CT", status: "unknown" },
+        );
+      }
+
+      if (isCommercial || (!isRGPD && !isSocial)) {
+        checklist.push(
+          { category: "Commercial", item: "Mentions légales site internet", obligatoire: true, reference: "Art. 6 LCEN", status: "unknown" },
+          { category: "Commercial", item: "CGV / CGU à jour", obligatoire: true, reference: "Art. L441-1 Code de commerce", status: "unknown" },
+          { category: "Commercial", item: "Mentions obligatoires sur les factures", obligatoire: true, reference: "Art. L441-9 Code de commerce", status: "unknown" },
+          { category: "Commercial", item: "Délais de paiement légaux", obligatoire: true, reference: "Art. L441-10 Code de commerce", status: "unknown" },
+          { category: "Commercial", item: "Assurance RC Professionnelle", obligatoire: false, reference: "Selon activité", status: "unknown" },
+        );
+      }
+
+      out.conformiteChecklist = {
+        domain: isRGPD ? "RGPD" : isSocial ? "Social" : isCommercial ? "Commercial" : "Général",
+        items: checklist,
+        total_items: checklist.length,
+        note: "Statuts à vérifier par l'utilisateur. Cette checklist est indicative et non exhaustive.",
+      };
+
+      // Injecter dans le draft
+      draft.conformite_checklist = out.conformiteChecklist;
+
+      // Suggérer des templates de registres/documents de conformité
+      const suggested = await suggestTemplates({
+        tenantId,
+        topic: `${run.topic ?? run.message} conformité registre`,
+      });
+      if (suggested.length > 0) {
+        out.suggestedTemplates = suggested;
+      }
+
+      if (run.dossier_id) {
+        await logTimelineEvent({
+          tenantId,
+          dossierId: run.dossier_id,
+          actorId: userId,
+          eventType: "conformite.audit_requested",
+          title: `Audit conformité demandé : ${isRGPD ? "RGPD" : isSocial ? "Social" : isCommercial ? "Commercial" : "Général"}`,
+          metadata: { run_id: runId, checklist_items: checklist.length },
+        });
       }
     }
 

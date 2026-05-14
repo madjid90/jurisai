@@ -140,7 +140,19 @@ Demande : "Analyse ce contrat de travail"
 → {"intent":"analyse_contrat","domain":"rh","topic":"Analyse contrat de travail","confidence":0.9,"requires_rag":true,"requires_document_upload":true,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Vérifier la conformité avec le Code du travail"}],"missing_information":[]}
 
 Demande : "Quel est le délai de préavis pour un cadre avec 5 ans d'ancienneté ?"
-→ {"intent":"question_juridique","domain":"rh","topic":"Délai préavis licenciement cadre 5 ans","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les textes sur le préavis"}],"missing_information":[]}`,
+→ {"intent":"question_juridique","domain":"rh","topic":"Délai préavis licenciement cadre 5 ans","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les textes sur le préavis"}],"missing_information":[]}
+
+Demande : "Combien me coûterait le licenciement de mon salarié ?"
+→ {"intent":"chiffrage","domain":"rh","topic":"Chiffrage coût licenciement salarié","confidence":0.95,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les barèmes applicables"}],"missing_information":["Salaire mensuel brut du salarié","Ancienneté du salarié (date d'entrée ou nombre d'années/mois)","Motif du licenciement ? (cause réelle et sérieuse, faute grave, faute lourde, économique, inaptitude)","Catégorie professionnelle ? (cadre, non-cadre, ETAM)"]}
+
+Demande : "Mon fournisseur ne m'a pas livré, je veux contester"
+→ {"intent":"reclamation","domain":"commercial","topic":"Réclamation non-livraison fournisseur","confidence":0.9,"requires_rag":true,"requires_document_upload":false,"requires_form":true,"requires_validation":true,"suggested_actions":[{"kind":"propose_document","label":"Générer une mise en demeure"},{"kind":"search_law","label":"Rechercher les recours applicables"}],"missing_information":["Nom et coordonnées du fournisseur","Numéro et date de la commande","Montant de la commande TTC"]}
+
+Demande : "Quelles sont mes échéances en cours ?"
+→ {"intent":"suivi_echeance","domain":"general","topic":"Suivi des échéances et délais en cours","confidence":0.95,"requires_rag":false,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"create_deadline","label":"Créer une nouvelle échéance si besoin"}],"missing_information":[]}
+
+Demande : "Est-ce que mon entreprise est conforme au RGPD ?"
+→ {"intent":"conformite","domain":"rgpd","topic":"Audit conformité RGPD entreprise","confidence":0.9,"requires_rag":true,"requires_document_upload":false,"requires_form":false,"requires_validation":false,"suggested_actions":[{"kind":"search_law","label":"Rechercher les obligations RGPD"}],"missing_information":[]}`,
         },
         { role: "user", content: sanitizePromptInput(message.slice(0, 3000), { label: "DEMANDE_UTILISATEUR" }) + answersBlock + legalBlock },
       ],
