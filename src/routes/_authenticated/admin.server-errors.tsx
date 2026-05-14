@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertOctagon, Loader2, RefreshCw, ServerCrash } from "lucide-react";
-import { listServerErrors, type ServerErrorRow } from "@/server/quality.functions";
+import { listServerErrors, type ServerErrorRow } from "@/lib/server-fns/quality.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/server-errors")({

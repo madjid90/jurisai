@@ -14,7 +14,7 @@ import {
   generateWorkflow,
   listGenerationRuns,
   setWorkflowLifecycleStatus,
-} from "@/server/workflow-generator.functions";
+} from "@/lib/server-fns/workflow-generator.functions";
 import { WorkflowStatusBanner } from "@/components/agent/WorkflowStatusBanner";
 import { SmartDisclaimer } from "@/components/agent/SmartDisclaimer";
 

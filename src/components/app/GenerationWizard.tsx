@@ -15,7 +15,7 @@ import {
   updateGenerationSession,
   finalizeGeneration,
   fetchTemplateLegalSources,
-} from "@/server/generation.functions";
+} from "@/lib/server-fns/generation.functions";
 import {
   PREFILL_SOURCE_LABELS,
   shouldRequestValidation,

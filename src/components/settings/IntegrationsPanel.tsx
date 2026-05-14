@@ -10,7 +10,7 @@ import {
   listApiKeys, createApiKey, revokeApiKey,
   listWebhooks, createWebhook, toggleWebhook, deleteWebhook,
   sendSlackTest,
-} from "@/server/integrations.functions";
+} from "@/lib/server-fns/integrations.functions";
 
 const EVENT_OPTIONS = [
   "dossier.created", "dossier.updated",

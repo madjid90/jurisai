@@ -2,7 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { createReminder } from "@/server/dossier360.functions";
+import { createReminder } from "@/lib/server-fns/dossier360.functions";
 import { Input, ModalShell, SubmitRow } from "../shared";
 
 export function ReminderModal({

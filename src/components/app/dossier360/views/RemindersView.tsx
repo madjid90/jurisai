@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Bell } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { dismissReminder } from "@/server/dossier360.functions";
+import { dismissReminder } from "@/lib/server-fns/dossier360.functions";
 import { Empty, SectionHeader } from "../shared";
 import type { Reminder } from "../types";
 

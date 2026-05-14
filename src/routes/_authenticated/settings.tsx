@@ -17,8 +17,8 @@ import { IntegrationsPanel } from "@/components/settings/IntegrationsPanel";
 import { NotificationPreferencesPanel } from "@/components/settings/NotificationPreferencesPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
-import { updateProfile, updateTenant } from "@/server/settings.functions";
-import { exportMyData, deleteMyAccount } from "@/server/rgpd.functions";
+import { updateProfile, updateTenant } from "@/lib/server-fns/settings.functions";
+import { exportMyData, deleteMyAccount } from "@/lib/server-fns/rgpd.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Paramètres · JurisAI" }] }),

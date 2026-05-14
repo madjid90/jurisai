@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { createDocument, deleteDocument, generateDocument } from "@/server/documents.functions";
+import { createDocument, deleteDocument, generateDocument } from "@/lib/server-fns/documents.functions";
 
 export const Route = createFileRoute("/_authenticated/documents/")({
   head: () => ({ meta: [{ title: "Documents · JurisAI" }] }),

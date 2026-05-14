@@ -5,17 +5,16 @@ import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { processUploadedDocument } from "@/server/_shared/document-pipeline.server";
 
+
 export const runOcrDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({
-        storage_path: z.string().min(1),
-        filename: z.string().min(1).max(200),
-        file_type: z.string().min(1).max(100),
-        dossier_id: z.string().uuid().nullable().optional(),
-      })
-      .parse(i),
+    z.object({
+      storage_path: z.string().min(1),
+      filename: z.string().min(1).max(200),
+      file_type: z.string().min(1).max(100),
+      dossier_id: z.string().uuid().nullable().optional(),
+    }).parse(i),
   )
   .handler(async ({ data, context }) => {
     const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -59,6 +58,7 @@ export const runOcrDocument = createServerFn({ method: "POST" })
       }
     }
 
+    // Pipeline auto (entités → contexte → liaison → index → timeline). Non bloquant.
     let pipeline: Awaited<ReturnType<typeof processUploadedDocument>> | null = null;
     try {
       pipeline = await processUploadedDocument({

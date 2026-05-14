@@ -8,7 +8,7 @@ import {
   confirmDocumentLink,
   getDocumentsForDossier,
   rejectDocumentLink,
-} from "@/server/document-links.functions";
+} from "@/lib/server-fns/document-links.functions";
 import { Empty } from "../shared";
 
 type DossierLink = {
