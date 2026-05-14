@@ -97,7 +97,10 @@ function SignupPage() {
         </button>
 
         <p className="text-center text-[11.5px] text-muted-foreground">
-          En créant un compte, vous acceptez nos CGU et notre politique de confidentialité.
+          En créant un compte, vous acceptez nos{" "}
+          <a href="/cgu" target="_blank" className="underline hover:text-foreground">CGU</a>{" "}
+          et notre{" "}
+          <a href="/confidentialite" target="_blank" className="underline hover:text-foreground">politique de confidentialité</a>.
         </p>
       </form>
 

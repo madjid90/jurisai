@@ -143,6 +143,9 @@ export async function searchLegalSources(
   opts: { idcc?: string | null; limit?: number; minScore?: number } = {},
 ): Promise<SourcingResult> {
   const limit = opts.limit ?? 8;
+  // D1 FIX: Seuil minimum de pertinence pour éviter d'injecter des résultats non pertinents
+  // Les scores RRF typiques sont 0.01-0.03 pour les bons résultats
+  if (opts.minScore === undefined) opts.minScore = 0.005;
   const trimmed = query.trim();
   if (trimmed.length < 4) {
     return { sources: [], query: trimmed, ok: false, reason: "Requête trop courte" };

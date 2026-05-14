@@ -146,6 +146,20 @@ export const createAgentRun = createServerFn({ method: "POST" })
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
+    // B1 FIX: Rate limit sur createAgentRun (10/min/user)
+    const { data: rl, error: rlErr } = await supabaseAdmin.rpc("check_rate_limit", {
+      p_user_id: userId,
+      p_endpoint: "create-agent-run",
+      p_max_per_minute: 10,
+    });
+    if (rlErr) {
+      console.error("[createAgentRun] Rate limit check failed:", rlErr);
+      throw new Error("Vérification du rate limit échouée — réessayez");
+    }
+    if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
+      throw new Error("Trop de demandes (10/min). Réessayez dans une minute.");
+    }
+
     const draft = {
       attachments: data.attachments ?? [],
       questions: [] as unknown[],
@@ -655,6 +669,7 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
 // Appelable manuellement ou via un cron. Reset le statut à `pending` pour relance.
 // ---------------------------------------------------------------------------
 const STUCK_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_RECOVERY_RETRIES = 3; // C3 FIX: circuit breaker — max 3 recoveries
 
 export const recoverStuckRuns = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -663,20 +678,52 @@ export const recoverStuckRuns = createServerFn({ method: "POST" })
     const tenantId = await getTenantId(userId);
 
     const threshold = new Date(Date.now() - STUCK_THRESHOLD_MS).toISOString();
-    const { data: stuck, error } = await supabaseAdmin
-      .from("agent_runs")
-      .update({ status: "pending", error_message: "Auto-recovery: run bloquée en running" } as never)
-      .eq("tenant_id", tenantId)
-      .eq("status", "running")
-      .lt("updated_at", threshold)
-      .select("id");
 
-    if (error) throw new Error(error.message);
-    const recovered = (stuck ?? []).length;
-    if (recovered > 0) {
-      console.warn(`[watchdog] Recovered ${recovered} stuck runs for tenant ${tenantId}`);
+    // D'abord récupérer les runs bloquées pour vérifier le compteur de retry
+    const { data: stuckRuns } = await supabaseAdmin
+      .from("agent_runs")
+      .select("id, draft")
+      .eq("tenant_id", tenantId)
+      .in("status", ["running", "executing"])
+      .lt("updated_at", threshold)
+      .limit(20);
+
+    const recovered: string[] = [];
+    const abandoned: string[] = [];
+
+    for (const run of (stuckRuns ?? []) as Array<{ id: string; draft: Record<string, unknown> | null }>) {
+      const retryCount = ((run.draft as any)?.recovery_count as number) ?? 0;
+
+      if (retryCount >= MAX_RECOVERY_RETRIES) {
+        // Circuit breaker : trop de retries → marquer comme failed définitivement
+        await supabaseAdmin
+          .from("agent_runs")
+          .update({
+            status: "failed",
+            error_message: `Abandon après ${MAX_RECOVERY_RETRIES} tentatives de recovery`,
+          } as never)
+          .eq("id", run.id);
+        abandoned.push(run.id);
+        console.error(`[watchdog] Abandoned run ${run.id} after ${MAX_RECOVERY_RETRIES} retries`);
+      } else {
+        // Incrémenter le compteur et remettre en pending
+        const updatedDraft = { ...(run.draft ?? {}), recovery_count: retryCount + 1 };
+        await supabaseAdmin
+          .from("agent_runs")
+          .update({
+            status: "pending",
+            draft: updatedDraft,
+            error_message: `Auto-recovery #${retryCount + 1}: run bloquée`,
+          } as never)
+          .eq("id", run.id);
+        recovered.push(run.id);
+      }
     }
-    return { recovered, ids: (stuck ?? []).map((r: { id: string }) => r.id) };
+
+    if (recovered.length > 0 || abandoned.length > 0) {
+      console.warn(`[watchdog] Tenant ${tenantId}: recovered=${recovered.length}, abandoned=${abandoned.length}`);
+    }
+    return { recovered: recovered.length, abandoned: abandoned.length, ids: recovered };
   });
 
 // ---------------------------------------------------------------------------
@@ -717,16 +764,30 @@ export const executeAgentRun = createServerFn({ method: "POST" })
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
-    const { data: run, error } = await supabaseAdmin
+    // C1 FIX: Lock atomique — empêche les exécutions concurrentes.
+    // Seul le premier appel obtient le run; les suivants voient status != 'ready'.
+    const { data: locked, error: lockErr } = await supabaseAdmin
       .from("agent_runs")
-      .select("*")
+      .update({ status: "executing" } as never)
       .eq("id", data.id)
       .eq("tenant_id", tenantId)
+      .eq("status", "ready")
+      .select("*")
       .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!run) throw new Error("Demande introuvable");
+    if (lockErr) throw new Error(lockErr.message);
+    if (!locked) {
+      // Vérifier pourquoi on n'a pas obtenu le lock
+      const { data: existing } = await supabaseAdmin
+        .from("agent_runs")
+        .select("status")
+        .eq("id", data.id)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (!existing) throw new Error("Demande introuvable");
+      throw new Error(`Statut invalide pour exécution: ${(existing as { status: string }).status}`);
+    }
 
-    const r = run as {
+    const r = locked as unknown as {
       status: string;
       message: string;
       draft: DraftShape;
@@ -735,7 +796,6 @@ export const executeAgentRun = createServerFn({ method: "POST" })
       dossier_id: string | null;
       parent_run_id: string | null;
     };
-    if (r.status !== "ready") throw new Error(`Statut invalide: ${r.status}`);
 
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY manquant");
@@ -868,10 +928,21 @@ ${sourcesBlock || "(aucune)"}`;
       if (extras.deadlines) draft.deadlines = extras.deadlines;
       if (extras.suggestedTemplates) draft.suggestedTemplates = extras.suggestedTemplates;
 
+      // AG1 FIX: Rejeter les réponses vides
+      const finalAnswer = (parsed.answer ?? "").trim();
+      if (!finalAnswer) {
+        console.warn("[executeAgentRun] LLM returned empty answer for run", data.id);
+        await supabaseAdmin
+          .from("agent_runs")
+          .update({ status: "failed", error_message: "L'IA n'a pas pu générer de réponse. Réessayez." } as never)
+          .eq("id", data.id);
+        return { ok: false, answer: "", sources_count: 0 };
+      }
+
       const updatePayload: Record<string, unknown> = {
         status: "executed",
         executed_at: new Date().toISOString(),
-        answer: parsed.answer ?? "",
+        answer: finalAnswer,
         sources,
         draft,
         final_document_ids: finalDocIds,
@@ -898,7 +969,28 @@ ${sourcesBlock || "(aucune)"}`;
         });
       }
 
-      return { ok: true, answer: parsed.answer, sources_count: sources.length };
+      // C2 FIX: Post-response pipeline (business rules, mémoire, détection infos manquantes)
+      try {
+        const { runPostResponsePipeline } = await import("@/server/_shared/agent-post-response.server");
+        await runPostResponsePipeline({
+          runId: data.id,
+          tenantId,
+          userId,
+          answer: finalAnswer,
+          sources: sources.map((s: Record<string, unknown>) => ({
+            title: String(s.title ?? ""),
+            ref: s.ref ? String(s.ref) : null,
+            excerpt: String(s.excerpt ?? ""),
+          })),
+          trace: [],
+          dossierId: r.dossier_id,
+        });
+      } catch (postErr) {
+        // Post-response non bloquant — log et continue
+        console.error("[executeAgentRun] Post-response pipeline failed:", postErr);
+      }
+
+      return { ok: true, answer: finalAnswer, sources_count: sources.length };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
       await supabaseAdmin

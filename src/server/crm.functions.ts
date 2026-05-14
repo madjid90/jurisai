@@ -73,7 +73,8 @@ export const listClients = createServerFn({ method: "GET" })
       .from("clients")
       .select("*")
       .eq("tenant_id", tenantId)
-      .order("full_name", { ascending: true });
+      .order("full_name", { ascending: true })
+      .limit(500);
     if (error) throw new Error(error.message);
     return { clients: data ?? [] };
   });
@@ -97,7 +98,8 @@ export const getClient = createServerFn({ method: "POST" })
       .from("dossiers")
       .select("*")
       .eq("client_id", data.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100);
 
     return { client, dossiers: dossiers ?? [] };
   });
