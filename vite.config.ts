@@ -6,4 +6,18 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+export default defineConfig({
+  tanstackStart: {
+    importProtection: {
+      behavior: "error",
+      client: {
+        // Default was ["**/server/**"] which blocks createServerFn files
+        // (*.functions.ts) that are designed to be imported from client code.
+        // We restrict the pattern to only block actual server-only modules
+        // (*.server.ts) while allowing server function RPC bridges.
+        files: ["**/*.server.ts", "**/*.server.tsx"],
+        specifiers: ["server-only"],
+      },
+    },
+  },
+});
