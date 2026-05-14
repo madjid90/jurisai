@@ -89,7 +89,10 @@ async function ingestArchive(
     .pipeThrough(new UntarStream());
 
   for await (const entry of untar) {
-    if (entry.header.type !== "file" || !entry.path.endsWith(".xml") || !entry.readable) {
+    // NB: jsr:@std/tar UntarStream ne renseigne pas `header.type` de façon
+    // fiable (souvent undefined). On filtre uniquement sur l'extension + la
+    // présence du flux readable (les répertoires n'ont pas de readable).
+    if (!entry.path.endsWith(".xml") || !entry.readable) {
       if (entry.readable) await entry.readable.cancel();
       continue;
     }
