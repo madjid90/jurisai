@@ -1,5 +1,5 @@
 // executeSuggestedAction — point d'entrée unifié pour exécuter les actions
-// proposées par l'agent depuis le ResultPanel (front).
+// proposées par l'agent depuis le front-end.
 //
 // Lot 3 du plan refonte : remplace les `onRelaunch(label)` dispersés.
 // Chaque type d'action est typé, validé Zod, et router vers la bonne logique.

@@ -306,23 +306,3 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     };
   });
 
-/** Liste les dernières exécutions de l'agent pour le tenant courant. */
-export const listAgentRuns = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ limit: z.number().min(1).max(50).optional() }).parse(i ?? {}),
-  )
-  .handler(async ({ data, context }) => {
-    const ctxAuth = context as { userId: string };
-    const tenantId = await getTenantId(ctxAuth.userId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows } = await supabaseAdmin
-      .from("agent_runs")
-      .select(
-        "id, message, intent, domain, topic, confidence, refused, created_at, dossier_id",
-      )
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false })
-      .limit(data.limit ?? 20);
-    return rows ?? [];
-  });

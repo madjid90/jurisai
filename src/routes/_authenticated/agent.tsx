@@ -828,6 +828,27 @@ function RunDetail({
             </div>
           ) : null}
 
+          {Array.isArray((draft.analysis as Record<string, unknown> | undefined)?.risks) &&
+          ((draft.analysis as Record<string, unknown>).risks as unknown[]).length > 0 ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-3">
+                ⚠️ Points de vigilance
+              </p>
+              <ul className="space-y-2">
+                {((draft.analysis as Record<string, unknown>).risks as string[]).map(
+                  (risk, i) => (
+                    <li
+                      key={i}
+                      className="rounded-md border border-amber-400/40 bg-amber-100/60 dark:bg-amber-900/20 px-3 py-2 text-sm text-amber-900 dark:text-amber-100"
+                    >
+                      {risk}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+          ) : null}
+
           {Array.isArray(run.final_document_ids) && (run.final_document_ids as unknown[]).length > 0 ? (
             <div className="rounded-lg bg-background border border-border/60 p-4">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">

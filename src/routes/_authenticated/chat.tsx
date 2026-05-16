@@ -54,10 +54,13 @@ function ChatPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // P0.1 / P1.5 — si /chat?run=ID, charger la run existante (créée depuis la home).
+  // Polls every 4s if the run answer is still pending.
   useEffect(() => {
     if (!runIdParam) return;
     let cancelled = false;
-    void (async () => {
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+    const loadRun = async () => {
       try {
         const row = (await fetchRun({ data: { id: runIdParam } })) as {
           id: string;
@@ -71,14 +74,16 @@ function ChatPage() {
           requires_validation: boolean | null;
           refused: boolean | null;
           refusal_reason: string | null;
+          status?: string | null;
         };
         if (cancelled) return;
+        const isReady = !!row.answer || row.status === "executed";
         const userMsg: Msg = { role: "user", content: row.message, id: `${row.id}-q` };
         const assistantMsg: Msg = {
           role: "assistant",
           content: row.answer ?? "",
           id: row.id,
-          pending: !row.answer,
+          pending: !isReady,
           run: {
             id: row.id,
             message: row.message,
@@ -94,12 +99,32 @@ function ChatPage() {
           },
         };
         setMessages([userMsg, assistantMsg]);
+
+        // Stop polling once the answer is ready
+        if (isReady && pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Demande introuvable");
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
       }
-    })();
+    };
+
+    // Initial fetch
+    void loadRun();
+
+    // Start polling — will self-stop once answer arrives
+    pollInterval = setInterval(() => {
+      void loadRun();
+    }, 4000);
+
     return () => {
       cancelled = true;
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, [runIdParam, fetchRun]);
 
