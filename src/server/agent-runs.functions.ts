@@ -11,8 +11,10 @@ import { classifyIntent, safeParseJSON, searchDossier, type AgentCtx } from "@/s
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { searchLegalSources } from "@/server/_shared/legal-rag.server";
 import { runIntentActions } from "@/server/_shared/agent-intent-actions.server";
-import { llmFetch } from "@/server/_shared/llm-fetch.server";
+// llmFetch n'est plus nécessaire ici — l'appel IA passe par runAgentLoop
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
+import { runAgentLoop } from "@/server/_shared/agent-loop.server";
+import { AGENT_TOOLS, AGENT_SYSTEM_PROMPT } from "@/server/_shared/agent-tools-config.server";
 
 const STATUSES = [
   "pending",
@@ -734,28 +736,9 @@ export const recoverStuckRuns = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 import { resolveChatModel } from "@/server/_shared/llm-models.server";
-import { AI_GATEWAY, LLM_API_KEY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "@/server/_shared/constants.server";
+import { LLM_API_KEY } from "@/server/_shared/constants.server";
 
-const EXEC_SYSTEM = `Tu es JurisAI, copilote juridique transverse.
-Tu reçois une demande utilisateur, sa classification, les infos collectées et des extraits juridiques sourcés.
-Rédige une réponse en JSON STRICT :
-{
-  "answer": string (markdown, ton professionnel, cite [source:N]),
-  "procedure": [{ "step": number, "title": string, "description": string, "legal_basis": [number] }],
-  "risks": [string],
-  "next_actions": [string]
-}
-RÈGLES:
-- Toute affirmation juridique doit citer [source:N]. Si aucune source n'a été fournie, mets answer="Je ne peux pas répondre sans source juridique fiable" et procedure=[].
-- Date courante : 2026.
-- Reste dans le périmètre demandé. Pas d'avis hors juridique.
-- Tu ne donnes jamais de consultation se substituant à un avocat.
-
-HIÉRARCHIE DES SOURCES :
-1. Textes législatifs (Code du travail, lois, décrets) — toujours citer en premier.
-2. Convention collective / accord applicable.
-3. Jurisprudence — pour illustrer l'interprétation.
-Ne cite JAMAIS la jurisprudence seule sans le texte de loi qu'elle interprète.`;
+// EXEC_SYSTEM supprimé — remplacé par AGENT_SYSTEM_PROMPT (shared config) + boucle agentique
 
 export const executeAgentRun = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -809,24 +792,13 @@ export const executeAgentRun = createServerFn({ method: "POST" })
         .maybeSingle();
       const idcc = (tenant as { idcc: string | null } | null)?.idcc ?? null;
 
-      // 2. RAG si nécessaire
+      // 2. RAG pré-fetch (best-effort) — l'agent peut appeler search_law lui-même si besoin
       let sources: Array<Record<string, unknown>> = [];
       if (r.requires_rag !== false) {
         const ragQuery = r.topic || r.message;
         const result = await searchLegalSources(ragQuery, { idcc, limit: 6 });
         sources = result.sources as unknown as Array<Record<string, unknown>>;
-        if (!result.ok || sources.length === 0) {
-          await supabaseAdmin
-            .from("agent_runs")
-            .update({
-              status: "failed",
-              error_message: "Aucune source juridique fiable — refus motivé",
-              refused: true,
-              refusal_reason: result.reason ?? "Aucune source pertinente trouvée",
-            } as never)
-            .eq("id", data.id);
-          throw new Error("RAG insuffisant — refus");
-        }
+        // Pas de refus dur : l'agent dispose de search_law pour chercher lui-même
       }
 
       // 3. Construire le contexte pour l'IA
@@ -870,36 +842,54 @@ ${JSON.stringify(collected, null, 2)}
 SOURCES JURIDIQUES:
 ${sourcesBlock || "(aucune)"}`;
 
-      // 4. Appel IA
-      const systemWithGuard = `${EXEC_SYSTEM}\n\n${PROMPT_INJECTION_GUARD}`;
-      const aiRes = await llmFetch(`${AI_GATEWAY}/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: await resolveChatModel(tenantId),
-          temperature: LLM_TEMPERATURES.chat,
-          max_tokens: LLM_MAX_TOKENS.chat,
-          messages: [
-            { role: "system", content: systemWithGuard },
-            ...conversation,
-            { role: "user", content: userMsg },
-          ],
-          response_format: { type: "json_object" },
-        }),
+      // 4. Appel IA — boucle agentique complète (17 outils, multi-round)
+      const systemWithGuard = `${AGENT_SYSTEM_PROMPT}\n\n${PROMPT_INJECTION_GUARD}\n\nSOURCES JURIDIQUES PRÉ-CHARGÉES:\n${sourcesBlock || "(aucune — appelle search_law si besoin)"}`;
+      const model = await resolveChatModel(tenantId);
+      const ctx: AgentCtx = {
+        userId,
+        tenantId,
+        idcc,
+        apiKey,
+        sources: sources.map((s, i) => ({
+          n: i + 1,
+          title: String((s as Record<string, unknown>).title ?? ""),
+          ref: ((s as Record<string, unknown>).reference as string) ?? null,
+          url: ((s as Record<string, unknown>).url as string) ?? null,
+        })),
+      };
+      const loopResult = await runAgentLoop({
+        apiKey,
+        model,
+        tools: AGENT_TOOLS,
+        initialMessages: [
+          { role: "system", content: systemWithGuard },
+          ...conversation,
+          { role: "user", content: userMsg },
+        ],
+        ctx,
+        runId: data.id,
+        tenantId,
+        maxRounds: 6,
       });
-      if (!aiRes.ok) throw new Error(`IA ${aiRes.status}`);
-      const aiJson = await aiRes.json();
-      const raw = aiJson.choices?.[0]?.message?.content ?? "{}";
+
+      // Extraire réponse structurée si le LLM a produit du JSON, sinon prendre le texte brut
       let parsed: { answer?: string; procedure?: unknown[]; risks?: unknown[]; next_actions?: unknown[] } = {};
+      const rawAnswer = loopResult.answer;
       try {
-        parsed = safeParseJSON(raw);
+        const maybeJson = safeParseJSON(rawAnswer);
+        if (maybeJson && typeof maybeJson === "object" && (maybeJson.answer || maybeJson.procedure || maybeJson.risks)) {
+          parsed = maybeJson;
+        } else {
+          parsed = { answer: rawAnswer };
+        }
       } catch {
-        parsed = { answer: raw };
+        parsed = { answer: rawAnswer };
       }
 
       // 5. Mettre à jour la run
-      // Disclaimer anti-hallucination quand aucune source RAG n'a été utilisée.
-      if (sources.length === 0 && parsed.answer) {
+      // Disclaimer anti-hallucination : uniquement si ni RAG pré-chargé ni search_law appelé
+      const usedSearchLaw = loopResult.trace.some((t) => t.tool === "search_law" && t.succeeded);
+      if (sources.length === 0 && !usedSearchLaw && parsed.answer) {
         const disclaimer =
           "⚠️ **Attention** : aucune source juridique n'a été trouvée dans la base pour cette question. " +
           "La réponse ci-dessous est générée par l'IA sans appui sur les textes de loi indexés. " +
@@ -981,7 +971,7 @@ ${sourcesBlock || "(aucune)"}`;
           intent,
           domain: ((locked as Record<string, unknown>).domain as string) ?? "",
           topic: r.topic ?? "",
-          trace: [],
+          trace: loopResult.trace,
           refused: false,
           dossierId: r.dossier_id,
         });
