@@ -379,6 +379,51 @@ export type Database = {
           },
         ]
       }
+      bareme_update_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          new_value: Json
+          old_value: Json | null
+          record_id: string
+          source: string | null
+          table_name: string
+          updated_by: string
+          verified: boolean | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          new_value: Json
+          old_value?: Json | null
+          record_id: string
+          source?: string | null
+          table_name: string
+          updated_by: string
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          new_value?: Json
+          old_value?: Json | null
+          record_id?: string
+          source?: string | null
+          table_name?: string
+          updated_by?: string
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
       billing_events: {
         Row: {
           amount_cents: number | null
@@ -473,6 +518,60 @@ export type Database = {
           validation_sla_days?: number | null
         }
         Relationships: []
+      }
+      calculation_history: {
+        Row: {
+          baremes_used: Json | null
+          calculation_type: string
+          created_at: string | null
+          dossier_id: string | null
+          id: string
+          input_params: Json
+          legal_refs: string[] | null
+          result_json: Json
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          baremes_used?: Json | null
+          calculation_type: string
+          created_at?: string | null
+          dossier_id?: string | null
+          id?: string
+          input_params: Json
+          legal_refs?: string[] | null
+          result_json: Json
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          baremes_used?: Json | null
+          calculation_type?: string
+          created_at?: string | null
+          dossier_id?: string | null
+          id?: string
+          input_params?: Json
+          legal_refs?: string[] | null
+          result_json?: Json
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculation_history_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calculation_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       case_timeline_events: {
         Row: {
@@ -698,6 +797,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      convention_indemnity_scales: {
+        Row: {
+          category: string | null
+          conditions_json: Json | null
+          convention_name: string
+          created_at: string | null
+          formula_json: Json
+          id: string
+          idcc: string
+          source_ref: string | null
+          type: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          category?: string | null
+          conditions_json?: Json | null
+          convention_name: string
+          created_at?: string | null
+          formula_json: Json
+          id?: string
+          idcc: string
+          source_ref?: string | null
+          type: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          category?: string | null
+          conditions_json?: Json | null
+          convention_name?: string
+          created_at?: string | null
+          formula_json?: Json
+          id?: string
+          idcc?: string
+          source_ref?: string | null
+          type?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
       }
       conventions_collectives: {
         Row: {
@@ -1991,6 +2132,45 @@ export type Database = {
           },
         ]
       }
+      indemnity_formulas: {
+        Row: {
+          conditions_json: Json | null
+          created_at: string | null
+          formula_json: Json
+          id: string
+          label: string
+          source_ref: string
+          source_url: string | null
+          type: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          conditions_json?: Json | null
+          created_at?: string | null
+          formula_json: Json
+          id?: string
+          label: string
+          source_ref: string
+          source_url?: string | null
+          type: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          conditions_json?: Json | null
+          created_at?: string | null
+          formula_json?: Json
+          id?: string
+          label?: string
+          source_ref?: string
+          source_url?: string | null
+          type?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       ingestion_batch_state: {
         Row: {
           articles_ingested: number
@@ -2610,6 +2790,42 @@ export type Database = {
           },
         ]
       }
+      macron_scale: {
+        Row: {
+          company_size: string
+          created_at: string | null
+          id: string
+          max_months: number
+          min_months: number
+          seniority_years: number
+          source_ref: string | null
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          company_size?: string
+          created_at?: string | null
+          id?: string
+          max_months: number
+          min_months: number
+          seniority_years: number
+          source_ref?: string | null
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          company_size?: string
+          created_at?: string | null
+          id?: string
+          max_months?: number
+          min_months?: number
+          seniority_years?: number
+          source_ref?: string | null
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       message_feedback: {
         Row: {
           comment: string | null
@@ -3161,6 +3377,51 @@ export type Database = {
         }
         Relationships: []
       }
+      prescription_periods: {
+        Row: {
+          created_at: string | null
+          duration_unit: string
+          duration_value: number
+          id: string
+          label: string
+          notes: string | null
+          source_ref: string
+          source_url: string | null
+          starting_point: string
+          type: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_unit: string
+          duration_value: number
+          id?: string
+          label: string
+          notes?: string | null
+          source_ref: string
+          source_url?: string | null
+          starting_point: string
+          type: string
+          valid_from: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_unit?: string
+          duration_value?: number
+          id?: string
+          label?: string
+          notes?: string | null
+          source_ref?: string
+          source_url?: string | null
+          starting_point?: string
+          type?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -3380,6 +3641,51 @@ export type Database = {
           request_count?: number
           user_id?: string
           window_start?: string
+        }
+        Relationships: []
+      }
+      reference_values: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          label: string
+          source_ref: string | null
+          source_url: string | null
+          unit: string
+          updated_at: string | null
+          updated_by: string | null
+          valid_from: string
+          valid_to: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          label: string
+          source_ref?: string | null
+          source_url?: string | null
+          unit?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          valid_from: string
+          valid_to?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          label?: string
+          source_ref?: string | null
+          source_url?: string | null
+          unit?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          valid_from?: string
+          valid_to?: string | null
+          value?: number
         }
         Relationships: []
       }
@@ -5399,10 +5705,39 @@ export type Database = {
         Returns: undefined
       }
       finalize_batch: { Args: { p_batch_id: string }; Returns: Json }
+      get_applicable_formula: {
+        Args: {
+          p_category?: string
+          p_date?: string
+          p_idcc?: string
+          p_type: string
+        }
+        Returns: {
+          conditions: Json
+          formula: Json
+          ref: string
+          source: string
+        }[]
+      }
       get_data_quality_snapshot: { Args: never; Returns: Json }
+      get_macron_scale: {
+        Args: {
+          p_company_size?: string
+          p_date?: string
+          p_seniority_years: number
+        }
+        Returns: {
+          max_months: number
+          min_months: number
+        }[]
+      }
       get_next_batch_items: {
         Args: { p_batch_id: string; p_limit?: number }
         Returns: Json
+      }
+      get_reference_value: {
+        Args: { p_date?: string; p_key: string }
+        Returns: number
       }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
@@ -5509,6 +5844,23 @@ export type Database = {
           dossier_id: string
           matched_content: string
           source_kind: string
+        }[]
+      }
+      match_workflow_definitions: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          tenant_id_filter?: string
+        }
+        Returns: {
+          category: string
+          description: string
+          id: string
+          lifecycle_status: string
+          similarity: number
+          slug: string
+          title: string
         }[]
       }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
