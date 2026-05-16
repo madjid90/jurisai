@@ -58,8 +58,12 @@ function AuthenticatedLayout() {
       void navigate({ to: "/login" });
       return;
     }
-    // If profile loaded and not onboarded, redirect to onboarding
-    if (profile && !profile.onboarded && !router.state.location.pathname.startsWith("/onboarding")) {
+    // Session OK but profile missing → JWT stale (user supprimé). Force logout.
+    if (!profile) {
+      void supabase.auth.signOut().then(() => navigate({ to: "/login" }));
+      return;
+    }
+    if (!profile.onboarded && !router.state.location.pathname.startsWith("/onboarding")) {
       void navigate({ to: "/onboarding" });
     }
   }, [loading, session, profile, navigate, router.state.location.pathname]);
