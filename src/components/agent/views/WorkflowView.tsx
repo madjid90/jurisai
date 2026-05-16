@@ -37,7 +37,7 @@ export function WorkflowView({ run }: { run: AgentRun }) {
         <>
           <WorkflowRuntimeBlock instanceId={wfId} />
           <Button asChild size="sm" variant="outline" className="gap-1.5">
-            <Link to="/workflows_/$id" params={{ id: wfId }}>
+            <Link to="/workflows/$id" params={{ id: wfId }}>
               Vue détaillée
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
