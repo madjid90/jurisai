@@ -1,10 +1,12 @@
 // Slack helper — calls the Lovable connector gateway.
 // Server-only: imported dynamically from server functions.
 
+import { LLM_API_KEY } from "@/server/_shared/constants.server";
+
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/slack/api";
 
 export async function postSlackMessage(channel: string, text: string, blocks?: unknown[]) {
-  const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
+  const LOVABLE_API_KEY = LLM_API_KEY;
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
   const SLACK_API_KEY = process.env.SLACK_API_KEY;
   if (!SLACK_API_KEY) throw new Error("Slack non connecté (SLACK_API_KEY manquant)");

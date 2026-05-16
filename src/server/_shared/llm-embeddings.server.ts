@@ -11,7 +11,7 @@
 import { llmFetch, LlmTimeoutError } from "./llm-fetch.server";
 import { DEFAULT_EMBED_MODEL } from "./llm-models.server";
 
-import { AI_GATEWAY } from "./constants.server";
+import { AI_GATEWAY, LLM_API_KEY } from "./constants.server";
 const EMBED_MAX_CHARS = 30_000;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_ATTEMPTS = 3;
@@ -72,7 +72,7 @@ function parseRetryAfter(headerValue: string | null): number | null {
  * (refus motivé côté agent, fallback FTS côté RAG, etc.).
  */
 export async function embedText(text: string, opts: EmbedOptions = {}): Promise<EmbedResult> {
-  const apiKey = opts.apiKey ?? process.env.LOVABLE_API_KEY;
+  const apiKey = opts.apiKey ?? LLM_API_KEY;
   if (!apiKey) {
     return { ok: false, kind: "no_api_key", attempts: 0, detail: "LOVABLE_API_KEY missing" };
   }

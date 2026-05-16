@@ -7,7 +7,7 @@ import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
-import { AI_GATEWAY } from "@/server/_shared/constants.server";
+import { AI_GATEWAY, LLM_API_KEY } from "@/server/_shared/constants.server";
 import {
   CONTRACT_RISKS,
   CONTRACT_RISK_KEYS,
@@ -165,7 +165,7 @@ Règles :
 - Réponds UNIQUEMENT avec le JSON, sans markdown ni texte additionnel.`;
 
 async function callLovableAI(text: string): Promise<{ analysis: AnalysisResult; tokens: number }> {
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const apiKey = LLM_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY manquante");
 
   const safeUserBlock = sanitizePromptInput(text, { maxLength: MAX_TEXT_CHARS, label: "DOCUMENT" });

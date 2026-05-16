@@ -204,7 +204,7 @@ export const createAgentRun = createServerFn({ method: "POST" })
     // Décision de routage : l'Agent 360 oriente vers la bonne page métier.
     let routing: AgentRouting;
     try {
-      const apiKey = process.env.LOVABLE_API_KEY ?? "";
+      const apiKey = LLM_API_KEY ?? "";
       // Récupérer l'IDCC du tenant pour le routage
       const { data: tenantForRouting } = await supabaseAdmin
         .from("tenants")
@@ -407,7 +407,7 @@ export const processAgentRun = createServerFn({ method: "POST" })
     }
     const run = locked;
 
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = LLM_API_KEY;
     if (!apiKey) {
       await supabaseAdmin
         .from("agent_runs")
@@ -734,7 +734,7 @@ export const recoverStuckRuns = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 
 import { resolveChatModel } from "@/server/_shared/llm-models.server";
-import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "@/server/_shared/constants.server";
+import { AI_GATEWAY, LLM_API_KEY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "@/server/_shared/constants.server";
 
 const EXEC_SYSTEM = `Tu es JurisAI, copilote juridique transverse.
 Tu reçois une demande utilisateur, sa classification, les infos collectées et des extraits juridiques sourcés.
@@ -797,7 +797,7 @@ export const executeAgentRun = createServerFn({ method: "POST" })
       parent_run_id: string | null;
     };
 
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = LLM_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY manquant");
 
     try {

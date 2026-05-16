@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { fillTemplate as sharedFillTemplate } from "@/server/_shared/template";
-import { AI_GATEWAY } from "@/server/_shared/constants.server";
+import { AI_GATEWAY, LLM_API_KEY } from "@/server/_shared/constants.server";
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 
 const db = supabaseAdmin as unknown as {
@@ -240,7 +240,7 @@ export const generateDocument = createServerFn({ method: "POST" })
     }
 
     // AI enhancement via Lovable AI Gateway
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = LLM_API_KEY;
     if (!apiKey) {
       // Fallback: return filled template if AI is not configured
       return { content: filled };

@@ -16,6 +16,7 @@ import { recallMemory, memoryPreamble } from "@/server/_shared/agent-memory.serv
 import { runPostResponsePipeline } from "@/server/_shared/agent-post-response.server";
 import type { AgentLoopResult, AgentLoopTrace } from "@/server/_shared/agent-loop.server";
 import { resolveChatModel } from "@/server/_shared/llm-models.server";
+import { LLM_API_KEY } from "@/server/_shared/constants.server";
 
 const MAX_ROUNDS = 6;
 
@@ -105,7 +106,7 @@ export const runLegalAgent = createServerFn({ method: "POST" })
     const tenantId = await getTenantId(userId);
     const startedAt = Date.now();
 
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = LLM_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY manquant côté serveur");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

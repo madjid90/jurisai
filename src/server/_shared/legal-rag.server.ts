@@ -9,6 +9,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { embedText } from "./llm-embeddings.server";
 import { multiQueryRag, type RagSource } from "./multi-query-rag.server";
+import { LLM_API_KEY } from "./constants.server";
 
 export type LegalSource = {
   n: number;
@@ -147,7 +148,7 @@ export async function searchLegalSources(
     minScore?: number;
     /** Opt-in : expansion multi-query pour meilleur recall (nécessite apiKey). */
     useMultiQuery?: boolean;
-    /** Clé API gateway (obligatoire si useMultiQuery=true). Défaut : process.env.LOVABLE_API_KEY */
+    /** Clé API gateway (obligatoire si useMultiQuery=true). Défaut : LLM_API_KEY */
     apiKey?: string;
   } = {},
 ): Promise<SourcingResult> {
@@ -162,7 +163,7 @@ export async function searchLegalSources(
 
   // ─── Multi-query expansion (opt-in) ──────────────────────────────
   if (opts.useMultiQuery) {
-    const apiKey = opts.apiKey ?? process.env.LOVABLE_API_KEY;
+    const apiKey = opts.apiKey ?? LLM_API_KEY;
     if (apiKey) {
       try {
         const mqResult = await multiQueryRag(trimmed, {

@@ -8,7 +8,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { prefillSession } from "@/server/_shared/prefill.server";
-import { AI_GATEWAY, LLM_TEMPERATURES } from "@/server/_shared/constants.server";
+import { AI_GATEWAY, LLM_API_KEY, LLM_TEMPERATURES } from "@/server/_shared/constants.server";
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "@/server/_shared/prompt-sanitizer.server";
 import { enforceRateLimit } from "@/server/_shared/rate-limit.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
@@ -256,7 +256,7 @@ export const finalizeGeneration = createServerFn({ method: "POST" })
 
     // Polish IA optionnel via Lovable AI Gateway
     if (data.ai_polish) {
-      const apiKey = process.env.LOVABLE_API_KEY;
+      const apiKey = LLM_API_KEY;
       if (apiKey) {
         try {
           const res = await fetch(`${AI_GATEWAY}/chat/completions`, {

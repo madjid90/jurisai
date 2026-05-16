@@ -16,7 +16,7 @@ import {
 } from "./_shared/workflow-validators.server";
 import { logWorkflowAudit } from "./_shared/workflow-audit.server";
 
-import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./_shared/constants.server";
+import { AI_GATEWAY, LLM_API_KEY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./_shared/constants.server";
 const GEN_MODEL = "google/gemini-2.5-pro";
 const CACHE_THRESHOLD = 0.85;
 
@@ -97,7 +97,7 @@ export async function runGenerateWorkflow(
   userId: string,
 ): Promise<GenerateWorkflowResult> {
   const tenantId = await getTenantId(userId);
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const apiKey = LLM_API_KEY;
   if (!apiKey) throw new Error("LOVABLE_API_KEY manquant côté serveur");
 
   const startedAt = Date.now();
