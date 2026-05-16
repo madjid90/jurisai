@@ -352,7 +352,8 @@ export async function runIntentActions(opts: {
         status: "unknown";
       }> = [];
 
-      if (isRGPD || (!isSocial && !isCommercial)) {
+      const noSpecificDomain = !isRGPD && !isSocial && !isCommercial;
+      if (isRGPD || noSpecificDomain) {
         checklist.push(
           { category: "RGPD", item: "Registre des traitements", obligatoire: true, reference: "Art. 30 RGPD", status: "unknown" },
           { category: "RGPD", item: "Désignation DPO (si nécessaire)", obligatoire: false, reference: "Art. 37 RGPD", status: "unknown" },
@@ -366,7 +367,7 @@ export async function runIntentActions(opts: {
         );
       }
 
-      if (isSocial || (!isRGPD && !isCommercial)) {
+      if (isSocial) {
         checklist.push(
           { category: "Social", item: "Document Unique d'Évaluation des Risques (DUERP)", obligatoire: true, reference: "Art. R4121-1 CT", status: "unknown" },
           { category: "Social", item: "Affichages obligatoires", obligatoire: true, reference: "Art. R2262-1 CT", status: "unknown" },
@@ -380,7 +381,7 @@ export async function runIntentActions(opts: {
         );
       }
 
-      if (isCommercial || (!isRGPD && !isSocial)) {
+      if (isCommercial) {
         checklist.push(
           { category: "Commercial", item: "Mentions légales site internet", obligatoire: true, reference: "Art. 6 LCEN", status: "unknown" },
           { category: "Commercial", item: "CGV / CGU à jour", obligatoire: true, reference: "Art. L441-1 Code de commerce", status: "unknown" },

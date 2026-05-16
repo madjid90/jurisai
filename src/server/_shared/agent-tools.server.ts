@@ -7,8 +7,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logTimelineEvent } from "./timeline.server";
 import { llmFetch } from "./llm-fetch.server";
 import { resolveChatModel } from "./llm-models.server";
-import { embedText, embedErrorMessage } from "./llm-embeddings.server";
-import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
+import { AI_GATEWAY, LLM_API_KEY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 import { sanitizePromptInput, PROMPT_INJECTION_GUARD } from "./prompt-sanitizer.server";
 import { calculateIndemnity, saveCalculation, type CalculationInput } from "./indemnity-calculator.server";
 
