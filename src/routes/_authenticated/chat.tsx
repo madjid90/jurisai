@@ -240,7 +240,8 @@ function ChatPage() {
         attachments = await uploadAttachments();
       }
       const created = (await create({ data: { message: text, attachments } })) as { id: string };
-      void navigate({ search: { run: created.id }, replace: false });
+      // Audit fix : préciser to: "/chat" pour éviter URL "/_authenticated/chat" (404)
+      void navigate({ to: "/chat", search: { run: created.id } as never, replace: false });
       await refresh();
       try {
         const r1 = (await process({ data: { id: created.id } })) as { status: string };
@@ -274,7 +275,7 @@ function ChatPage() {
   };
 
   const startNew = () => {
-    void navigate({ search: { run: undefined } });
+    void navigate({ to: "/chat", search: { run: undefined } as never });
     setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
@@ -313,7 +314,7 @@ function ChatPage() {
           activeId={focusRunId}
           query={sidebarQuery}
           onQueryChange={setSidebarQuery}
-          onPick={(id) => void navigate({ search: { run: id } })}
+          onPick={(id) => void navigate({ to: "/chat", search: { run: id } as never })}
           onNew={startNew}
         />
 
@@ -1926,7 +1927,7 @@ function DossierSelectionPanel({
           </p>
           <button
             type="button"
-            onClick={() => void navigate({ search: { run: runId, mode: undefined } })}
+            onClick={() => void navigate({ to: "/chat", search: { run: runId, mode: undefined } as never })}
             className="text-[11px] text-muted-foreground hover:text-foreground"
           >
             Continuer sans rattacher
