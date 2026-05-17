@@ -3544,6 +3544,7 @@ export type Database = {
           onboarded: boolean
           phone: string | null
           preferred_rag_mode: string | null
+          product_tour_completed_at: string | null
           profile_kind: Database["public"]["Enums"]["user_profile_kind"] | null
           tenant_id: string | null
           updated_at: string
@@ -3558,6 +3559,7 @@ export type Database = {
           onboarded?: boolean
           phone?: string | null
           preferred_rag_mode?: string | null
+          product_tour_completed_at?: string | null
           profile_kind?: Database["public"]["Enums"]["user_profile_kind"] | null
           tenant_id?: string | null
           updated_at?: string
@@ -3572,6 +3574,7 @@ export type Database = {
           onboarded?: boolean
           phone?: string | null
           preferred_rag_mode?: string | null
+          product_tour_completed_at?: string | null
           profile_kind?: Database["public"]["Enums"]["user_profile_kind"] | null
           tenant_id?: string | null
           updated_at?: string
@@ -5886,6 +5889,7 @@ export type Database = {
         Args: { p_date?: string; p_key: string }
         Returns: number
       }
+      get_user_tenant_id: { Args: { _user_id: string }; Returns: string }
       has_permission: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
