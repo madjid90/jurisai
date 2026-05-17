@@ -49,6 +49,7 @@ import { Route as AuthenticatedAdminServerErrorsRouteImport } from './routes/_au
 import { Route as AuthenticatedAdminRagQualityRouteImport } from './routes/_authenticated/admin.rag-quality'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
 import { Route as AuthenticatedAdminEvalCasesRouteImport } from './routes/_authenticated/admin.eval-cases'
+import { Route as AuthenticatedAdminDiagnosticsRouteImport } from './routes/_authenticated/admin.diagnostics'
 import { Route as AuthenticatedAdminDataQualityRouteImport } from './routes/_authenticated/admin.data-quality'
 import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
 import { Route as AuthenticatedAdminBaremesRouteImport } from './routes/_authenticated/admin.baremes'
@@ -279,6 +280,12 @@ const AuthenticatedAdminEvalCasesRoute =
     path: '/admin/eval-cases',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminDiagnosticsRoute =
+  AuthenticatedAdminDiagnosticsRouteImport.update({
+    id: '/admin/diagnostics',
+    path: '/admin/diagnostics',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminDataQualityRoute =
   AuthenticatedAdminDataQualityRouteImport.update({
     id: '/admin/data-quality',
@@ -412,6 +419,7 @@ export interface FileRoutesByFullPath {
   '/admin/baremes': typeof AuthenticatedAdminBaremesRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
+  '/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/admin/eval-cases': typeof AuthenticatedAdminEvalCasesRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
@@ -471,6 +479,7 @@ export interface FileRoutesByTo {
   '/admin/baremes': typeof AuthenticatedAdminBaremesRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
+  '/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/admin/eval-cases': typeof AuthenticatedAdminEvalCasesRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
@@ -532,6 +541,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/baremes': typeof AuthenticatedAdminBaremesRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
+  '/_authenticated/admin/diagnostics': typeof AuthenticatedAdminDiagnosticsRoute
   '/_authenticated/admin/eval-cases': typeof AuthenticatedAdminEvalCasesRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/_authenticated/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
@@ -593,6 +603,7 @@ export interface FileRouteTypes {
     | '/admin/baremes'
     | '/admin/connectors'
     | '/admin/data-quality'
+    | '/admin/diagnostics'
     | '/admin/eval-cases'
     | '/admin/legal-sources'
     | '/admin/rag-quality'
@@ -652,6 +663,7 @@ export interface FileRouteTypes {
     | '/admin/baremes'
     | '/admin/connectors'
     | '/admin/data-quality'
+    | '/admin/diagnostics'
     | '/admin/eval-cases'
     | '/admin/legal-sources'
     | '/admin/rag-quality'
@@ -712,6 +724,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/baremes'
     | '/_authenticated/admin/connectors'
     | '/_authenticated/admin/data-quality'
+    | '/_authenticated/admin/diagnostics'
     | '/_authenticated/admin/eval-cases'
     | '/_authenticated/admin/legal-sources'
     | '/_authenticated/admin/rag-quality'
@@ -1052,6 +1065,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminEvalCasesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/diagnostics': {
+      id: '/_authenticated/admin/diagnostics'
+      path: '/admin/diagnostics'
+      fullPath: '/admin/diagnostics'
+      preLoaderRoute: typeof AuthenticatedAdminDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/data-quality': {
       id: '/_authenticated/admin/data-quality'
       path: '/admin/data-quality'
@@ -1241,6 +1261,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminBaremesRoute: typeof AuthenticatedAdminBaremesRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedAdminDataQualityRoute: typeof AuthenticatedAdminDataQualityRoute
+  AuthenticatedAdminDiagnosticsRoute: typeof AuthenticatedAdminDiagnosticsRoute
   AuthenticatedAdminEvalCasesRoute: typeof AuthenticatedAdminEvalCasesRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
   AuthenticatedAdminRagQualityRoute: typeof AuthenticatedAdminRagQualityRoute
@@ -1273,6 +1294,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminBaremesRoute: AuthenticatedAdminBaremesRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedAdminDataQualityRoute: AuthenticatedAdminDataQualityRoute,
+  AuthenticatedAdminDiagnosticsRoute: AuthenticatedAdminDiagnosticsRoute,
   AuthenticatedAdminEvalCasesRoute: AuthenticatedAdminEvalCasesRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
   AuthenticatedAdminRagQualityRoute: AuthenticatedAdminRagQualityRoute,
@@ -1322,12 +1344,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
