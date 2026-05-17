@@ -183,3 +183,57 @@ ALTER TABLE public.agent_runs ADD CONSTRAINT agent_runs_status_check
     'ready'::text, 'executed'::text,
     'archived'::text, 'failed'::text, 'refused'::text
   ]));
+
+
+-- ─── 8. Orchestration procédure end-to-end (dossier + workflow + tâches) ────
+CREATE OR REPLACE FUNCTION public.start_procedure_full(
+  _user_id uuid, _tenant_id uuid, _run_id uuid,
+  _definition_id uuid, _definition_title text,
+  _existing_dossier_id uuid DEFAULT NULL,
+  _context jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
+DECLARE
+  v_dossier_id uuid; v_instance_id uuid; v_steps jsonb; v_step jsonb;
+  v_step_index int := 0; v_due_date date; v_task_count int := 0;
+  v_dossier_created boolean := false;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = _user_id AND tenant_id = _tenant_id) THEN
+    RAISE EXCEPTION 'User % does not belong to tenant %', _user_id, _tenant_id;
+  END IF;
+  v_dossier_id := _existing_dossier_id;
+  IF v_dossier_id IS NULL THEN
+    INSERT INTO dossiers (tenant_id, created_by, title, description, category, status, risk_level)
+    VALUES (_tenant_id, _user_id, _definition_title, 'Dossier créé automatiquement depuis une demande agent.', 'social', 'open', 'medium')
+    RETURNING id INTO v_dossier_id;
+    v_dossier_created := true;
+  END IF;
+  SELECT steps INTO v_steps FROM workflow_definitions WHERE id = _definition_id;
+  INSERT INTO workflow_instances (tenant_id, definition_id, dossier_id, title, started_by, context, status, current_step_index)
+  VALUES (_tenant_id, _definition_id, v_dossier_id, _definition_title || ' — ' || to_char(now(), 'DD/MM/YYYY'), _user_id, _context, 'in_progress', 0)
+  RETURNING id INTO v_instance_id;
+  IF v_steps IS NOT NULL AND jsonb_typeof(v_steps) = 'array' THEN
+    FOR v_step IN SELECT * FROM jsonb_array_elements(v_steps) LOOP
+      v_due_date := NULL;
+      IF v_step ? 'reminder_days' THEN v_due_date := (CURRENT_DATE + (v_step->>'reminder_days')::int * INTERVAL '1 day')::date;
+      ELSIF v_step ? 'delay_days' THEN v_due_date := (CURRENT_DATE + (v_step->>'delay_days')::int * INTERVAL '1 day')::date;
+      END IF;
+      INSERT INTO dossier_tasks (tenant_id, dossier_id, created_by, title, description, status, priority, due_date)
+      VALUES (_tenant_id, v_dossier_id, _user_id, COALESCE(v_step->>'title', 'Étape ' || (v_step_index + 1)),
+        'Étape de la procédure « ' || _definition_title || ' »', 'todo',
+        CASE WHEN v_step_index = 0 THEN 'high' ELSE 'normal' END, v_due_date);
+      v_task_count := v_task_count + 1;
+      v_step_index := v_step_index + 1;
+    END LOOP;
+  END IF;
+  UPDATE agent_runs SET dossier_id = v_dossier_id, workflow_instance_id = v_instance_id, updated_at = now()
+  WHERE id = _run_id AND tenant_id = _tenant_id;
+  RETURN jsonb_build_object('dossier_id', v_dossier_id, 'dossier_created', v_dossier_created,
+    'workflow_instance_id', v_instance_id, 'task_count', v_task_count, 'definition_title', _definition_title);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.start_procedure_full(uuid, uuid, uuid, uuid, text, uuid, jsonb)
+  TO authenticated, service_role;

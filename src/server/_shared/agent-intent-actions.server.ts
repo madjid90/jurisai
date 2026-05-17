@@ -774,51 +774,60 @@ async function findOrGenerateWorkflow(opts: {
       }
     }
 
-    // 2. Démarrer une instance du workflow
+    // 2. Démarrer la procédure end-to-end via RPC SECURITY DEFINER :
+    //    - crée un dossier auto si pas fourni
+    //    - crée workflow_instance
+    //    - crée 1 tâche par étape avec due_date (delay_days / reminder_days)
+    //    - lie tout à l'agent_run
+    // Avant ce fix : .insert() sur workflow_instances bloqué silencieusement par RLS
+    // (auth.uid() = null côté supabaseAdmin sans vrai service_role) → workflow_instance_id null
+    // → procédure invisible côté user.
     let instanceId: string | null = null;
+    let dossierIdFinal: string | null = opts.dossierId;
+    let taskCount = 0;
+    let dossierCreated = false;
     try {
-      const { data: inst, error: instErr } = await db
-        .from("workflow_instances")
-        .insert({
-          tenant_id: opts.tenantId,
-          definition_id: definitionId,
-          title: `${definitionTitle} — ${new Date().toLocaleDateString("fr-FR")}`,
-          dossier_id: opts.dossierId,
-          started_by: opts.userId,
-          context: opts.collected,
-          status: "in_progress",
-          current_step_index: 0,
-        })
-        .select("id")
-        .single();
+      const { data: rpcResult, error: rpcErr } = await db.rpc("start_procedure_full", {
+        _user_id: opts.userId,
+        _tenant_id: opts.tenantId,
+        _run_id: opts.runId,
+        _definition_id: definitionId,
+        _definition_title: definitionTitle,
+        _existing_dossier_id: opts.dossierId,
+        _context: opts.collected,
+      });
+      if (rpcErr) {
+        console.error("[workflow] start_procedure_full RPC failed:", rpcErr);
+      } else if (rpcResult) {
+        const r = rpcResult as {
+          dossier_id?: string;
+          dossier_created?: boolean;
+          workflow_instance_id?: string;
+          task_count?: number;
+        };
+        instanceId = r.workflow_instance_id ?? null;
+        dossierIdFinal = r.dossier_id ?? opts.dossierId;
+        taskCount = r.task_count ?? 0;
+        dossierCreated = r.dossier_created ?? false;
 
-      if (instErr) {
-        console.error("[workflow] Instance creation failed:", instErr);
-      } else {
-        instanceId = (inst as { id: string }).id;
-
-        // Rattacher l'instance à l'agent_run
-        await db
-          .from("agent_runs")
-          .update({ workflow_instance_id: instanceId })
-          .eq("id", opts.runId);
-
-        // Log timeline si dossier
-        if (opts.dossierId) {
+        // Log timeline si dossier (créé ou pré-existant)
+        if (dossierIdFinal) {
           await logTimelineEvent({
             tenantId: opts.tenantId,
-            dossierId: opts.dossierId,
+            dossierId: dossierIdFinal,
             actorId: opts.userId,
             eventType: "workflow.started",
-            title: `Procédure démarrée : ${definitionTitle}`,
+            title: `Procédure démarrée : ${definitionTitle} (${taskCount} étapes)`,
             metadata: {
               source: "agent",
               instance_id: instanceId,
               definition_id: definitionId,
+              dossier_created: dossierCreated,
+              task_count: taskCount,
               generated,
               run_id: opts.runId,
             },
-          });
+          }).catch(() => { /* best-effort */ });
         }
       }
     } catch (instErr) {
@@ -831,7 +840,13 @@ async function findOrGenerateWorkflow(opts: {
       instance_id: instanceId,
       generated,
       first_document_id: null,
-    };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dossier_id: dossierIdFinal,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      task_count: taskCount,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dossier_created: dossierCreated,
+    } as never;
   } catch (err) {
     console.error("[workflow] findOrGenerateWorkflow failed:", err);
     return null;
