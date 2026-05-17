@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/database.types";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import {
   searchLegalSources,
@@ -134,7 +135,7 @@ export const startWorkflow = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
-    const { data: inserted, error } = await (supabaseAdmin as any)
+    const { data: inserted, error } = await supabaseAdmin
       .from("workflow_instances")
       .insert({
         tenant_id: tenantId,
@@ -143,7 +144,7 @@ export const startWorkflow = createServerFn({ method: "POST" })
         dossier_id: data.dossierId ?? null,
         client_id: data.clientId ?? null,
         started_by: userId,
-        context: data.context ?? {},
+        context: (data.context ?? {}) as Json,
       })
       .select("id")
       .single();
@@ -237,13 +238,13 @@ export const completeWorkflowStep = createServerFn({ method: "POST" })
     const currentStep = steps[data.stepIndex];
 
     // Insert step run
-    await (supabaseAdmin as any).from("workflow_step_runs").insert({
+    await supabaseAdmin.from("workflow_step_runs").insert({
       instance_id: data.instanceId,
       step_index: data.stepIndex,
       step_key: data.stepKey,
       status: "done",
       notes: data.notes ?? null,
-      output: data.output ?? null,
+      output: (data.output ?? null) as Json | null,
       executed_by: userId,
       executed_at: new Date().toISOString(),
     });

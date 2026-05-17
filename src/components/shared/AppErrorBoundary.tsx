@@ -2,6 +2,35 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 
+// Push minimaliste Sentry depuis le client (pas de SDK npm).
+async function sendClientErrorToSentry(dsn: string, error: Error, stack: string | null): Promise<void> {
+  const m = dsn.match(/^https:\/\/([^@]+)@([^/]+)\/(\d+)$/);
+  if (!m) return;
+  const [, key, host, projectId] = m;
+  const event = {
+    event_id: crypto.randomUUID().replace(/-/g, ""),
+    timestamp: new Date().toISOString(),
+    level: "error",
+    logger: "client.AppErrorBoundary",
+    platform: "javascript",
+    message: error.message.slice(0, 2000),
+    exception: { values: [{ type: error.name ?? "Error", value: error.message.slice(0, 500), stacktrace: stack ? { frames: [{ filename: stack.slice(0, 500) }] } : undefined }] },
+    extra: { stack: stack?.slice(0, 2000) ?? null },
+    environment: (import.meta.env?.MODE as string | undefined) ?? "production",
+    release: (import.meta.env?.VITE_SENTRY_RELEASE as string | undefined) ?? "unknown",
+  };
+  try {
+    await fetch(`https://${host}/api/${projectId}/store/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Sentry-Auth": `Sentry sentry_version=7,sentry_key=${key},sentry_client=jurisai-client/1.0`,
+      },
+      body: JSON.stringify(event),
+    });
+  } catch { /* fire-and-forget */ }
+}
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
@@ -25,8 +54,11 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Log local — la collecte serveur reste à brancher ultérieurement.
     console.error("[AppErrorBoundary]", error, info.componentStack);
+    // Push Sentry (best-effort, ne casse pas le boundary si fail).
+    // VITE_SENTRY_DSN doit être exposé côté client (préfixe VITE_).
+    const dsn = (import.meta.env?.VITE_SENTRY_DSN as string | undefined) ?? undefined;
+    if (dsn) sendClientErrorToSentry(dsn, error, info.componentStack ?? null).catch(() => {});
   }
 
   handleReset = () => {

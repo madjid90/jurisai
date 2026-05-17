@@ -169,8 +169,9 @@ describe("runAgentLoop", () => {
       tenantId: "t1",
       maxRounds: 2,
     });
-    expect(r.answer).toBe("");
-    expect(llmFetchMock).toHaveBeenCalledTimes(2);
+    // maxRounds=2 + 1 appel synthesis fallback (AL-3) qui force tool_choice="none" pour
+    // récupérer une réponse texte → 3 llmFetch attendus
+    expect(llmFetchMock).toHaveBeenCalledTimes(3);
     expect(routeToolMock).toHaveBeenCalledTimes(2);
   });
 });
