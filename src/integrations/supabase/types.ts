@@ -2616,6 +2616,87 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_reasoning_traces: {
+        Row: {
+          agent_run_id: string | null
+          checks: Json
+          citation_health: number
+          cost_eur: number | null
+          created_at: string
+          final_confidence: string
+          id: string
+          mode: string
+          qualification: Json
+          question: string
+          refusal_reason: string | null
+          refused: boolean
+          retrieved_sources: Json
+          syllogisme: Json
+          tenant_id: string
+          total_latency_ms: number
+          total_llm_calls: number
+          total_tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          agent_run_id?: string | null
+          checks: Json
+          citation_health: number
+          cost_eur?: number | null
+          created_at?: string
+          final_confidence: string
+          id?: string
+          mode?: string
+          qualification: Json
+          question: string
+          refusal_reason?: string | null
+          refused?: boolean
+          retrieved_sources: Json
+          syllogisme: Json
+          tenant_id: string
+          total_latency_ms?: number
+          total_llm_calls?: number
+          total_tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          agent_run_id?: string | null
+          checks?: Json
+          citation_health?: number
+          cost_eur?: number | null
+          created_at?: string
+          final_confidence?: string
+          id?: string
+          mode?: string
+          qualification?: Json
+          question?: string
+          refusal_reason?: string | null
+          refused?: boolean
+          retrieved_sources?: Json
+          syllogisme?: Json
+          tenant_id?: string
+          total_latency_ms?: number
+          total_llm_calls?: number
+          total_tokens?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_reasoning_traces_agent_run_id_fkey"
+            columns: ["agent_run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_reasoning_traces_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_sources: {
         Row: {
           authority_level: number
@@ -3511,7 +3592,14 @@ export type Database = {
           category: string
           created_at: string
           difficulty: string
+          enriched_at: string | null
+          enriched_by: string | null
           expected_answer_keywords: string[]
+          expected_articles_pivots: string[] | null
+          expected_idcc: string | null
+          expected_majeure: Json | null
+          expected_principe_faveur: boolean | null
+          expected_qualification: Json | null
           expected_sources: string[]
           id: string
           idcc: string | null
@@ -3520,13 +3608,21 @@ export type Database = {
           validated: boolean | null
           validated_at: string | null
           validated_by: string | null
+          verified_enrichment: boolean | null
         }
         Insert: {
           active?: boolean
           category?: string
           created_at?: string
           difficulty?: string
+          enriched_at?: string | null
+          enriched_by?: string | null
           expected_answer_keywords?: string[]
+          expected_articles_pivots?: string[] | null
+          expected_idcc?: string | null
+          expected_majeure?: Json | null
+          expected_principe_faveur?: boolean | null
+          expected_qualification?: Json | null
           expected_sources?: string[]
           id?: string
           idcc?: string | null
@@ -3535,13 +3631,21 @@ export type Database = {
           validated?: boolean | null
           validated_at?: string | null
           validated_by?: string | null
+          verified_enrichment?: boolean | null
         }
         Update: {
           active?: boolean
           category?: string
           created_at?: string
           difficulty?: string
+          enriched_at?: string | null
+          enriched_by?: string | null
           expected_answer_keywords?: string[]
+          expected_articles_pivots?: string[] | null
+          expected_idcc?: string | null
+          expected_majeure?: Json | null
+          expected_principe_faveur?: boolean | null
+          expected_qualification?: Json | null
           expected_sources?: string[]
           id?: string
           idcc?: string | null
@@ -3550,6 +3654,7 @@ export type Database = {
           validated?: boolean | null
           validated_at?: string | null
           validated_by?: string | null
+          verified_enrichment?: boolean | null
         }
         Relationships: []
       }
@@ -5813,6 +5918,29 @@ export type Database = {
           chunk_id: string
           content: string
           heading: string
+          official_url: string
+          reference_code: string
+          score: number
+          source_id: string
+          source_title: string
+          source_type: string
+        }[]
+      }
+      hybrid_search_typed: {
+        Args: {
+          date_at?: string
+          idcc_filter?: string
+          match_count?: number
+          query_embedding: string
+          query_text: string
+          rrf_k?: number
+          source_types?: string[]
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          heading: string
+          legal_date: string
           official_url: string
           reference_code: string
           score: number

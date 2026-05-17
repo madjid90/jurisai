@@ -29,6 +29,7 @@ import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
 import { WorkflowRuntimeBlock } from "@/components/agent/WorkflowRuntimeBlock";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import ReactMarkdown from "react-markdown";
@@ -143,6 +144,7 @@ const GROUP_LABEL: Record<RunGroup, string> = {
 function ChatPage() {
   const search = useSearch({ from: "/_authenticated/chat" });
   const navigate = useNavigate({ from: "/_authenticated/chat" });
+  const { profile } = useAuth();
   const focusRunId = search.run ?? null;
 
   const create = useServerFn(createAgentRun);
@@ -160,6 +162,10 @@ function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const refresh = async () => {
+    if (!profile?.onboarded) {
+      setRuns([]);
+      return;
+    }
     try {
       const data = await list({ data: { scope: "mine", limit: 100 } });
       setRuns(data as unknown as Run[]);
@@ -169,6 +175,7 @@ function ChatPage() {
   };
 
   useEffect(() => {
+    if (!profile?.onboarded) return;
     void refresh();
     let userId: string | null = null;
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -192,7 +199,7 @@ function ChatPage() {
       if (channel) void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRunId]);
+  }, [focusRunId, profile?.onboarded]);
 
   const uploadAttachments = async (): Promise<Array<{ analysis_id: string; filename: string }>> => {
     if (pendingFiles.length === 0) return [];

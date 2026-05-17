@@ -6,6 +6,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from "@/server/notifications.functions";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 type Prefs = {
   email_enabled: boolean;
@@ -34,11 +35,18 @@ const DOMAINS = ["rgpd", "social", "commercial", "fiscal", "societes", "contenti
 export function NotificationPreferencesPanel() {
   const getFn = useServerFn(getNotificationPreferences);
   const updateFn = useServerFn(updateNotificationPreferences);
+  const { profile } = useAuth();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!profile?.onboarded) {
+      setPrefs(null);
+      setLoading(false);
+      return;
+    }
+
     void (async () => {
       try {
         const data = (await getFn()) as Prefs;
@@ -49,7 +57,9 @@ export function NotificationPreferencesPanel() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [getFn, profile?.onboarded]);
+
+  if (!profile?.onboarded) return null;
 
   const save = async () => {
     if (!prefs) return;

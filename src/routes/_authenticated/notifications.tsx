@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   head: () => ({ meta: [{ title: "Notifications · JurisAI" }] }),
@@ -43,11 +44,17 @@ function NotificationsPage() {
   const markFn = useServerFn(markNotificationRead);
   const markAllFn = useServerFn(markAllNotificationsRead);
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
   const refresh = async () => {
+    if (!profile?.onboarded) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const rows = (await listFn({ data: { limit: 100, unreadOnly: filter === "unread" } })) as Notif[];
@@ -62,7 +69,9 @@ function NotificationsPage() {
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, profile?.onboarded]);
+
+  if (!profile?.onboarded) return null;
 
   const onClickItem = async (n: Notif) => {
     if (!n.read_at) {
