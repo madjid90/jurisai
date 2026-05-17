@@ -116,10 +116,16 @@ export const markProductTourComplete = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { userId } = context as { userId: string };
-    // On stocke dans user_metadata pour éviter une migration de table.
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { product_tour_completed_at: new Date().toISOString() },
-    });
-    if (error) throw new Error(`Échec mise à jour métadonnées : ${error.message}`);
+    // Audit fix : on n'utilise PAS supabaseAdmin.auth.admin.updateUserById qui
+    // retournait "User not allowed" quand SUPABASE_SERVICE_ROLE_KEY n'est pas
+    // un vrai service role (cas Lovable Cloud avec anon key en fallback).
+    // Migration 20260517220000_profiles_product_tour_completed_at ajoute la colonne.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabaseAdmin as any;
+    const { error } = await sb
+      .from("profiles")
+      .update({ product_tour_completed_at: new Date().toISOString() })
+      .eq("id", userId);
+    if (error) throw new Error(`Échec mise à jour tour : ${error.message}`);
     return { ok: true };
   });

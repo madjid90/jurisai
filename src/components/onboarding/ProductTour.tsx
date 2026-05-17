@@ -48,7 +48,7 @@ const STEPS: Step[] = [
 ];
 
 export function ProductTour() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const markComplete = useServerFn(markProductTourComplete);
   const [stepIdx, setStepIdx] = useState(0);
@@ -56,15 +56,16 @@ export function ProductTour() {
   const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-    const completed = meta.product_tour_completed_at;
+    if (!user || !profile) return;
+    // Audit fix : lecture depuis profile (table profiles) au lieu de user_metadata
+    // car admin.updateUserById nécessite un VRAI service_role key (User not allowed sinon).
+    const completed = (profile as unknown as { product_tour_completed_at?: string | null })
+      .product_tour_completed_at;
     if (!completed) {
-      // Petit délai pour laisser le dashboard se charger
       const t = setTimeout(() => setVisible(true), 600);
       return () => clearTimeout(t);
     }
-  }, [user]);
+  }, [user, profile]);
 
   if (!visible) return null;
 

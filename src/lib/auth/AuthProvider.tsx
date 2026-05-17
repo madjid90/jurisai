@@ -60,14 +60,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, attempt = 0): Promise<void> => {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
 
+    // Audit fix : retry transient au lieu d'avaler silencieusement.
+    // Avant : 1 erreur réseau → profile reste null → _authenticated.tsx déclenchait
+    // signOut → user dégagé en plein workflow.
     if (error && isTransientAuthError(error)) {
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+        return fetchProfile(userId, attempt + 1);
+      }
+      // Après 3 retries, on garde le profile actuel et on log au lieu de wipe.
+      console.warn("[AuthProvider] fetchProfile transient error persistant:", error);
+      return;
+    }
+
+    // Erreur non-transient (RLS refuse, etc.) : on log mais on ne wipe pas non plus
+    // pour éviter signOut intempestif. Le user peut continuer sa session.
+    if (error) {
+      console.error("[AuthProvider] fetchProfile error:", error);
       return;
     }
 

@@ -27,7 +27,10 @@ function isUnauthorizedError(status: number | undefined, message: string) {
 }
 
 function isJwtVerificationUnauthorized(message: string) {
-  return /signature verification failed|token missing sub claim|exp|expired|invalid|malformed|unexpected "(?:iss|aud|nbf)"/i.test(
+  // Audit fix : avant on matchait /exp/ tout court → tout message contenant
+  // "exp" (ex: "expect", "experiment", "expected") déclenchait un logout.
+  // Patterns stricts maintenant : jwt expired, exp claim, JWS verification, etc.
+  return /signature verification failed|token missing sub claim|jwt expired|"exp" claim|exp claim timestamp|expired|invalid signature|malformed jwt|jws|unexpected "(?:iss|aud|nbf)"/i.test(
     message,
   );
 }

@@ -58,17 +58,19 @@ function AuthenticatedLayout() {
       void navigate({ to: "/login" });
       return;
     }
-    // Session OK but profile missing → JWT stale (user supprimé). Force logout.
-    if (!profile) {
-      void supabase.auth.signOut().then(() => navigate({ to: "/login" }));
-      return;
-    }
-    if (!profile.onboarded && !router.state.location.pathname.startsWith("/onboarding")) {
+    // Audit fix : NE PAS signOut sur !profile. C'était la cause principale des
+    // déconnexions intempestives — fetchProfile peut transitoirement renvoyer
+    // null (réseau, RLS, race condition setTimeout 0). On affiche juste un
+    // loader (cf. bloc return ci-dessous) et on attend que profile se charge.
+    // Si vraiment le profile n'existe pas (user supprimé en DB), AuthProvider
+    // détectera l'erreur explicite et déclenchera le logout côté provider.
+    if (profile && !profile.onboarded && !router.state.location.pathname.startsWith("/onboarding")) {
       void navigate({ to: "/onboarding" });
     }
   }, [loading, session, profile, navigate, router.state.location.pathname]);
 
-  if (loading || !session) {
+  if (loading || !session || !profile) {
+    // Pas de profile = chargement en cours (ou erreur transitoire), pas un logout.
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-6 w-6 animate-spin text-accent" />
