@@ -29,6 +29,7 @@ import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
 import { WorkflowRuntimeBlock } from "@/components/agent/WorkflowRuntimeBlock";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import ReactMarkdown from "react-markdown";
