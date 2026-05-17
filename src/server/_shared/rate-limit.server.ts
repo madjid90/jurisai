@@ -18,36 +18,41 @@ export async function enforceRateLimit(
   endpoint: string,
   maxPerMinute = 10,
 ): Promise<RateLimitResult> {
+  // Audit fix : fail-OPEN si la RPC est indisponible (permissions Lovable, etc.).
+  // Avant : fail-CLOSED bloquait TOUT appel à executeAgentRun / compareContractsServerFn
+  // dès que check_rate_limit ne répondait pas → produit inutilisable.
+  // La protection rate-limit est utile mais pas critique : on log et on autorise.
+  let data: unknown = null;
+  let error: { message?: string } | null = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await supabaseAdmin.rpc("check_rate_limit", {
+    const res = await supabaseAdmin.rpc("check_rate_limit", {
       p_user_id: userId,
       p_endpoint: endpoint,
       p_max_per_minute: maxPerMinute,
     });
-
-    if (error || !data || (Array.isArray(data) && data.length === 0)) {
-      // Fail-CLOSED : si on ne peut pas vérifier, on bloque.
-      console.error("[rate-limit] check_rate_limit indisponible — fail-closed:", error?.message);
-      throw new Error("Service de limitation indisponible. Réessayez dans quelques instants.");
-    }
-
-    const row = Array.isArray(data) ? data[0] : data;
-    const result: RateLimitResult = {
-      allowed: Boolean(row.allowed),
-      currentCount: Number(row.current_count ?? 0),
-      resetAt: row.reset_at ?? null,
-    };
-
-    if (!result.allowed) {
-      const retry = result.resetAt ? ` Réessayez après ${new Date(result.resetAt).toLocaleTimeString("fr-FR")}.` : "";
-      throw new Error(`Trop de requêtes (${result.currentCount}/${maxPerMinute} par minute sur "${endpoint}").${retry}`);
-    }
-
-    return result;
+    data = res.data;
+    error = res.error;
   } catch (e) {
-    // Toute erreur (dépassement OU RPC down) → propagation : fail-closed
-    if (e instanceof Error) throw e;
-    throw new Error("Service de limitation indisponible.");
+    error = { message: e instanceof Error ? e.message : String(e) };
   }
+
+  if (error || !data || (Array.isArray(data) && data.length === 0)) {
+    console.warn(`[rate-limit] check_rate_limit indisponible (fail-open) sur ${endpoint}:`, error?.message ?? "no data");
+    // Retourne un résultat permissif au lieu de throw
+    return { allowed: true, currentCount: 0, resetAt: null };
+  }
+
+  const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown>);
+  const result: RateLimitResult = {
+    allowed: Boolean(row.allowed),
+    currentCount: Number(row.current_count ?? 0),
+    resetAt: (row.reset_at as string | null) ?? null,
+  };
+
+  if (!result.allowed) {
+    const retry = result.resetAt ? ` Réessayez après ${new Date(result.resetAt).toLocaleTimeString("fr-FR")}.` : "";
+    throw new Error(`Trop de requêtes (${result.currentCount}/${maxPerMinute} par minute sur "${endpoint}").${retry}`);
+  }
+
+  return result;
 }

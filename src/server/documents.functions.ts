@@ -188,17 +188,15 @@ export const generateDocument = createServerFn({ method: "POST" })
     const ctx = context as { userId: string };
     const tenantId = await getTenantId(ctx.userId);
 
-    // Rate limit : 10 générations/min/user — bloque si le RPC échoue (fail-closed).
+    // Rate limit : 10 générations/min/user. Fail-OPEN si RPC indisponible (audit fix).
     const { data: rl, error: rlErr } = await supabaseAdmin.rpc("check_rate_limit", {
       p_user_id: ctx.userId,
       p_endpoint: "generate-document",
       p_max_per_minute: 10,
     });
     if (rlErr) {
-      console.error("[generateDocument] Rate limit check failed:", rlErr);
-      throw new Error("Vérification du rate limit échouée — réessayez");
-    }
-    if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
+      console.warn("[generateDocument] Rate limit unavailable, allowing:", rlErr.message);
+    } else if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
       throw new Error("Trop de générations (10/min). Réessayez dans une minute.");
     }
 

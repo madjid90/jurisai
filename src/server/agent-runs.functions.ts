@@ -148,17 +148,19 @@ export const createAgentRun = createServerFn({ method: "POST" })
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
-    // B1 FIX: Rate limit sur createAgentRun (10/min/user)
+    // Rate limit sur createAgentRun (10/min/user).
+    // Audit fix : fail-OPEN si la RPC ne répond pas (permission, réseau, etc.).
+    // Avant : fail-CLOSED bloquait TOUT createAgentRun si Lovable n'a pas le bon service_role.
+    // La protection rate-limit est utile mais pas critique au point de bloquer le produit.
     const { data: rl, error: rlErr } = await supabaseAdmin.rpc("check_rate_limit", {
       p_user_id: userId,
       p_endpoint: "create-agent-run",
       p_max_per_minute: 10,
     });
     if (rlErr) {
-      console.error("[createAgentRun] Rate limit check failed:", rlErr);
-      throw new Error("Vérification du rate limit échouée — réessayez");
-    }
-    if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
+      // Log structuré au lieu de throw, on continue (fail-open).
+      console.warn("[createAgentRun] Rate limit check unavailable, allowing:", rlErr.message);
+    } else if (Array.isArray(rl) && rl[0] && !rl[0].allowed) {
       throw new Error("Trop de demandes (10/min). Réessayez dans une minute.");
     }
 
