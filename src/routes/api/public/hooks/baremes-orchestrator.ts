@@ -11,6 +11,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
 import { fetchCdtnBaremes } from "@/server/_shared/connectors/cdtn-baremes.server";
 import { fetchInseeIndices } from "@/server/_shared/connectors/insee-bdm.server";
+import { fetchLegifranceBaremes } from "@/server/_shared/connectors/legifrance-baremes.server";
+import { fetchBofipFiscalRates } from "@/server/_shared/connectors/bofip-fiscal.server";
 
 type ConnectorReport = {
   connector: string;
@@ -46,10 +48,10 @@ export const Route = createFileRoute("/api/public/hooks/baremes-orchestrator")({
         const reports = await Promise.all([
           runConnector("cdtn", fetchCdtnBaremes),
           runConnector("insee", fetchInseeIndices),
-          // Lots C/D/F seront ajoutés ici en vagues 2 et 3 :
-          // runConnector("legifrance-jorf", fetchLegifranceBaremes),
+          runConnector("legifrance", fetchLegifranceBaremes),
+          runConnector("bofip", fetchBofipFiscalRates),
+          // Lot D (BOSS scraper) ajouté en vague 3 :
           // runConnector("boss", fetchBossUrssafRates),
-          // runConnector("bofip", fetchBofipFiscalRates),
         ]);
 
         const totalProposed = reports.reduce((s, r) => s + r.proposed, 0);
