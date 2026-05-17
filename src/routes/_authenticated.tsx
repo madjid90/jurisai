@@ -76,5 +76,16 @@ function AuthenticatedLayout() {
     );
   }
 
+  // Audit fix : bloquer le render des routes enfants tant que l'onboarding n'est pas fait
+  // (sauf si on est déjà sur /onboarding). Avant ce fix : /chat se montait et appelait
+  // listMyRuns → getTenantId → Error "Vous devez d'abord compléter l'onboarding".
+  if (profile && !profile.onboarded && !router.state.location.pathname.startsWith("/onboarding")) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
   return <Outlet />;
 }

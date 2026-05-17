@@ -104,6 +104,11 @@ function OnboardingPage() {
         },
       });
       await refreshProfile();
+      // Audit fix : invalider le cache useAccess car getMyAccess() avait throw
+      // tant que onboarded=false. Sans ça, les liens admin restent invisibles
+      // jusqu'au refresh complet de la page (TTL 60s).
+      const { invalidateAccessCache } = await import("@/lib/auth/useAccess");
+      invalidateAccessCache();
       toast.success("Bienvenue sur JurisAI !");
       void navigate({ to: "/dashboard" });
     } catch (err) {

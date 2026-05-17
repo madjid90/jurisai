@@ -49,11 +49,15 @@ async function loadAccess(userId: string): Promise<UserAccess> {
       notify();
       return res;
     } catch (err) {
+      // Audit fix : on cache EMPTY mais avec fetchedAt très ancien pour que
+      // le prochain useEffect retente immédiatement (sinon stuck 60s sans admin).
+      // Cas typique : onboarding pas fini lors du 1er load → getMyAccess throw
+      // → cache EMPTY 60s → liens admin invisibles même après onboarding complété.
       cache = {
         userId,
         access: EMPTY,
         inflight: null,
-        fetchedAt: Date.now(),
+        fetchedAt: Date.now() - TTL_MS + 5_000, // expire dans 5s, pas 60s
         unavailable: isAuthServiceUnavailable(err),
       };
       notify();
