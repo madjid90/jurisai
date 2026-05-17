@@ -10,6 +10,8 @@ import { AppErrorBoundary } from "@/components/shared/AppErrorBoundary";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
+  // Audit fix : afficher l'URL qui a 404 pour pouvoir débugger les liens cassés.
+  const currentUrl = typeof window !== "undefined" ? window.location.pathname + window.location.search : "?";
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -18,12 +20,21 @@ function NotFoundComponent() {
         <p className="mt-2 text-sm text-muted-foreground">
           Cette page n'existe pas ou a été déplacée.
         </p>
-        <div className="mt-6">
+        <p className="mt-3 inline-block max-w-full break-all rounded-md bg-secondary/40 px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
+          URL : {currentUrl}
+        </p>
+        <div className="mt-6 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Retour à l'accueil
+          </Link>
+          <Link
+            to="/chat"
+            className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            Ouvrir le chat
           </Link>
         </div>
       </div>

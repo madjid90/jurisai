@@ -48,22 +48,44 @@ export type AgentRouting =
  *  - chat                 → /chat (Assistant juridique sourcé)
  *  - requests / fallback  → /mes-demandes (boîte de réception)
  */
+// Audit fix : utilitaire pour valider qu'un id ressemble bien à un UUID avant navigate
+// (sinon "/dossiers/undefined" ou "/dossiers/null" → 404 silencieux).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuid(id: unknown): id is string {
+  return typeof id === "string" && UUID_RE.test(id);
+}
+
 export function applyRouting(
   routing: AgentRouting | undefined,
   navigate: ReturnType<typeof useNavigate>,
   fallbackRunId: string,
 ): void {
+  // Audit fix : fallback systématique sur /chat si routing absent OU id invalide.
+  // Avant : navigate vers "/dossiers/undefined" ou "/analyses/null" → 404 page introuvable.
+  const safeFallback = () =>
+    navigate({ to: "/chat", search: { run: fallbackRunId } as never });
+
   if (!routing) {
-    void navigate({ to: "/chat", search: { run: fallbackRunId } as never });
+    void safeFallback();
     return;
   }
 
   switch (routing.target) {
     case "dossier":
+      if (!isValidUuid(routing.dossier_id)) {
+        console.warn("[routing] dossier_id invalide, fallback /chat:", routing.dossier_id);
+        void safeFallback();
+        return;
+      }
       void navigate({ to: "/dossiers/$id", params: { id: routing.dossier_id } });
       return;
 
     case "analysis":
+      if (!isValidUuid(routing.analysis_id)) {
+        console.warn("[routing] analysis_id invalide, fallback /chat:", routing.analysis_id);
+        void safeFallback();
+        return;
+      }
       void navigate({
         to: "/analyses/$id" as never,
         params: { id: routing.analysis_id } as never,
@@ -71,11 +93,11 @@ export function applyRouting(
       return;
 
     case "chat":
-      void navigate({ to: "/chat", search: { run: routing.run_id } as never });
-      return;
-
     case "requests":
-      void navigate({ to: "/chat", search: { run: routing.run_id } as never });
+      void navigate({
+        to: "/chat",
+        search: { run: isValidUuid(routing.run_id) ? routing.run_id : fallbackRunId } as never,
+      });
       return;
 
     case "agent":
@@ -90,6 +112,10 @@ export function applyRouting(
         to: "/chat",
         search: { run: fallbackRunId, mode: "dossier_selection" } as never,
       });
+      return;
+
+    default:
+      void safeFallback();
       return;
   }
 }
