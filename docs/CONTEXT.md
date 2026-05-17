@@ -199,6 +199,10 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 - ✅ **LRE Vague 1 Foundation** : `legal_normative_hierarchy` + `legal_reasoning_traces` + `hybrid_search_typed` + Zod schemas + Sentry + 77 tests + érosion `as any` 175→123 (commit `4b90b98`)
 - ✅ **6 bugs critiques d'auth** : onboarding crash, admin cache, déconnexions, JWT regex, fetchProfile, signup→/onboarding (commits `5baff60` + `555a5ff` + `5d76619` + `7941bb5`)
 - ✅ **getTenantId V2 RPC SECURITY DEFINER** : bypass RLS quand SUPABASE_SERVICE_ROLE_KEY = anon key sur Lovable (commit `b8f7b35`)
+- ✅ **RPCs SECURITY DEFINER bypass RLS** : `insert_agent_run`, `lock_agent_run` + GRANT authenticated sur RPCs critiques. Rate-limit fail-OPEN au lieu de fail-CLOSED. (commits `3a3aec6`, `4a28672`, `811e034`)
+- ✅ **DEFAULT_CHAT_MODEL = gpt-4o-mini** + tenant.chat_model forcé (avant google/gemini-2.5-flash → 400 OpenAI direct) (commit `0bac91e`)
+- ✅ **404 /_authenticated/chat** : ajout `to: "/chat"` explicite dans 4 navigate() (commit `f175c9a`)
+- ✅ **Chat fonctionnel end-to-end** : pipeline complet marche (createAgentRun → process → execute → réponse affichée)
 
 ### Notes par dimension (au 17/05)
 | Dimension | Score |
@@ -266,6 +270,27 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 | `signOut()` automatique sur `!profile` | Cause #1 des déconnexions intempestives | Loader + 3 retries fetchProfile |
 | Regex `/exp/` pour détecter JWT expired | Matche "expect", "experiment" → faux positifs | Patterns stricts (`jwt expired`, `"exp" claim`...) |
 | SELECT direct dans `getTenantId` côté server | RLS bloque silencieusement quand SERVICE_ROLE = anon | RPC `get_user_tenant_id` SECURITY DEFINER en premier |
+| `navigate({ search: ... })` sans `to:` explicite | TanStack utilise `from:` comme path → `/_authenticated/chat?run=...` → 404 | Toujours fournir `to: "/chat"` explicite |
+| `DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash"` | Format Lovable Gateway only — OpenAI direct renvoie 400 invalid_model | `gpt-4o-mini` qui marche partout |
+| Rate-limit fail-CLOSED (throw si RPC indisponible) | Bloque TOUT le produit dès que check_rate_limit fail | Fail-OPEN avec log warn |
+
+## 13. Pattern critique : Lovable Cloud + Supabase RLS
+
+**Constat majeur de la session du 17/05** : `SUPABASE_SERVICE_ROLE_KEY` sur Lovable Cloud peut être en réalité une `anon` key (impossible à modifier pour certains projets). Conséquence : `supabaseAdmin` n'a pas le pouvoir de bypass RLS.
+
+**Pattern de fix recommandé pour CHAQUE opération bloquée par RLS** :
+1. Créer une RPC `public.<operation>_secdef(...)` en `SECURITY DEFINER + SET search_path TO 'public'`
+2. Garde-fou SQL : vérifier `user_roles` ou `auth.uid()` avant l'opération
+3. `GRANT EXECUTE ... TO authenticated, service_role`
+4. Modifier le code TS pour appeler la RPC via `supabaseAdmin.rpc()` au lieu de `.from().insert()/.update()`
+
+**Fichier consolidé** : `docs/MIGRATIONS-CRITIQUES.sql` contient toutes les RPCs et peut être exécuté sur un autre projet Supabase si Lovable utilise une instance différente.
+
+**Liste des RPCs créées à cette date** (15/05/2026) :
+- `get_user_tenant_id(uuid)` → bypass RLS profiles
+- `insert_agent_run(uuid, uuid, text, ...)` → bypass RLS agent_runs INSERT
+- `lock_agent_run(uuid, uuid, uuid)` → bypass RLS agent_runs UPDATE+SELECT atomique
+- Si nouvelle table → créer RPC équivalente, **ne pas chercher à faire un refactor user-scoped massif** (trop risqué)
 
 ---
 
