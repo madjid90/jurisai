@@ -930,6 +930,10 @@ function RunDetail({
             <div className="prose prose-sm max-w-none text-sm dark:prose-invert">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{answerText}</ReactMarkdown>
             </div>
+            {/* Disclaimer juridique obligatoire (art. 54 loi 1971) */}
+            <p className="mt-4 border-t border-border/40 pt-3 text-[11px] italic leading-relaxed text-muted-foreground">
+              Assistance documentaire automatisée — ne se substitue pas à un conseil juridique. Pour toute décision engageante, consultez un avocat.
+            </p>
           </div>
 
           {procedure.length > 0 ? (

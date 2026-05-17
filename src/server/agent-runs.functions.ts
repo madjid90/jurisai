@@ -448,7 +448,18 @@ export const processAgentRun = createServerFn({ method: "POST" })
           draft.sources = ragResult.sources;
         }
       } catch (ragErr) {
-        console.warn("[processAgentRun] RAG pre-classification failed", ragErr);
+        // Audit trail : si le RAG préclassification fail, on perd le contexte juridique
+        // pour le classifier → l'agent peut redemander des dates fixées par la loi.
+        // On logge structuré pour pouvoir détecter ces régressions silencieuses.
+        const { logErr } = await import("@/server/_shared/observability.server");
+        await logErr({
+          fn: "processAgentRun.rag_preclassification",
+          err: ragErr,
+          userId,
+          tenantId,
+          ctx: { runId: data.id, messageLength: message.length },
+          severity: "warn",
+        });
       }
 
       const classification = await classifyIntent(message, ctx, priorAnswers, legalContext);
@@ -747,6 +758,11 @@ export const executeAgentRun = createServerFn({ method: "POST" })
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
+    // Audit fix : rate limit pour éviter DoS coût LLM (chaque execute = 1+ appel LLM).
+    // 20/min/user : couvre l'usage normal + retries, bloque les loops malicieux.
+    const { enforceRateLimit } = await import("@/server/_shared/rate-limit.server");
+    await enforceRateLimit(userId, "execute-agent-run", 20);
+
     // C1 FIX: Lock atomique — empêche les exécutions concurrentes.
     // Seul le premier appel obtient le run; les suivants voient status != 'ready'.
     const { data: locked, error: lockErr } = await supabaseAdmin
@@ -843,7 +859,23 @@ SOURCES JURIDIQUES:
 ${sourcesBlock || "(aucune)"}`;
 
       // 4. Appel IA — boucle agentique complète (17 outils, multi-round)
-      const systemWithGuard = `${AGENT_SYSTEM_PROMPT}\n\n${PROMPT_INJECTION_GUARD}\n\nSOURCES JURIDIQUES PRÉ-CHARGÉES:\n${sourcesBlock || "(aucune — appelle search_law si besoin)"}`;
+      // Audit fix : on injecte la mémoire (sujets précédents du dossier, préférences user)
+      // dans le system prompt pour que l'agent ait du contexte continu.
+      let memoryPreambleStr = "";
+      try {
+        const { recallMemory, memoryPreamble } = await import("@/server/_shared/agent-memory.server");
+        const memories = await recallMemory({
+          tenantId,
+          userId,
+          dossierId: r.dossier_id ?? undefined,
+          limit: 5,
+        });
+        if (memories.length > 0) memoryPreambleStr = "\n\n" + memoryPreamble(memories);
+      } catch (e) {
+        // best-effort, ne bloque pas le run
+        console.warn("[executeAgentRun] memory recall failed:", e);
+      }
+      const systemWithGuard = `${AGENT_SYSTEM_PROMPT}\n\n${PROMPT_INJECTION_GUARD}\n\nSOURCES JURIDIQUES PRÉ-CHARGÉES:\n${sourcesBlock || "(aucune — appelle search_law si besoin)"}${memoryPreambleStr}`;
       const model = await resolveChatModel(tenantId);
       const ctx: AgentCtx = {
         userId,

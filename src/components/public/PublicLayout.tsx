@@ -99,18 +99,26 @@ export function PublicHeader() {
 export function PublicFooter() {
   return (
     <footer className="border-t border-border/60 bg-background/50">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
-        <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
-          <JurisAIWordmark className="scale-90" />
-          <span className="ml-2">© {new Date().getFullYear()} JurisAI · Tous droits réservés</span>
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
+        {/* Disclaimer juridique obligatoire (art. 54 loi 1971) */}
+        <p className="text-center text-[12px] leading-relaxed text-muted-foreground">
+          <strong>Information juridique</strong> — JurisAI fournit une assistance documentaire et opérationnelle automatisée.
+          Ses réponses ne constituent pas un conseil juridique au sens de l'article 54 de la loi du 31 décembre 1971 et ne se substituent
+          pas à la consultation d'un avocat. Pour toute décision engageant votre responsabilité juridique, consultez un professionnel du droit.
+        </p>
+        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+            <JurisAIWordmark className="scale-90" />
+            <span className="ml-2">© {new Date().getFullYear()} JurisAI · Tous droits réservés</span>
+          </div>
+          <nav className="flex items-center gap-5 text-[12.5px] text-muted-foreground">
+            {FOOTER_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className="hover:text-foreground">
+                {l.label}
+              </Link>
+            ))}
+          </nav>
         </div>
-        <nav className="flex items-center gap-5 text-[12.5px] text-muted-foreground">
-          {FOOTER_LINKS.map((l) => (
-            <Link key={l.to} to={l.to} className="hover:text-foreground">
-              {l.label}
-            </Link>
-          ))}
-        </nav>
       </div>
     </footer>
   );

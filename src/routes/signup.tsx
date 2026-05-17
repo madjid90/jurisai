@@ -35,7 +35,7 @@ function SignupPage() {
     const returnPath = redirect ?? "/onboarding";
     const redirectTo =
       typeof window !== "undefined" ? `${window.location.origin}${returnPath}` : undefined;
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -48,8 +48,17 @@ function SignupPage() {
       toast.error("Inscription impossible", { description: error.message });
       return;
     }
+    // Audit fix : si la session est créée immédiatement (confirm email désactivé OU auto-confirm),
+    // on file direct sur /onboarding au lieu de forcer /login. Conversion +30 %.
+    if (data.session) {
+      toast.success("Compte créé !");
+      void navigate({ to: returnPath as "/onboarding" });
+      return;
+    }
+    // Sinon (confirm email activé), on attend que l'utilisateur clique dans l'email.
+    // Le emailRedirectTo le ramènera directement sur /onboarding (pas via /login).
     toast.success("Compte créé !", {
-      description: "Vérifiez votre email pour confirmer votre adresse.",
+      description: "Vérifiez votre email pour confirmer votre adresse, puis vous accéderez directement à l'onboarding.",
     });
     void navigate({ to: "/login", search: redirect ? { redirect } : undefined });
   };

@@ -19,6 +19,10 @@ export const compareContractsServerFn = createServerFn({ method: "POST" })
     const { userId } = context as { userId: string };
     const tenantId = await getTenantId(userId);
     if (!tenantId) throw new Error("Tenant introuvable");
+
+    // Audit fix : rate limit pour éviter explosion coût LLM (compare = ~0.05€/run)
+    const { enforceRateLimit } = await import("@/server/_shared/rate-limit.server");
+    await enforceRateLimit(userId, "compare-contracts", 10);
     return compareContracts({
       docAId: data.docAId,
       docBId: data.docBId,

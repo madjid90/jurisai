@@ -9,6 +9,7 @@
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { embedText, toPgVector } from "./embeddings.server";
+import { sanitizePromptInput } from "./prompt-sanitizer.server";
 
 import { AI_GATEWAY, LLM_TEMPERATURES, LLM_MAX_TOKENS } from "./constants.server";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,11 +28,13 @@ export type RagSource = {
 };
 
 async function expandQuery(query: string, apiKey: string): Promise<string[]> {
+  // S-CRITIQUE : sanitize l'input user avant injection dans le prompt LLM
+  const safeQuery = sanitizePromptInput(query, { label: "USER_QUERY", maxLength: 500 });
   const prompt = `Tu es expert en droit français. Reformule cette demande en 5 variantes
 qui pourraient matcher différents articles de loi, conventions collectives, jurisprudence.
 Garde le sens, varie le vocabulaire juridique.
 
-Demande : "${query}"
+Demande : "${safeQuery}"
 
 Retourne UNIQUEMENT un JSON {"variants": ["v1","v2","v3","v4","v5"]}`;
 

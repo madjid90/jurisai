@@ -187,12 +187,17 @@ export async function searchLaw(
       limit: 8,
     });
     if (!result.ok || result.sources.length === 0) {
+      // Audit fix : on persiste errorMessage pour debug dans agent_tool_runs.
+      // succeeded reste true (l'outil n'a pas crashé), mais on trace la raison du
+      // "no result" pour pouvoir analyser pourquoi l'agent répond malgré l'absence
+      // de sources (cause #1 d'hallucination).
       return {
         result: {
           sources: [],
           warning: result.reason ?? "Aucune source pertinente trouvée. Refuse l'affirmation juridique sur ce point.",
         },
         succeeded: true,
+        errorMessage: `[no_result] ${result.reason ?? "Aucune source pertinente"} | query="${query.slice(0, 100)}" | idcc=${ctx.idcc ?? "none"}`,
       };
     }
     return {

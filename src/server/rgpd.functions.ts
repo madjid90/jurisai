@@ -182,14 +182,20 @@ export const deleteMyAccount = createServerFn({ method: "POST" })
     );
 
     // 3. Anonymisation des traces légales (user_id := NULL)
+    // CRITIQUE RGPD : tout échec doit être tracé dans errors[] pour que l'utilisateur sache
+    // si son anonymisation est partielle. console.warn seul = violation art. 17 RGPD (droit à l'effacement).
     await Promise.all(
       ANONYMIZE_TABLES.map(async (table) => {
         try {
-          await db.from(table).update({ user_id: null }).eq("user_id", userId);
+          const { error } = await db.from(table).update({ user_id: null }).eq("user_id", userId);
+          if (error) {
+            errors.push(`anonymisation ${table}: ${error.message}`);
+            console.error(`[rgpd] anonymisation ${table} échouée:`, error);
+          }
         } catch (e) {
-          // Certaines tables peuvent avoir user_id NOT NULL — on ignore l'échec
-          // mais on log pour audit.
-          console.warn(`[rgpd] anonymisation ${table} échouée:`, e);
+          const msg = e instanceof Error ? e.message : String(e);
+          errors.push(`anonymisation ${table}: ${msg}`);
+          console.error(`[rgpd] anonymisation ${table} échouée:`, e);
         }
       }),
     );

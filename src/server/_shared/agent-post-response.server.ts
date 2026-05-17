@@ -96,6 +96,40 @@ export async function runPostResponsePipeline(
     notes: rule ? `Règle détectée : ${rule.title}` : "Aucune règle métier détectée",
   });
 
+  // Audit fix : créer automatiquement validation_requests si validation requise et pas déjà créée.
+  // Avant ce fix : 0 row dans validation_requests malgré 14 runs sensibles
+  // → le LLM n'appelait jamais request_validation lui-même.
+  // Garde-fou algorithmique : on ne dépend plus de la bonne volonté du LLM.
+  if (requiresValidation && status === "needs_validation") {
+    try {
+      const alreadyCreated = input.trace.some((t) => t.validation_request_id !== null);
+      if (!alreadyCreated) {
+        // assigned_to : on prend le 1er admin_tenant du tenant. Sinon le requested_by lui-même (escalade impossible mais tracé).
+        const { data: tenantAdmin } = await sb
+          .from("user_roles")
+          .select("user_id")
+          .eq("tenant_id", input.tenantId)
+          .in("role", ["admin_tenant", "super_admin"])
+          .limit(1)
+          .maybeSingle();
+        const assignedTo = (tenantAdmin as { user_id: string } | null)?.user_id ?? input.userId;
+
+        await sb.from("validation_requests").insert({
+          tenant_id: input.tenantId,
+          requested_by: input.userId,
+          assigned_to: assignedTo,
+          subject_type: "agent_run",
+          subject_id: input.agentRunId,
+          dossier_id: input.dossierId,
+          status: "pending",
+          comment: `Validation auto-déclenchée : ${rule?.title ?? "réponse agent sensible"} (intent=${input.intent}, domain=${input.domain}). Le contenu n'a pas été soumis spontanément par l'agent.`,
+        });
+      }
+    } catch (e) {
+      console.error("[post-response] auto-create validation_request failed:", e);
+    }
+  }
+
   // Mémoire : on retient le sujet courant pour le dossier (relevance moyenne).
   if (input.dossierId && input.topic) {
     try {

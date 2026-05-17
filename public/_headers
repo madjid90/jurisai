@@ -1,0 +1,11 @@
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  X-XSS-Protection: 1; mode=block
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.lovable.app https://*.supabase.co https://*.lovableproject.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co https://api.code.travail.gouv.fr https://api.insee.fr https://api.piste.gouv.fr https://oauth.piste.gouv.fr https://boss.gouv.fr https://www.legifrance.gouv.fr; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+/api/*
+  Cache-Control: no-store, no-cache, must-revalidate
