@@ -157,7 +157,12 @@ Demande : "Est-ce que mon entreprise est conforme au RGPD ?"
       ],
     }),
   }, { breakerModel: await resolveChatModel(ctx.tenantId) });
-  if (!res.ok) throw new Error(`Classification IA ${res.status}`);
+  if (!res.ok) {
+    // Audit fix : message d'erreur enrichi pour debug LLM (avant on perdait le body)
+    const body = await res.text().catch(() => "");
+    const model = await resolveChatModel(ctx.tenantId);
+    throw new Error(`Classification IA ${res.status} (model=${model}): ${body.slice(0, 300)}`);
+  }
   const j = await res.json();
   const raw = j.choices?.[0]?.message?.content ?? "{}";
   const parsed = safeParseJSON(raw);
