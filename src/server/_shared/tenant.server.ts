@@ -30,10 +30,18 @@ export async function getTenantId(userId: string): Promise<string> {
 
     if (!error) {
       const tenantId = (data as ProfileRow | null)?.tenant_id;
-      if (!tenantId) {
-        throw new Error("Vous devez d'abord compléter l'onboarding");
-      }
-      return tenantId;
+      if (tenantId) return tenantId;
+
+      // Audit fix : si data=null malgré pas d'erreur, c'est probablement RLS qui
+      // bloque (cas Lovable où SUPABASE_SERVICE_ROLE_KEY = anon key au lieu du vrai
+      // service role). Fallback sur la RPC SECURITY DEFINER qui bypass RLS proprement.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabaseAdmin as any;
+      const { data: rpcData, error: rpcErr } = await sb.rpc("get_user_tenant_id", { _user_id: userId });
+      if (!rpcErr && rpcData) return rpcData as string;
+
+      // Si même la RPC retourne null, le user n'a vraiment pas de tenant.
+      throw new Error("Vous devez d'abord compléter l'onboarding");
     }
     lastError = error.message;
     const transient = /schema cache|temporarily|timeout|ECONN/i.test(error.message);
