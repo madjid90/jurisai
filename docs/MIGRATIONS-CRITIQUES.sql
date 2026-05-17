@@ -129,3 +129,46 @@ SELECT
   (SELECT COUNT(*) FROM reference_values WHERE key='smic_horaire' AND valid_from='2026-01-01') AS has_smic_2026;
 
 -- Si toutes les colonnes affichent 1 → tout est OK
+
+
+-- ─── 6. Helper : lock atomique agent_run (UPDATE pending → running) ─────────
+CREATE OR REPLACE FUNCTION public.lock_agent_run(
+  _run_id uuid,
+  _tenant_id uuid,
+  _user_id uuid
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_row public.agent_runs%ROWTYPE;
+  v_status text;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = _user_id AND tenant_id = _tenant_id
+  ) THEN
+    RAISE EXCEPTION 'User % does not belong to tenant %', _user_id, _tenant_id;
+  END IF;
+
+  UPDATE public.agent_runs
+  SET status = 'running', updated_at = NOW()
+  WHERE id = _run_id
+    AND tenant_id = _tenant_id
+    AND status IN ('pending', 'waiting_info')
+  RETURNING * INTO v_row;
+
+  IF FOUND THEN
+    RETURN jsonb_build_object('locked', true, 'row', to_jsonb(v_row));
+  END IF;
+
+  SELECT status INTO v_status FROM public.agent_runs
+  WHERE id = _run_id AND tenant_id = _tenant_id;
+
+  RETURN jsonb_build_object('locked', false, 'status', v_status);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.lock_agent_run(uuid, uuid, uuid) TO authenticated, service_role;

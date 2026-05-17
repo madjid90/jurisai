@@ -389,30 +389,26 @@ export const processAgentRun = createServerFn({ method: "POST" })
     const userId = (context as { userId: string }).userId;
     const tenantId = await getTenantId(userId);
 
-    // 1. Lock atomique : update conditionnel sur status pending|waiting_info → running.
-    // Le RETURNING garantit qu'un seul appel concurrent obtient la run.
-    const { data: locked, error: lockErr } = await supabaseAdmin
-      .from("agent_runs")
-      .update({ status: "running" } as never)
-      .eq("id", data.id)
-      .eq("tenant_id", tenantId)
-      .in("status", ["pending", "waiting_info"])
-      .select("*")
-      .maybeSingle();
-    if (lockErr) throw new Error(lockErr.message);
+    // 1. Lock atomique via RPC SECURITY DEFINER (bypass RLS si supabaseAdmin n'a pas le vrai service_role).
+    // Audit fix : avant on faisait UPDATE().eq().in().select().maybeSingle() qui pouvait être
+    // bloqué silencieusement par RLS → locked=null → "Demande introuvable" alors que la run existait.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabaseAdmin as any;
+    const { data: lockResult, error: lockErr } = await sb.rpc("lock_agent_run", {
+      _run_id: data.id,
+      _tenant_id: tenantId,
+      _user_id: userId,
+    });
+    if (lockErr) throw new Error(`Lock failed: ${lockErr.message}`);
 
-    // Pas de lock obtenu → soit run inexistant, soit déjà en cours.
-    if (!locked) {
-      const { data: existing } = await supabaseAdmin
-        .from("agent_runs")
-        .select("status")
-        .eq("id", data.id)
-        .eq("tenant_id", tenantId)
-        .maybeSingle();
-      if (!existing) throw new Error("Demande introuvable");
-      return { status: (existing as { status: string }).status, skipped: true };
+    const lockData = (lockResult ?? {}) as { locked?: boolean; row?: unknown; status?: string | null };
+
+    if (!lockData.locked) {
+      if (!lockData.status) throw new Error("Demande introuvable");
+      return { status: lockData.status, skipped: true };
     }
-    const run = locked;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const run = lockData.row as any;
 
     const apiKey = LLM_API_KEY;
     if (!apiKey) {

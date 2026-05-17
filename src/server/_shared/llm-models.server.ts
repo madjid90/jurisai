@@ -4,8 +4,11 @@
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export const DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
-export const DEFAULT_EMBED_MODEL = "openai/text-embedding-3-small";
+// Audit fix : "google/gemini-2.5-flash" est un model Lovable Gateway uniquement.
+// Si AI_GATEWAY = api.openai.com/v1 (OpenAI direct) → 400 invalid model.
+// gpt-4o-mini marche sur OpenAI direct ET sur Lovable Gateway (qui reroute).
+export const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
+export const DEFAULT_EMBED_MODEL = "text-embedding-3-small";
 
 const cache = new Map<string, { model: string; at: number }>();
 const TTL_MS = 60_000;
