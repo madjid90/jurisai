@@ -17,38 +17,55 @@ type ProfileRow = { tenant_id: string | null };
  * Lève une erreur explicite si l'onboarding n'est pas complété.
  */
 export async function getTenantId(userId: string): Promise<string> {
-  // PostgREST may transiently fail with "Could not query the database for the
-  // schema cache. Retrying." right after a migration. Retry up to 3 times with
-  // a small backoff before surfacing the error to the user.
-  let lastError: string | null = null;
+  // STRATÉGIE V2 : RPC SECURITY DEFINER en PREMIER.
+  // Avant on essayait SELECT direct qui pouvait être bloqué par RLS (cas Lovable
+  // Cloud où SUPABASE_SERVICE_ROLE_KEY peut être en réalité anon key).
+  // La RPC get_user_tenant_id est SECURITY DEFINER, bypass RLS, marche toujours
+  // tant que le user existe dans profiles.
+  //
+  // En cas d'échec total (réseau, RPC supprimée), fallback SELECT puis throw.
+
+  let rpcLastErr: string | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { data, error } = await supabaseAdmin
-      .from("profiles")
-      .select("tenant_id")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (!error) {
-      const tenantId = (data as ProfileRow | null)?.tenant_id;
-      if (tenantId) return tenantId;
-
-      // Audit fix : si data=null malgré pas d'erreur, c'est probablement RLS qui
-      // bloque (cas Lovable où SUPABASE_SERVICE_ROLE_KEY = anon key au lieu du vrai
-      // service role). Fallback sur la RPC SECURITY DEFINER qui bypass RLS proprement.
+    try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabaseAdmin as any;
       const { data: rpcData, error: rpcErr } = await sb.rpc("get_user_tenant_id", { _user_id: userId });
-      if (!rpcErr && rpcData) return rpcData as string;
 
-      // Si même la RPC retourne null, le user n'a vraiment pas de tenant.
+      if (rpcErr) {
+        rpcLastErr = rpcErr.message;
+        const transient = /schema cache|temporarily|timeout|ECONN|503/i.test(rpcErr.message);
+        if (!transient) break; // erreur permanente (RPC manquante, perm refusée) → on sort retry
+        await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+        continue;
+      }
+
+      if (rpcData) return rpcData as string;
+
+      // RPC OK mais retourne null → user vraiment sans tenant
       throw new Error("Vous devez d'abord compléter l'onboarding");
+    } catch (e) {
+      if (e instanceof Error && e.message === "Vous devez d'abord compléter l'onboarding") throw e;
+      rpcLastErr = e instanceof Error ? e.message : String(e);
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
     }
-    lastError = error.message;
-    const transient = /schema cache|temporarily|timeout|ECONN/i.test(error.message);
-    if (!transient) break;
-    await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
   }
-  throw new Error(`Profil introuvable: ${lastError ?? "unknown error"}`);
+
+  // Fallback ultime : SELECT direct (au cas où la RPC serait drop)
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!error && data) {
+    const tenantId = (data as ProfileRow | null)?.tenant_id;
+    if (tenantId) return tenantId;
+    throw new Error("Vous devez d'abord compléter l'onboarding");
+  }
+
+  throw new Error(
+    `Profil introuvable: rpc_err=${rpcLastErr ?? "none"} select_err=${error?.message ?? "data_null"}`,
+  );
 }
 
 /**
