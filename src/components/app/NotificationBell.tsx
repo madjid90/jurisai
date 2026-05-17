@@ -16,16 +16,20 @@ export function NotificationBell() {
   const listFn = useServerFn(listNotifications);
   const markFn = useServerFn(markNotificationRead);
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const isReady = Boolean(user && profile?.onboarded);
 
   const unread = useMemo(() => items.filter((n) => !n.read_at).length, [items]);
 
   const refresh = async () => {
-    if (!user) return;
+    if (!isReady) {
+      setItems([]);
+      return;
+    }
     setLoading(true);
     try { setItems(await listFn() as Notif[]); }
     catch { /* silent */ }
@@ -33,7 +37,7 @@ export function NotificationBell() {
   };
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading || !user || !profile?.onboarded) return;
     void refresh();
     const t = setInterval(refresh, 60_000);
 
@@ -62,7 +66,7 @@ export function NotificationBell() {
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.id]);
+  }, [authLoading, profile?.onboarded, user?.id]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -95,7 +99,7 @@ export function NotificationBell() {
     void refresh();
   };
 
-  if (!user) return null;
+  if (!user || !profile?.onboarded) return null;
 
   return (
     <div ref={ref} className="relative">
