@@ -2586,6 +2586,36 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_normative_hierarchy: {
+        Row: {
+          beats_levels: number[]
+          created_at: string
+          description: string | null
+          display_name: string
+          level: number
+          norm_type: string
+          source_authority: string
+        }
+        Insert: {
+          beats_levels?: number[]
+          created_at?: string
+          description?: string | null
+          display_name: string
+          level: number
+          norm_type: string
+          source_authority: string
+        }
+        Update: {
+          beats_levels?: number[]
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          level?: number
+          norm_type?: string
+          source_authority?: string
+        }
+        Relationships: []
+      }
       legal_sources: {
         Row: {
           authority_level: number
@@ -3486,6 +3516,10 @@ export type Database = {
           id: string
           idcc: string | null
           question: string
+          rejection_reason: string | null
+          validated: boolean | null
+          validated_at: string | null
+          validated_by: string | null
         }
         Insert: {
           active?: boolean
@@ -3497,6 +3531,10 @@ export type Database = {
           id?: string
           idcc?: string | null
           question: string
+          rejection_reason?: string | null
+          validated?: boolean | null
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Update: {
           active?: boolean
@@ -3508,6 +3546,10 @@ export type Database = {
           id?: string
           idcc?: string | null
           question?: string
+          rejection_reason?: string | null
+          validated?: boolean | null
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Relationships: []
       }
@@ -5770,7 +5812,6 @@ export type Database = {
         Returns: {
           chunk_id: string
           content: string
-          embedding: string
           heading: string
           official_url: string
           reference_code: string
@@ -5863,6 +5904,7 @@ export type Database = {
           title: string
         }[]
       }
+      parse_french_date: { Args: { input: string }; Returns: string }
       promote_ingestion_job: { Args: { p_job_id: string }; Returns: Json }
       purge_expired_rag_cache: { Args: never; Returns: number }
       purge_expired_workflow_audit: { Args: never; Returns: number }

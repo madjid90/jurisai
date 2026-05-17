@@ -48,18 +48,24 @@ import { Route as AuthenticatedAdminTenantsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminServerErrorsRouteImport } from './routes/_authenticated/admin.server-errors'
 import { Route as AuthenticatedAdminRagQualityRouteImport } from './routes/_authenticated/admin.rag-quality'
 import { Route as AuthenticatedAdminLegalSourcesRouteImport } from './routes/_authenticated/admin.legal-sources'
+import { Route as AuthenticatedAdminEvalCasesRouteImport } from './routes/_authenticated/admin.eval-cases'
 import { Route as AuthenticatedAdminDataQualityRouteImport } from './routes/_authenticated/admin.data-quality'
 import { Route as AuthenticatedAdminConnectorsRouteImport } from './routes/_authenticated/admin.connectors'
+import { Route as AuthenticatedAdminBaremesRouteImport } from './routes/_authenticated/admin.baremes'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1.me'
 import { Route as ApiPublicV1DossiersRouteImport } from './routes/api/public/v1.dossiers'
 import { Route as ApiPublicV1DeadlinesRouteImport } from './routes/api/public/v1.deadlines'
 import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1.clients'
 import { Route as ApiPublicHooksOrchestratorTickRouteImport } from './routes/api/public/hooks/orchestrator-tick'
+import { Route as ApiPublicHooksLegalWatchRouteImport } from './routes/api/public/hooks/legal-watch'
+import { Route as ApiPublicHooksGdprRetentionPurgeRouteImport } from './routes/api/public/hooks/gdpr-retention-purge'
 import { Route as ApiPublicHooksEmailWorkerRouteImport } from './routes/api/public/hooks/email-worker'
 import { Route as ApiPublicHooksDispatchRemindersRouteImport } from './routes/api/public/hooks/dispatch-reminders'
 import { Route as ApiPublicHooksDigestRouteImport } from './routes/api/public/hooks/digest'
 import { Route as ApiPublicHooksContractDeadlinesRouteImport } from './routes/api/public/hooks/contract-deadlines'
+import { Route as ApiPublicHooksBaremesOrchestratorRouteImport } from './routes/api/public/hooks/baremes-orchestrator'
+import { Route as ApiPublicHooksAgentRecoveryTickRouteImport } from './routes/api/public/hooks/agent-recovery-tick'
 import { Route as ApiPublicCalendarTokenRouteImport } from './routes/api/public/calendar.$token'
 
 const SignupRoute = SignupRouteImport.update({
@@ -267,6 +273,12 @@ const AuthenticatedAdminLegalSourcesRoute =
     path: '/admin/legal-sources',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminEvalCasesRoute =
+  AuthenticatedAdminEvalCasesRouteImport.update({
+    id: '/admin/eval-cases',
+    path: '/admin/eval-cases',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminDataQualityRoute =
   AuthenticatedAdminDataQualityRouteImport.update({
     id: '/admin/data-quality',
@@ -277,6 +289,12 @@ const AuthenticatedAdminConnectorsRoute =
   AuthenticatedAdminConnectorsRouteImport.update({
     id: '/admin/connectors',
     path: '/admin/connectors',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminBaremesRoute =
+  AuthenticatedAdminBaremesRouteImport.update({
+    id: '/admin/baremes',
+    path: '/admin/baremes',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
@@ -310,6 +328,18 @@ const ApiPublicHooksOrchestratorTickRoute =
     path: '/api/public/hooks/orchestrator-tick',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksLegalWatchRoute =
+  ApiPublicHooksLegalWatchRouteImport.update({
+    id: '/api/public/hooks/legal-watch',
+    path: '/api/public/hooks/legal-watch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksGdprRetentionPurgeRoute =
+  ApiPublicHooksGdprRetentionPurgeRouteImport.update({
+    id: '/api/public/hooks/gdpr-retention-purge',
+    path: '/api/public/hooks/gdpr-retention-purge',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksEmailWorkerRoute =
   ApiPublicHooksEmailWorkerRouteImport.update({
     id: '/api/public/hooks/email-worker',
@@ -331,6 +361,18 @@ const ApiPublicHooksContractDeadlinesRoute =
   ApiPublicHooksContractDeadlinesRouteImport.update({
     id: '/api/public/hooks/contract-deadlines',
     path: '/api/public/hooks/contract-deadlines',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksBaremesOrchestratorRoute =
+  ApiPublicHooksBaremesOrchestratorRouteImport.update({
+    id: '/api/public/hooks/baremes-orchestrator',
+    path: '/api/public/hooks/baremes-orchestrator',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksAgentRecoveryTickRoute =
+  ApiPublicHooksAgentRecoveryTickRouteImport.update({
+    id: '/api/public/hooks/agent-recovery-tick',
+    path: '/api/public/hooks/agent-recovery-tick',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicCalendarTokenRoute = ApiPublicCalendarTokenRouteImport.update({
@@ -367,8 +409,10 @@ export interface FileRoutesByFullPath {
   '/veille': typeof AuthenticatedVeilleRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/baremes': typeof AuthenticatedAdminBaremesRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
+  '/admin/eval-cases': typeof AuthenticatedAdminEvalCasesRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
   '/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
@@ -382,10 +426,14 @@ export interface FileRoutesByFullPath {
   '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/hooks/agent-recovery-tick': typeof ApiPublicHooksAgentRecoveryTickRoute
+  '/api/public/hooks/baremes-orchestrator': typeof ApiPublicHooksBaremesOrchestratorRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
+  '/api/public/hooks/gdpr-retention-purge': typeof ApiPublicHooksGdprRetentionPurgeRoute
+  '/api/public/hooks/legal-watch': typeof ApiPublicHooksLegalWatchRoute
   '/api/public/hooks/orchestrator-tick': typeof ApiPublicHooksOrchestratorTickRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -420,8 +468,10 @@ export interface FileRoutesByTo {
   '/veille': typeof AuthenticatedVeilleRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/baremes': typeof AuthenticatedAdminBaremesRoute
   '/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
+  '/admin/eval-cases': typeof AuthenticatedAdminEvalCasesRoute
   '/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
   '/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
@@ -435,10 +485,14 @@ export interface FileRoutesByTo {
   '/workflows/$id': typeof AuthenticatedWorkflowsIdRoute
   '/documents': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/hooks/agent-recovery-tick': typeof ApiPublicHooksAgentRecoveryTickRoute
+  '/api/public/hooks/baremes-orchestrator': typeof ApiPublicHooksBaremesOrchestratorRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
+  '/api/public/hooks/gdpr-retention-purge': typeof ApiPublicHooksGdprRetentionPurgeRoute
+  '/api/public/hooks/legal-watch': typeof ApiPublicHooksLegalWatchRoute
   '/api/public/hooks/orchestrator-tick': typeof ApiPublicHooksOrchestratorTickRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -475,8 +529,10 @@ export interface FileRoutesById {
   '/_authenticated/veille': typeof AuthenticatedVeilleRoute
   '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/_authenticated/admin/baremes': typeof AuthenticatedAdminBaremesRoute
   '/_authenticated/admin/connectors': typeof AuthenticatedAdminConnectorsRoute
   '/_authenticated/admin/data-quality': typeof AuthenticatedAdminDataQualityRoute
+  '/_authenticated/admin/eval-cases': typeof AuthenticatedAdminEvalCasesRoute
   '/_authenticated/admin/legal-sources': typeof AuthenticatedAdminLegalSourcesRoute
   '/_authenticated/admin/rag-quality': typeof AuthenticatedAdminRagQualityRoute
   '/_authenticated/admin/server-errors': typeof AuthenticatedAdminServerErrorsRoute
@@ -490,10 +546,14 @@ export interface FileRoutesById {
   '/_authenticated/workflows_/$id': typeof AuthenticatedWorkflowsIdRoute
   '/_authenticated/documents/': typeof AuthenticatedDocumentsIndexRoute
   '/api/public/calendar/$token': typeof ApiPublicCalendarTokenRoute
+  '/api/public/hooks/agent-recovery-tick': typeof ApiPublicHooksAgentRecoveryTickRoute
+  '/api/public/hooks/baremes-orchestrator': typeof ApiPublicHooksBaremesOrchestratorRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
+  '/api/public/hooks/gdpr-retention-purge': typeof ApiPublicHooksGdprRetentionPurgeRoute
+  '/api/public/hooks/legal-watch': typeof ApiPublicHooksLegalWatchRoute
   '/api/public/hooks/orchestrator-tick': typeof ApiPublicHooksOrchestratorTickRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/deadlines': typeof ApiPublicV1DeadlinesRoute
@@ -530,8 +590,10 @@ export interface FileRouteTypes {
     | '/veille'
     | '/workflows'
     | '/admin/audit'
+    | '/admin/baremes'
     | '/admin/connectors'
     | '/admin/data-quality'
+    | '/admin/eval-cases'
     | '/admin/legal-sources'
     | '/admin/rag-quality'
     | '/admin/server-errors'
@@ -545,10 +607,14 @@ export interface FileRouteTypes {
     | '/workflows/$id'
     | '/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/hooks/agent-recovery-tick'
+    | '/api/public/hooks/baremes-orchestrator'
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
     | '/api/public/hooks/email-worker'
+    | '/api/public/hooks/gdpr-retention-purge'
+    | '/api/public/hooks/legal-watch'
     | '/api/public/hooks/orchestrator-tick'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -583,8 +649,10 @@ export interface FileRouteTypes {
     | '/veille'
     | '/workflows'
     | '/admin/audit'
+    | '/admin/baremes'
     | '/admin/connectors'
     | '/admin/data-quality'
+    | '/admin/eval-cases'
     | '/admin/legal-sources'
     | '/admin/rag-quality'
     | '/admin/server-errors'
@@ -598,10 +666,14 @@ export interface FileRouteTypes {
     | '/workflows/$id'
     | '/documents'
     | '/api/public/calendar/$token'
+    | '/api/public/hooks/agent-recovery-tick'
+    | '/api/public/hooks/baremes-orchestrator'
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
     | '/api/public/hooks/email-worker'
+    | '/api/public/hooks/gdpr-retention-purge'
+    | '/api/public/hooks/legal-watch'
     | '/api/public/hooks/orchestrator-tick'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -637,8 +709,10 @@ export interface FileRouteTypes {
     | '/_authenticated/veille'
     | '/_authenticated/workflows'
     | '/_authenticated/admin/audit'
+    | '/_authenticated/admin/baremes'
     | '/_authenticated/admin/connectors'
     | '/_authenticated/admin/data-quality'
+    | '/_authenticated/admin/eval-cases'
     | '/_authenticated/admin/legal-sources'
     | '/_authenticated/admin/rag-quality'
     | '/_authenticated/admin/server-errors'
@@ -652,10 +726,14 @@ export interface FileRouteTypes {
     | '/_authenticated/workflows_/$id'
     | '/_authenticated/documents/'
     | '/api/public/calendar/$token'
+    | '/api/public/hooks/agent-recovery-tick'
+    | '/api/public/hooks/baremes-orchestrator'
     | '/api/public/hooks/contract-deadlines'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
     | '/api/public/hooks/email-worker'
+    | '/api/public/hooks/gdpr-retention-purge'
+    | '/api/public/hooks/legal-watch'
     | '/api/public/hooks/orchestrator-tick'
     | '/api/public/v1/clients'
     | '/api/public/v1/deadlines'
@@ -677,10 +755,14 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   ApiPublicCalendarTokenRoute: typeof ApiPublicCalendarTokenRoute
+  ApiPublicHooksAgentRecoveryTickRoute: typeof ApiPublicHooksAgentRecoveryTickRoute
+  ApiPublicHooksBaremesOrchestratorRoute: typeof ApiPublicHooksBaremesOrchestratorRoute
   ApiPublicHooksContractDeadlinesRoute: typeof ApiPublicHooksContractDeadlinesRoute
   ApiPublicHooksDigestRoute: typeof ApiPublicHooksDigestRoute
   ApiPublicHooksDispatchRemindersRoute: typeof ApiPublicHooksDispatchRemindersRoute
   ApiPublicHooksEmailWorkerRoute: typeof ApiPublicHooksEmailWorkerRoute
+  ApiPublicHooksGdprRetentionPurgeRoute: typeof ApiPublicHooksGdprRetentionPurgeRoute
+  ApiPublicHooksLegalWatchRoute: typeof ApiPublicHooksLegalWatchRoute
   ApiPublicHooksOrchestratorTickRoute: typeof ApiPublicHooksOrchestratorTickRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
   ApiPublicV1DeadlinesRoute: typeof ApiPublicV1DeadlinesRoute
@@ -963,6 +1045,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLegalSourcesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin/eval-cases': {
+      id: '/_authenticated/admin/eval-cases'
+      path: '/admin/eval-cases'
+      fullPath: '/admin/eval-cases'
+      preLoaderRoute: typeof AuthenticatedAdminEvalCasesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin/data-quality': {
       id: '/_authenticated/admin/data-quality'
       path: '/admin/data-quality'
@@ -975,6 +1064,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/connectors'
       fullPath: '/admin/connectors'
       preLoaderRoute: typeof AuthenticatedAdminConnectorsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/baremes': {
+      id: '/_authenticated/admin/baremes'
+      path: '/admin/baremes'
+      fullPath: '/admin/baremes'
+      preLoaderRoute: typeof AuthenticatedAdminBaremesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin/audit': {
@@ -1019,6 +1115,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksOrchestratorTickRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/legal-watch': {
+      id: '/api/public/hooks/legal-watch'
+      path: '/api/public/hooks/legal-watch'
+      fullPath: '/api/public/hooks/legal-watch'
+      preLoaderRoute: typeof ApiPublicHooksLegalWatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/gdpr-retention-purge': {
+      id: '/api/public/hooks/gdpr-retention-purge'
+      path: '/api/public/hooks/gdpr-retention-purge'
+      fullPath: '/api/public/hooks/gdpr-retention-purge'
+      preLoaderRoute: typeof ApiPublicHooksGdprRetentionPurgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/email-worker': {
       id: '/api/public/hooks/email-worker'
       path: '/api/public/hooks/email-worker'
@@ -1045,6 +1155,20 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/contract-deadlines'
       fullPath: '/api/public/hooks/contract-deadlines'
       preLoaderRoute: typeof ApiPublicHooksContractDeadlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/baremes-orchestrator': {
+      id: '/api/public/hooks/baremes-orchestrator'
+      path: '/api/public/hooks/baremes-orchestrator'
+      fullPath: '/api/public/hooks/baremes-orchestrator'
+      preLoaderRoute: typeof ApiPublicHooksBaremesOrchestratorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/agent-recovery-tick': {
+      id: '/api/public/hooks/agent-recovery-tick'
+      path: '/api/public/hooks/agent-recovery-tick'
+      fullPath: '/api/public/hooks/agent-recovery-tick'
+      preLoaderRoute: typeof ApiPublicHooksAgentRecoveryTickRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/calendar/$token': {
@@ -1114,8 +1238,10 @@ interface AuthenticatedRouteChildren {
   AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
   AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
+  AuthenticatedAdminBaremesRoute: typeof AuthenticatedAdminBaremesRoute
   AuthenticatedAdminConnectorsRoute: typeof AuthenticatedAdminConnectorsRoute
   AuthenticatedAdminDataQualityRoute: typeof AuthenticatedAdminDataQualityRoute
+  AuthenticatedAdminEvalCasesRoute: typeof AuthenticatedAdminEvalCasesRoute
   AuthenticatedAdminLegalSourcesRoute: typeof AuthenticatedAdminLegalSourcesRoute
   AuthenticatedAdminRagQualityRoute: typeof AuthenticatedAdminRagQualityRoute
   AuthenticatedAdminServerErrorsRoute: typeof AuthenticatedAdminServerErrorsRoute
@@ -1144,8 +1270,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
   AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
+  AuthenticatedAdminBaremesRoute: AuthenticatedAdminBaremesRoute,
   AuthenticatedAdminConnectorsRoute: AuthenticatedAdminConnectorsRoute,
   AuthenticatedAdminDataQualityRoute: AuthenticatedAdminDataQualityRoute,
+  AuthenticatedAdminEvalCasesRoute: AuthenticatedAdminEvalCasesRoute,
   AuthenticatedAdminLegalSourcesRoute: AuthenticatedAdminLegalSourcesRoute,
   AuthenticatedAdminRagQualityRoute: AuthenticatedAdminRagQualityRoute,
   AuthenticatedAdminServerErrorsRoute: AuthenticatedAdminServerErrorsRoute,
@@ -1176,10 +1304,15 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   ApiPublicCalendarTokenRoute: ApiPublicCalendarTokenRoute,
+  ApiPublicHooksAgentRecoveryTickRoute: ApiPublicHooksAgentRecoveryTickRoute,
+  ApiPublicHooksBaremesOrchestratorRoute:
+    ApiPublicHooksBaremesOrchestratorRoute,
   ApiPublicHooksContractDeadlinesRoute: ApiPublicHooksContractDeadlinesRoute,
   ApiPublicHooksDigestRoute: ApiPublicHooksDigestRoute,
   ApiPublicHooksDispatchRemindersRoute: ApiPublicHooksDispatchRemindersRoute,
   ApiPublicHooksEmailWorkerRoute: ApiPublicHooksEmailWorkerRoute,
+  ApiPublicHooksGdprRetentionPurgeRoute: ApiPublicHooksGdprRetentionPurgeRoute,
+  ApiPublicHooksLegalWatchRoute: ApiPublicHooksLegalWatchRoute,
   ApiPublicHooksOrchestratorTickRoute: ApiPublicHooksOrchestratorTickRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
   ApiPublicV1DeadlinesRoute: ApiPublicV1DeadlinesRoute,
