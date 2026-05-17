@@ -4,9 +4,11 @@ import {
   redirect,
   useNavigate,
   useRouter,
+  Link,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -45,7 +47,52 @@ export const Route = createFileRoute("/_authenticated")({
     }
   },
   component: AuthenticatedLayout,
+  // Audit fix : avant on n'avait que AppErrorBoundary global → 1 crash dans n'importe
+  // quelle route enfant cassait toute l'app. Maintenant chaque route hérite d'un
+  // errorComponent qui affiche un fallback inline et permet de réessayer / rentrer.
+  errorComponent: AuthRouteErrorFallback,
+  pendingComponent: () => (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Loader2 className="h-6 w-6 animate-spin text-accent" />
+    </div>
+  ),
 });
+
+function AuthRouteErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
+  const isAuthError = /unauthorized|missing access token|invalid token|forbidden|onboarding/i.test(error.message);
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="max-w-md space-y-5 rounded-2xl border border-border bg-card p-6 text-center shadow-lg">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+          <AlertTriangle className="h-6 w-6 text-amber-700" aria-hidden="true" />
+        </div>
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold text-foreground">
+            {isAuthError ? "Session interrompue" : "Une erreur est survenue"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isAuthError
+              ? "Votre session a expiré ou n'est pas encore prête. Réessayez ou reconnectez-vous."
+              : "Cette page n'a pas pu se charger. Vous pouvez réessayer ou retourner à l'accueil."}
+          </p>
+          <p className="mt-3 rounded-md bg-secondary/40 px-2 py-1 text-[11px] text-muted-foreground font-mono break-all">
+            {error.message.slice(0, 200)}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <Button onClick={reset} variant="outline" className="gap-2">
+            <RefreshCw className="h-3.5 w-3.5" /> Réessayer
+          </Button>
+          <Button asChild className="gap-2">
+            <Link to="/dashboard">
+              <Home className="h-3.5 w-3.5" /> Retour à l'accueil
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AuthenticatedLayout() {
   const { session, profile, loading } = useAuth();

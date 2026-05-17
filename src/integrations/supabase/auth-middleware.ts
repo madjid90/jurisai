@@ -83,16 +83,22 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
     let token: string | null = null;
 
     if (typeof window !== "undefined") {
-      try {
-        const { supabase } = await import("./client");
-        // getSession() auto-refreshes the JWT if expired.
-        // Do NOT cache the token — it can expire between calls.
-        const { data, error } = await supabase.auth.getSession();
-        if (!error) {
-          token = data.session?.access_token ?? null;
+      // Audit fix : si la session n'est pas encore prête (cas typique après reload),
+      // on attend jusqu'à 800ms (4 tentatives de 200ms) avant de partir sans token.
+      // Avant : 1 call serveur sans header → "UNAUTHORIZED: missing access token"
+      // → écran d'erreur immédiat alors que la session arrivait 100ms après.
+      const { supabase } = await import("./client");
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (!error && data.session?.access_token) {
+            token = data.session.access_token;
+            break;
+          }
+        } catch {
+          // ignore, on retry
         }
-      } catch {
-        token = null;
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 200));
       }
     }
 
@@ -103,7 +109,8 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" })
     } catch (err) {
       // If server rejects the token, force a session refresh and retry once.
       const msg = err instanceof Error ? err.message : String(err);
-      if (typeof window !== "undefined" && /UNAUTHORIZED: invalid token/i.test(msg)) {
+      // Audit fix : élargi pour matcher aussi "missing access token" (token null au 1er call)
+      if (typeof window !== "undefined" && /UNAUTHORIZED:\s*(?:invalid|missing)\s*(?:access\s*)?token/i.test(msg)) {
         try {
           const { supabase } = await import("./client");
 

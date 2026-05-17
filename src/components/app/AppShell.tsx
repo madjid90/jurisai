@@ -85,7 +85,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
   const router = useRouter();
   const path = router.state.location.pathname;
+  const { access, loading: accessLoading } = useAccess();
   useEffect(() => { setMobileOpen(false); }, [path]);
+
+  // Audit fix : guard client sur les 11 routes admin. Avant, n'importe quel user
+  // pouvait taper /admin/* dans l'URL et atteindre une UI cassée (les server fns
+  // throw silencieusement). Maintenant : redirect propre vers /dashboard.
+  const isAdminRoute = path.startsWith("/admin");
+  if (isAdminRoute && !accessLoading && !access.isSuperAdmin && !access.isTenantAdmin) {
+    return <AdminAccessDenied />;
+  }
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -431,6 +440,29 @@ function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function AdminAccessDenied() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+      <div className="max-w-md space-y-4 rounded-2xl border border-border bg-card p-6 text-center shadow-lg">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+          <ShieldCheck className="h-6 w-6 text-red-700" aria-hidden="true" />
+        </div>
+        <h1 className="text-lg font-semibold text-foreground">Accès réservé</h1>
+        <p className="text-sm text-muted-foreground">
+          Cette section est réservée aux administrateurs. Si vous pensez devoir y avoir accès,
+          contactez un administrateur de votre organisation.
+        </p>
+        <Link
+          to="/dashboard"
+          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Retour à l'accueil
+        </Link>
+      </div>
     </div>
   );
 }
