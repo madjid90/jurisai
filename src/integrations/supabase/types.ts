@@ -5962,6 +5962,23 @@ export type Database = {
         Returns: boolean
       }
       increment_rag_cache_hit: { Args: { _key: string }; Returns: undefined }
+      insert_agent_run: {
+        Args: {
+          _dossier_id?: string
+          _draft?: Json
+          _message: string
+          _parent_run_id?: string
+          _status?: string
+          _tenant_id: string
+          _title?: string
+          _user_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          status: string
+        }[]
+      }
       is_member_of_tenant: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
