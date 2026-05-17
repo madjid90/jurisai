@@ -188,22 +188,25 @@ export const createAgentRun = createServerFn({ method: "POST" })
       if (parent) inheritedDossierId = (parent as { dossier_id: string | null }).dossier_id ?? null;
     }
 
-    const { data: row, error } = await supabaseAdmin
-      .from("agent_runs")
-      .insert({
-        user_id: userId,
-        tenant_id: tenantId,
-        dossier_id: inheritedDossierId,
-        parent_run_id: data.parent_run_id ?? null,
-        message: data.message,
-        title: data.title ?? data.message.slice(0, 80),
-        status: "pending",
-        draft,
-      } as never)
-      .select("id, status, created_at")
-      .single();
+    // Audit fix : INSERT via RPC SECURITY DEFINER pour bypass RLS proprement.
+    // Avant : INSERT direct échouait avec "new row violates row-level security policy"
+    // dès que supabaseAdmin n'utilisait pas le vrai service_role (cas Lovable Cloud).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabaseAdmin as any;
+    const { data: rpcRows, error } = await sb.rpc("insert_agent_run", {
+      _user_id: userId,
+      _tenant_id: tenantId,
+      _message: data.message,
+      _title: data.title ?? data.message.slice(0, 80),
+      _dossier_id: inheritedDossierId,
+      _parent_run_id: data.parent_run_id ?? null,
+      _draft: draft,
+      _status: "pending",
+    });
 
     if (error) throw new Error(error.message);
+    const row = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+    if (!row?.id) throw new Error("Création run échouée — RPC n'a pas retourné d'ID");
 
     // Décision de routage : l'Agent 360 oriente vers la bonne page métier.
     let routing: AgentRouting;
