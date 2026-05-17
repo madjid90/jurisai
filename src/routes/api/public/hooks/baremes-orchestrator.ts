@@ -9,10 +9,13 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { verifyCronAuth } from "@/server/_shared/cron-auth.server";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { notifyUser } from "@/server/_shared/notify.server";
 import { fetchCdtnBaremes } from "@/server/_shared/connectors/cdtn-baremes.server";
 import { fetchInseeIndices } from "@/server/_shared/connectors/insee-bdm.server";
 import { fetchLegifranceBaremes } from "@/server/_shared/connectors/legifrance-baremes.server";
 import { fetchBofipFiscalRates } from "@/server/_shared/connectors/bofip-fiscal.server";
+import { fetchBossUrssafRates } from "@/server/_shared/connectors/boss-urssaf.server";
 
 type ConnectorReport = {
   connector: string;
@@ -50,13 +53,38 @@ export const Route = createFileRoute("/api/public/hooks/baremes-orchestrator")({
           runConnector("insee", fetchInseeIndices),
           runConnector("legifrance", fetchLegifranceBaremes),
           runConnector("bofip", fetchBofipFiscalRates),
-          // Lot D (BOSS scraper) ajouté en vague 3 :
-          // runConnector("boss", fetchBossUrssafRates),
+          runConnector("boss", fetchBossUrssafRates),
         ]);
 
         const totalProposed = reports.reduce((s, r) => s + r.proposed, 0);
         const totalSkipped = reports.reduce((s, r) => s + r.skipped, 0);
         const anyError = reports.some((r) => !r.ok || r.errors.length > 0);
+
+        // Notifie les super_admins s'il y a des propositions à valider
+        if (totalProposed > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sb = supabaseAdmin as any;
+          try {
+            const { data: admins } = await sb
+              .from("user_roles")
+              .select("user_id, tenant_id")
+              .eq("role", "super_admin");
+            for (const a of (admins ?? []) as Array<{ user_id: string; tenant_id: string | null }>) {
+              if (!a.tenant_id) continue;
+              await notifyUser({
+                userId: a.user_id,
+                tenantId: a.tenant_id,
+                kind: "bareme_proposal",
+                title: `${totalProposed} nouvelle(s) proposition(s) de barème à valider`,
+                body: `Les connecteurs ont détecté ${totalProposed} valeur(s) officielle(s) à mettre à jour.`,
+                link: "/admin/baremes",
+                metadata: { total_proposed: totalProposed, reports },
+              }).catch(() => {});
+            }
+          } catch (e) {
+            console.error("[baremes-orchestrator] notif super_admins failed:", e);
+          }
+        }
 
         return new Response(
           JSON.stringify({

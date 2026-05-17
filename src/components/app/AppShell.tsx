@@ -23,6 +23,7 @@ import {
   ScrollText,
   Library,
   ServerCrash,
+  Scale,
   Link2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -244,6 +245,9 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             )}
             {hasPermission(access, "data_quality.view") && (
               <NavItem label="Qualité données" icon={ShieldCheck} to="/admin/data-quality" active={currentPath === "/admin/data-quality"} collapsed={collapsed} />
+            )}
+            {access.isSuperAdmin && (
+              <NavItem label="Barèmes officiels" icon={Scale} to="/admin/baremes" active={currentPath === "/admin/baremes"} collapsed={collapsed} />
             )}
             {hasPermission(access, "rag_quality.view") && (
               <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} collapsed={collapsed} />
