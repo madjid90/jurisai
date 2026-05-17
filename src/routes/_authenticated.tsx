@@ -59,7 +59,27 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthRouteErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
-  const isAuthError = /unauthorized|missing access token|invalid token|forbidden|onboarding/i.test(error.message);
+  const navigate = useNavigate();
+  const isOnboardingError = /Vous devez d'abord compléter l'onboarding|profil introuvable/i.test(error.message);
+  const isAuthError = /unauthorized|missing access token|invalid token|forbidden/i.test(error.message);
+
+  // Audit fix : si l'erreur est "pas d'onboarding", on REDIRIGE automatiquement
+  // au lieu d'afficher un écran d'erreur. C'est le cas typique d'un user fraîchement
+  // inscrit qui n'a pas encore complété /onboarding et qui atterrit sur /dashboard.
+  useEffect(() => {
+    if (isOnboardingError) {
+      void navigate({ to: "/onboarding" });
+    }
+  }, [isOnboardingError, navigate]);
+
+  if (isOnboardingError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-5 rounded-2xl border border-border bg-card p-6 text-center shadow-lg">
