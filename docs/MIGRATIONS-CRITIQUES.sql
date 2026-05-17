@@ -172,3 +172,14 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.lock_agent_run(uuid, uuid, uuid) TO authenticated, service_role;
+
+
+-- ─── 7. Statuts agent_runs : ajout executing + refused ──────────────────────
+ALTER TABLE public.agent_runs DROP CONSTRAINT IF EXISTS agent_runs_status_check;
+ALTER TABLE public.agent_runs ADD CONSTRAINT agent_runs_status_check
+  CHECK (status = ANY (ARRAY[
+    'pending'::text, 'running'::text, 'executing'::text,
+    'waiting_info'::text, 'waiting_validation'::text,
+    'ready'::text, 'executed'::text,
+    'archived'::text, 'failed'::text, 'refused'::text
+  ]));
