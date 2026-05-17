@@ -77,7 +77,7 @@ export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
         tools: p.tools,
         tool_choice: "auto",
       }),
-    });
+    }, { breakerModel: p.model });
     if (!res.ok) {
       if (res.status === 429) throw new Error("Trop de requêtes IA");
       if (res.status === 402) throw new Error("Crédits IA épuisés");
@@ -170,7 +170,7 @@ export async function runAgentLoop(p: RunLoopParams): Promise<AgentLoopResult> {
           ],
           tool_choice: "none",
         }),
-      });
+      }, { breakerModel: p.model });
       if (finalRes.ok) {
         const finalJson = await finalRes.json();
         answer = (finalJson.choices?.[0]?.message?.content ?? "").toString();

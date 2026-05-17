@@ -92,7 +92,7 @@ export async function embedText(text: string, opts: EmbedOptions = {}): Promise<
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model, input }),
         },
-        { timeoutMs },
+        { timeoutMs, breakerModel: model },
       );
 
       if (!res.ok) {

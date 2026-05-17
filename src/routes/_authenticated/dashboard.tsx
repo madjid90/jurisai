@@ -1,33 +1,26 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+// /dashboard — tableau de bord pur (KPI + dossiers + échéances + veille).
+// L'entrée IA a été supprimée : tout passe désormais par /chat (route unifiée).
+// On garde ici uniquement un CTA bien visible vers /chat en haut de page.
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import {
-  Sparkles,
   Bell,
   FolderOpen,
   ArrowRight,
   AlertTriangle,
   Clock,
   Loader2,
-  Send,
-  Paperclip,
   FileSignature,
-  Search,
-  Workflow,
-  ShieldAlert,
+  MessageSquare,
+  Sparkles,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { ProductTour } from "@/components/onboarding/ProductTour";
 import {
   getDashboardSummary,
   type DashboardSummary,
 } from "@/server/dashboard.functions";
-import { createAgentRun, processAgentRun, executeAgentRun } from "@/server/agent-runs.functions";
-import { runOcrDocument } from "@/server/ocr.functions";
-import { applyRouting, type AgentRouting } from "@/lib/agent/home-intake";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Accueil · JurisAI" }] }),
@@ -57,27 +50,11 @@ function fmtRelative(d: string | null) {
   return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
-const SUGGESTIONS = [
-  { label: "Analyser un contrat", icon: FileSignature, prompt: "Analyse ce contrat et identifie les risques et clauses sensibles." },
-  { label: "Lancer une procédure", icon: Workflow, prompt: "Aide-moi à lancer une procédure : " },
-  { label: "Rechercher un dossier", icon: Search, prompt: "Retrouve le dossier concernant " },
-  { label: "Vérifier une obligation", icon: ShieldAlert, prompt: "Quelles sont mes obligations légales sur " },
-];
-
 function DashboardPage() {
   const { profile } = useAuth();
-  const navigate = useNavigate();
-  const create = useServerFn(createAgentRun);
-  const process = useServerFn(processAgentRun);
-  const execute = useServerFn(executeAgentRun);
-  const ocr = useServerFn(runOcrDocument);
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -92,151 +69,56 @@ function DashboardPage() {
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "";
 
-  const handleAsk = async () => {
-    if (!message.trim() && files.length === 0) return;
-    setSubmitting(true);
-    const text = message.trim() || `Analyse du document : ${files.map((f) => f.name).join(", ")}`;
-    try {
-      let attachments: Array<{ analysis_id: string; filename: string }> = [];
-      if (files.length > 0) {
-        toast.info("Analyse du document…");
-        const { data: auth } = await supabase.auth.getUser();
-        const userId = auth.user?.id;
-        if (!userId) throw new Error("Session expirée");
-        for (const file of files) {
-          const path = `${userId}/agent/${Date.now()}-${file.name}`;
-          const up = await supabase.storage.from("dossier-files").upload(path, file, {
-            contentType: file.type || "application/octet-stream",
-            upsert: false,
-          });
-          if (up.error) throw new Error(up.error.message);
-          const r = (await ocr({
-            data: { storage_path: path, filename: file.name, file_type: file.type || "application/octet-stream" },
-          })) as { id: string };
-          attachments.push({ analysis_id: r.id, filename: file.name });
-        }
-      }
-      const created = (await create({ data: { message: text, attachments } })) as {
-        id: string;
-        routing?: AgentRouting;
-      };
-      if (created.routing?.target === "dossier") {
-        toast.success("Dossier trouvé. Ouverture…");
-      } else if (created.routing?.target === "analysis") {
-        toast.success("Document analysé. Résultat dans l'assistant.");
-      }
-      // Lance la classification + exécution en arrière-plan pour que la run avance,
-      // sinon le focus reste bloqué sur "Comprendre la demande".
-      void (async () => {
-        try {
-          const r1 = (await process({ data: { id: created.id } })) as { status: string };
-          if (r1.status === "ready") await execute({ data: { id: created.id } });
-        } catch (e) {
-          console.error("[dashboard] process/execute background failed:", e);
-        }
-      })();
-      applyRouting(created.routing, navigate, created.id);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Échec de la demande");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <AppShell>
+      <ProductTour />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        {/* Hero — chat box (centré, sans fond) */}
-        <section className="relative overflow-hidden rounded-3xl px-2 py-8 sm:py-12">
-          <div className="pointer-events-none absolute left-1/2 top-0 h-56 w-56 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-          <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+        {/* Header + CTA "Nouvelle conversation IA" */}
+        <section className="flex flex-col gap-4 rounded-3xl bg-gradient-to-br from-primary/5 via-background to-accent/5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Sparkles className="h-4 w-4 text-primary" />
               Bonjour{firstName ? ` ${firstName}` : ""},
             </div>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Que puis-je faire pour vous&nbsp;?
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+              Voici l'état de vos dossiers
             </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Posez votre question, joignez un contrat ou décrivez la procédure à lancer.
-              JurisAI s'occupe du reste et classe tout dans le bon dossier.
+            <p className="mt-1 text-sm text-muted-foreground">
+              Tout est à jour. Lancez une demande dès que vous en avez besoin.
             </p>
-
-            {/* Chat input */}
-            <div className="mt-6 w-full rounded-2xl border border-border bg-background/70 p-3 shadow-sm backdrop-blur focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleAsk();
-                  }
-                }}
-                placeholder="Posez votre question juridique ou déposez un document…"
-                rows={2}
-                className="min-h-[60px] resize-none border-0 bg-transparent p-1 text-left text-[15px] focus-visible:ring-0"
-              />
-              {files.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {files.map((f, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs">
-                      <Paperclip className="h-3 w-3" /> {f.name}
-                      <button
-                        onClick={() => setFiles((p) => p.filter((_, j) => j !== i))}
-                        className="ml-1 text-muted-foreground hover:text-foreground"
-                      >×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="mt-2 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                  Joindre un document
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    const list = Array.from(e.target.files ?? []);
-                    if (list.length) setFiles((p) => [...p, ...list]);
-                    if (fileRef.current) fileRef.current.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAsk}
-                  disabled={submitting || (!message.trim() && files.length === 0)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
-                >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Demander
-                </button>
-              </div>
-            </div>
-
-            {/* Suggestions */}
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s.label}
-                  type="button"
-                  onClick={() => setMessage(s.prompt)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-soft-foreground backdrop-blur transition hover:border-accent/60 hover:bg-accent hover:text-accent-foreground"
-                >
-                  <s.icon className="h-3.5 w-3.5 text-accent-soft-foreground" />
-                  {s.label}
-                </button>
-              ))}
-            </div>
           </div>
+          <Link
+            to="/chat"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition hover:opacity-90"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Nouvelle conversation IA
+          </Link>
+        </section>
+
+        {/* Stats compactes */}
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            icon={<FolderOpen className="h-5 w-5" />}
+            label="Dossiers ouverts"
+            value={summary?.counters.open_dossiers ?? 0}
+            loading={loading}
+            to="/dossiers"
+          />
+          <StatCard
+            icon={<Clock className="h-5 w-5" />}
+            label="À traiter aujourd'hui"
+            value={summary?.to_treat_today.length ?? 0}
+            loading={loading}
+            to="/dossiers"
+          />
+          <StatCard
+            icon={<Bell className="h-5 w-5" />}
+            label="Alertes veille"
+            value={summary?.counters.unread_alerts ?? 0}
+            loading={loading}
+            to="/veille"
+          />
         </section>
 
         {/* Dossiers à suivre — JURIDIQUE */}
@@ -258,8 +140,15 @@ function DashboardPage() {
             <div className="rounded-2xl border border-dashed border-border p-8 text-center">
               <FolderOpen className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Aucun dossier. Posez votre première question ci-dessus, JurisAI créera le dossier automatiquement.
+                Aucun dossier pour l'instant. Lancez une conversation depuis le chat, JurisAI créera le dossier automatiquement.
               </p>
+              <Link
+                to="/chat"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-medium text-accent-foreground transition hover:opacity-90"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Ouvrir le chat
+              </Link>
             </div>
           ) : (
             <DossierList dossiers={summary.recent_dossiers.slice(0, 8)} />
@@ -294,31 +183,6 @@ function DashboardPage() {
               <DeadlineList items={summary.contract_deadlines.fournisseur} />
             )}
           </div>
-        </section>
-
-        {/* Stats compactes */}
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatCard
-            icon={<FolderOpen className="h-5 w-5" />}
-            label="Dossiers ouverts"
-            value={summary?.counters.open_dossiers ?? 0}
-            loading={loading}
-            to="/dossiers"
-          />
-          <StatCard
-            icon={<Clock className="h-5 w-5" />}
-            label="À traiter aujourd'hui"
-            value={summary?.to_treat_today.length ?? 0}
-            loading={loading}
-            to="/dossiers"
-          />
-          <StatCard
-            icon={<Bell className="h-5 w-5" />}
-            label="Alertes veille"
-            value={summary?.counters.unread_alerts ?? 0}
-            loading={loading}
-            to="/veille"
-          />
         </section>
 
         {/* Échéances + Veille */}

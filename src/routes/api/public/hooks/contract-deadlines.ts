@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/public/hooks/contract-deadlines")({
               kind: "contract_deadline",
               title: `Échéance dans ${days} jour${days > 1 ? "s" : ""}`,
               body: `${r.label} — ${r.due_date}`,
-              link: r.dossier_id ? `/dossiers/${r.dossier_id}` : "/agent",
+              link: r.dossier_id ? `/dossiers/${r.dossier_id}` : "/chat",
               metadata: { deadline_id: r.id, days, category: r.category },
             });
           }

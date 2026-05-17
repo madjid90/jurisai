@@ -54,7 +54,7 @@ export function applyRouting(
   fallbackRunId: string,
 ): void {
   if (!routing) {
-    void navigate({ to: "/mes-demandes", search: { run: fallbackRunId } as never });
+    void navigate({ to: "/chat", search: { run: fallbackRunId } as never });
     return;
   }
 
@@ -75,19 +75,19 @@ export function applyRouting(
       return;
 
     case "requests":
-      void navigate({ to: "/mes-demandes", search: { run: routing.run_id } as never });
+      void navigate({ to: "/chat", search: { run: routing.run_id } as never });
       return;
 
     case "agent":
       void navigate({
-        to: "/agent",
+        to: "/chat",
         search: { run: fallbackRunId, mode: routing.mode } as never,
       });
       return;
 
     case "dossier_selection":
       void navigate({
-        to: "/agent",
+        to: "/chat",
         search: { run: fallbackRunId, mode: "dossier_selection" } as never,
       });
       return;

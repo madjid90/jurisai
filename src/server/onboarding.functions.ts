@@ -109,3 +109,17 @@ export const completeOnboarding = createServerFn({ method: "POST" })
 
     return { tenantId, slug: tenantSlug };
   });
+
+// ─── Mark product tour as completed (or skipped) ─────────────────────────────
+
+export const markProductTourComplete = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context as { userId: string };
+    // On stocke dans user_metadata pour éviter une migration de table.
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      user_metadata: { product_tour_completed_at: new Date().toISOString() },
+    });
+    if (error) throw new Error(`Échec mise à jour métadonnées : ${error.message}`);
+    return { ok: true };
+  });

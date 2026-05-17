@@ -7,6 +7,7 @@ import {
   PricingSection,
   CtaSection,
 } from "@/components/public/landing-sections";
+import { DemoSection } from "@/components/landing/DemoSection";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,6 +36,7 @@ function LandingPage() {
       <PublicHeader />
       <main>
         <HeroSection />
+        <DemoSection />
         <FeaturesSection />
         <UseCasesSection />
         <PricingSection />

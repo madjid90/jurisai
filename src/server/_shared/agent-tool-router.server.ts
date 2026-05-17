@@ -22,6 +22,7 @@ import {
   runWorkflowStepTool,
   calculateIndemnityTool,
 } from "./agent-tools.server";
+import { compareContracts } from "./contract-compare.server";
 
 export type ToolHandler = (
   args: Record<string, unknown>,
@@ -166,6 +167,19 @@ const HANDLERS: Record<string, ToolHandler> = {
       },
       c,
     ),
+  compare_contracts: async (a, c) => {
+    try {
+      const result = await compareContracts({
+        docAId: String(a.doc_a_id ?? ""),
+        docBId: String(a.doc_b_id ?? ""),
+        ctx: { tenantId: c.tenantId, apiKey: c.apiKey },
+      });
+      return { result, succeeded: true };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "compare_contracts failed";
+      return { result: { error: msg }, succeeded: false, errorMessage: msg };
+    }
+  },
   calculate_indemnity: (a, c) =>
     calculateIndemnityTool(
       {

@@ -156,7 +156,7 @@ Demande : "Est-ce que mon entreprise est conforme au RGPD ?"
         { role: "user", content: sanitizePromptInput(message.slice(0, 3000), { label: "DEMANDE_UTILISATEUR" }) + answersBlock + legalBlock },
       ],
     }),
-  });
+  }, { breakerModel: await resolveChatModel(ctx.tenantId) });
   if (!res.ok) throw new Error(`Classification IA ${res.status}`);
   const j = await res.json();
   const raw = j.choices?.[0]?.message?.content ?? "{}";
@@ -803,7 +803,7 @@ ${PROMPT_INJECTION_GUARD}`,
         { role: "user", content: `Titre : ${safeTitle}\n\nContenu :\n${safeText}` },
       ],
     }),
-  });
+  }, { breakerModel: await resolveChatModel(ctx.tenantId) });
   if (!res.ok) return { result: { error: `IA ${res.status}` }, succeeded: false };
   const j = await res.json();
   let parsed: any = {};
