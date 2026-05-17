@@ -24,6 +24,7 @@ import {
   Library,
   ServerCrash,
   Scale,
+  ClipboardList,
   Link2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -251,6 +252,9 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             )}
             {hasPermission(access, "rag_quality.view") && (
               <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} collapsed={collapsed} />
+            )}
+            {access.isSuperAdmin && (
+              <NavItem label="Cas d'éval" icon={ClipboardList} to="/admin/eval-cases" active={currentPath === "/admin/eval-cases"} collapsed={collapsed} />
             )}
             {hasPermission(access, "monitoring.view") && (
               <NavItem label="Erreurs serveur" icon={ServerCrash} to="/admin/server-errors" active={currentPath === "/admin/server-errors"} collapsed={collapsed} />
