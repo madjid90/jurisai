@@ -5993,6 +5993,10 @@ export type Database = {
           source_id: string
         }[]
       }
+      lock_agent_run: {
+        Args: { _run_id: string; _tenant_id: string; _user_id: string }
+        Returns: Json
+      }
       log_server_error: {
         Args: {
           _context: Json
@@ -6066,6 +6070,18 @@ export type Database = {
           p_metadata?: Json
         }
         Returns: string
+      }
+      start_procedure_full: {
+        Args: {
+          _context?: Json
+          _definition_id: string
+          _definition_title: string
+          _existing_dossier_id?: string
+          _run_id: string
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: Json
       }
       validate_api_key: {
         Args: { _key_hash: string }
