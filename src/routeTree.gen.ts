@@ -64,6 +64,7 @@ import { Route as ApiPublicHooksGdprRetentionPurgeRouteImport } from './routes/a
 import { Route as ApiPublicHooksEmailWorkerRouteImport } from './routes/api/public/hooks/email-worker'
 import { Route as ApiPublicHooksDispatchRemindersRouteImport } from './routes/api/public/hooks/dispatch-reminders'
 import { Route as ApiPublicHooksDigestRouteImport } from './routes/api/public/hooks/digest'
+import { Route as ApiPublicHooksDiagnoseRouteImport } from './routes/api/public/hooks/diagnose'
 import { Route as ApiPublicHooksContractDeadlinesRouteImport } from './routes/api/public/hooks/contract-deadlines'
 import { Route as ApiPublicHooksBaremesOrchestratorRouteImport } from './routes/api/public/hooks/baremes-orchestrator'
 import { Route as ApiPublicHooksAgentRecoveryTickRouteImport } from './routes/api/public/hooks/agent-recovery-tick'
@@ -364,6 +365,11 @@ const ApiPublicHooksDigestRoute = ApiPublicHooksDigestRouteImport.update({
   path: '/api/public/hooks/digest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDiagnoseRoute = ApiPublicHooksDiagnoseRouteImport.update({
+  id: '/api/public/hooks/diagnose',
+  path: '/api/public/hooks/diagnose',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksContractDeadlinesRoute =
   ApiPublicHooksContractDeadlinesRouteImport.update({
     id: '/api/public/hooks/contract-deadlines',
@@ -437,6 +443,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/agent-recovery-tick': typeof ApiPublicHooksAgentRecoveryTickRoute
   '/api/public/hooks/baremes-orchestrator': typeof ApiPublicHooksBaremesOrchestratorRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
+  '/api/public/hooks/diagnose': typeof ApiPublicHooksDiagnoseRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
@@ -497,6 +504,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/agent-recovery-tick': typeof ApiPublicHooksAgentRecoveryTickRoute
   '/api/public/hooks/baremes-orchestrator': typeof ApiPublicHooksBaremesOrchestratorRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
+  '/api/public/hooks/diagnose': typeof ApiPublicHooksDiagnoseRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
@@ -559,6 +567,7 @@ export interface FileRoutesById {
   '/api/public/hooks/agent-recovery-tick': typeof ApiPublicHooksAgentRecoveryTickRoute
   '/api/public/hooks/baremes-orchestrator': typeof ApiPublicHooksBaremesOrchestratorRoute
   '/api/public/hooks/contract-deadlines': typeof ApiPublicHooksContractDeadlinesRoute
+  '/api/public/hooks/diagnose': typeof ApiPublicHooksDiagnoseRoute
   '/api/public/hooks/digest': typeof ApiPublicHooksDigestRoute
   '/api/public/hooks/dispatch-reminders': typeof ApiPublicHooksDispatchRemindersRoute
   '/api/public/hooks/email-worker': typeof ApiPublicHooksEmailWorkerRoute
@@ -621,6 +630,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/agent-recovery-tick'
     | '/api/public/hooks/baremes-orchestrator'
     | '/api/public/hooks/contract-deadlines'
+    | '/api/public/hooks/diagnose'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
     | '/api/public/hooks/email-worker'
@@ -681,6 +691,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/agent-recovery-tick'
     | '/api/public/hooks/baremes-orchestrator'
     | '/api/public/hooks/contract-deadlines'
+    | '/api/public/hooks/diagnose'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
     | '/api/public/hooks/email-worker'
@@ -742,6 +753,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/agent-recovery-tick'
     | '/api/public/hooks/baremes-orchestrator'
     | '/api/public/hooks/contract-deadlines'
+    | '/api/public/hooks/diagnose'
     | '/api/public/hooks/digest'
     | '/api/public/hooks/dispatch-reminders'
     | '/api/public/hooks/email-worker'
@@ -771,6 +783,7 @@ export interface RootRouteChildren {
   ApiPublicHooksAgentRecoveryTickRoute: typeof ApiPublicHooksAgentRecoveryTickRoute
   ApiPublicHooksBaremesOrchestratorRoute: typeof ApiPublicHooksBaremesOrchestratorRoute
   ApiPublicHooksContractDeadlinesRoute: typeof ApiPublicHooksContractDeadlinesRoute
+  ApiPublicHooksDiagnoseRoute: typeof ApiPublicHooksDiagnoseRoute
   ApiPublicHooksDigestRoute: typeof ApiPublicHooksDigestRoute
   ApiPublicHooksDispatchRemindersRoute: typeof ApiPublicHooksDispatchRemindersRoute
   ApiPublicHooksEmailWorkerRoute: typeof ApiPublicHooksEmailWorkerRoute
@@ -1170,6 +1183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDigestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/diagnose': {
+      id: '/api/public/hooks/diagnose'
+      path: '/api/public/hooks/diagnose'
+      fullPath: '/api/public/hooks/diagnose'
+      preLoaderRoute: typeof ApiPublicHooksDiagnoseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/contract-deadlines': {
       id: '/api/public/hooks/contract-deadlines'
       path: '/api/public/hooks/contract-deadlines'
@@ -1330,6 +1350,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksBaremesOrchestratorRoute:
     ApiPublicHooksBaremesOrchestratorRoute,
   ApiPublicHooksContractDeadlinesRoute: ApiPublicHooksContractDeadlinesRoute,
+  ApiPublicHooksDiagnoseRoute: ApiPublicHooksDiagnoseRoute,
   ApiPublicHooksDigestRoute: ApiPublicHooksDigestRoute,
   ApiPublicHooksDispatchRemindersRoute: ApiPublicHooksDispatchRemindersRoute,
   ApiPublicHooksEmailWorkerRoute: ApiPublicHooksEmailWorkerRoute,
@@ -1344,12 +1365,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
