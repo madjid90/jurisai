@@ -505,19 +505,45 @@ export const processAgentRun = createServerFn({ method: "POST" })
         nextStatus = "ready";
       }
 
-      // Audit fix : pour intent=lancer_procedure, on démarre LE DOSSIER + WORKFLOW
-      // IMMÉDIATEMENT (avant d'attendre les infos du user). Sinon les runs en
-      // waiting_info restent bloqués indéfiniment et l'orchestration ne se fait jamais.
+      // ─── Auto-orchestration : créer dossier (+ workflow si applicable) DÈS classification ───
+      // Avant : seul intent=lancer_procedure déclenchait l'orchestration → 6 autres intents
+      // restaient bloqués en waiting_info sans rien créer côté user.
+      // Maintenant : 7 intents créent un dossier auto. Pour ceux qui ont un workflow
+      // pré-défini, on démarre aussi le workflow + tâches. Sinon dossier simple.
+      const INTENTS_WITH_DOSSIER = new Set([
+        "lancer_procedure",
+        "redaction_document",
+        "chiffrage",
+        "reclamation",
+        "analyse_document",
+        "analyse_contrat",
+        "conformite",
+      ]);
+
+      // Map intent → catégorie de dossier
+      const INTENT_TO_CATEGORY: Record<string, string> = {
+        lancer_procedure: classification.domain ?? "social",
+        redaction_document: classification.domain ?? "general",
+        chiffrage: "social",
+        reclamation: "commercial",
+        analyse_document: "general",
+        analyse_contrat: "commercial",
+        conformite: classification.domain === "rgpd" ? "rgpd" : (classification.domain ?? "general"),
+      };
+
       let earlyDossierId = (run as { dossier_id: string | null }).dossier_id;
       let earlyWorkflowId: string | null = null;
-      if (classification.intent === "lancer_procedure") {
+      let earlyTaskCount = 0;
+
+      if (INTENTS_WITH_DOSSIER.has(classification.intent)) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const sb = supabaseAdmin as any;
-          // 1. Chercher un workflow validé qui matche le sujet (scoring lexical simple)
+
+          // 1. Chercher un workflow validé qui matche (scoring lexical)
           const { data: defs } = await sb
             .from("workflow_definitions")
-            .select("id, title, slug")
+            .select("id, title, slug, category")
             .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
             .in("lifecycle_status", ["ai_validated_auto", "human_validated"])
             .eq("status", "validated")
@@ -527,10 +553,10 @@ export const processAgentRun = createServerFn({ method: "POST" })
           const msgLower = (run as { message: string }).message.toLowerCase();
           const searchStr = `${topicLower} ${msgLower}`;
           const tokens = searchStr.split(/\s+/).filter((w: string) => w.length >= 4);
-          let bestDef: { id: string; title: string; slug: string } | null = null;
+          let bestDef: { id: string; title: string; slug: string; category: string | null } | null = null;
           let bestScore = 0;
           for (const d of (defs ?? []) as Array<{ id: string; title: string; slug: string; category: string | null }>) {
-            const hay = `${d.title} ${d.slug}`.toLowerCase();
+            const hay = `${d.title} ${d.slug} ${d.category ?? ""}`.toLowerCase();
             const hits = tokens.filter((w: string) => hay.includes(w)).length;
             const score = tokens.length > 0 ? hits / tokens.length : 0;
             if (score > bestScore && score >= 0.3) {
@@ -539,8 +565,9 @@ export const processAgentRun = createServerFn({ method: "POST" })
             }
           }
 
+          // 2. Si workflow trouvé → orchestration complète (dossier + workflow + tâches)
+          //    Sinon → simple dossier (l'agent générera les tâches/docs dans executeAgentRun)
           if (bestDef) {
-            // 2. Démarrer la procédure end-to-end via RPC SECURITY DEFINER
             const { data: rpcResult, error: rpcErr } = await sb.rpc("start_procedure_full", {
               _user_id: userId,
               _tenant_id: tenantId,
@@ -548,15 +575,45 @@ export const processAgentRun = createServerFn({ method: "POST" })
               _definition_id: bestDef.id,
               _definition_title: bestDef.title,
               _existing_dossier_id: earlyDossierId,
-              _context: { source: "auto_classification", message: (run as { message: string }).message },
+              _context: { source: "auto_classification", intent: classification.intent, message: (run as { message: string }).message },
             });
             if (!rpcErr && rpcResult) {
               const result = rpcResult as { dossier_id?: string; workflow_instance_id?: string; task_count?: number };
               earlyDossierId = result.dossier_id ?? earlyDossierId;
               earlyWorkflowId = result.workflow_instance_id ?? null;
-              console.log(`[processAgentRun] Procédure démarrée auto : ${bestDef.title} (${result.task_count} tâches, dossier=${earlyDossierId})`);
+              earlyTaskCount = result.task_count ?? 0;
+              console.log(`[processAgentRun] Procédure auto-démarrée : ${bestDef.title} (${earlyTaskCount} tâches, dossier=${earlyDossierId})`);
             } else if (rpcErr) {
-              console.warn("[processAgentRun] start_procedure_full failed (non-blocking):", rpcErr.message);
+              console.warn("[processAgentRun] start_procedure_full failed, falling back to dossier-only:", rpcErr.message);
+              // Fallback : créer juste le dossier
+              await createDossierFallback();
+            }
+          } else {
+            // Pas de workflow → juste un dossier
+            await createDossierFallback();
+          }
+
+          // Helper de fallback (créer juste un dossier)
+          async function createDossierFallback() {
+            const category = INTENT_TO_CATEGORY[classification.intent] ?? "general";
+            const title = classification.topic
+              ? `${classification.topic.slice(0, 80)}`
+              : `${classification.intent.replace(/_/g, " ")} — ${new Date().toLocaleDateString("fr-FR")}`;
+            const { data: dossierRpc, error: dossierErr } = await sb.rpc("create_dossier_for_run", {
+              _user_id: userId,
+              _tenant_id: tenantId,
+              _run_id: data.id,
+              _title: title,
+              _category: category,
+              _description: `Dossier créé automatiquement par l'agent (intent: ${classification.intent}, domaine: ${classification.domain ?? "n/a"}).`,
+              _risk_level: classification.requires_validation ? "high" : "medium",
+            });
+            if (!dossierErr && dossierRpc) {
+              const result = dossierRpc as { dossier_id?: string; created?: boolean };
+              earlyDossierId = result.dossier_id ?? earlyDossierId;
+              console.log(`[processAgentRun] Dossier auto-créé (intent=${classification.intent}, dossier=${earlyDossierId})`);
+            } else if (dossierErr) {
+              console.warn("[processAgentRun] create_dossier_for_run failed (non-blocking):", dossierErr.message);
             }
           }
         } catch (e) {

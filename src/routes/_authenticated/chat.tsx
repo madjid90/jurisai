@@ -27,6 +27,7 @@ import {
 } from "@/server/agent-runs.functions";
 import { runOcrDocument } from "@/server/ocr.functions";
 import { getGeneratedDocument } from "@/server/generation.functions";
+import { exportGeneratedDocument } from "@/server/exports.functions";
 import { WorkflowRuntimeBlock } from "@/components/agent/WorkflowRuntimeBlock";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -244,8 +245,29 @@ function ChatPage() {
       void navigate({ to: "/chat", search: { run: created.id } as never, replace: false });
       await refresh();
       try {
-        const r1 = (await process({ data: { id: created.id } })) as { status: string };
+        const r1 = (await process({ data: { id: created.id } })) as {
+          status: string;
+          dossier_id?: string | null;
+          workflow_instance_id?: string | null;
+        };
         await refresh();
+        // Audit fix : feedback immédiat si un dossier a été auto-créé
+        if (r1.dossier_id) {
+          const wasWorkflow = !!r1.workflow_instance_id;
+          toast.success(
+            wasWorkflow ? "Procédure démarrée" : "Dossier créé",
+            {
+              description: wasWorkflow
+                ? "Dossier + workflow + tâches générés automatiquement"
+                : "Un dossier de suivi a été créé pour cette demande",
+              action: {
+                label: "Voir le dossier",
+                onClick: () => navigate({ to: "/dossiers/$id", params: { id: r1.dossier_id! } }),
+              },
+              duration: 8000,
+            },
+          );
+        }
         if (r1.status === "ready") {
           await execute({ data: { id: created.id } });
           await refresh();
@@ -1275,7 +1297,9 @@ function exportAnswerToPdf({
 
 function GeneratedDocRow({ docId }: { docId: string }) {
   const getDoc = useServerFn(getGeneratedDocument);
+  const exportDoc = useServerFn(exportGeneratedDocument);
   const [doc, setDoc] = useState<{ title?: string; content_html?: string } | null>(null);
+  const [downloading, setDownloading] = useState<null | "docx" | "pdf">(null);
 
   useEffect(() => {
     void (async () => {
@@ -1288,20 +1312,32 @@ function GeneratedDocRow({ docId }: { docId: string }) {
     })();
   }, [docId]);
 
-  const download = () => {
-    if (!doc?.content_html) return;
-    const cleanHtml = DOMPurify.sanitize(doc.content_html);
-    const safeTitle = (doc.title ?? "Document").replace(/[<>&"']/g, "");
-    const blob = new Blob(
-      [`<!doctype html><meta charset="utf-8"><title>${safeTitle}</title>${cleanHtml}`],
-      { type: "text/html;charset=utf-8" },
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(doc.title ?? "document").replace(/[^\w.-]+/g, "_")}.html`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const downloadAs = async (format: "docx" | "pdf") => {
+    try {
+      setDownloading(format);
+      const res = (await exportDoc({ data: { id: docId, format } })) as {
+        filename: string;
+        base64: string;
+        mime: string;
+      };
+      const bin = atob(res.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: res.mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(`Document téléchargé (${format.toUpperCase()})`);
+    } catch (e) {
+      toast.error("Téléchargement impossible", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setDownloading(null);
+    }
   };
 
   const print = () => {
@@ -1320,10 +1356,29 @@ function GeneratedDocRow({ docId }: { docId: string }) {
     <div className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2">
       <FileText className="h-4 w-4 flex-shrink-0 text-primary" />
       <span className="flex-1 truncate text-sm">{doc?.title ?? `Document #${docId.slice(0, 8)}`}</span>
-      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={download} disabled={!doc}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 gap-1"
+        onClick={() => void downloadAs("docx")}
+        disabled={!doc || downloading !== null}
+        title="Télécharger DOCX"
+      >
         <Download className="h-3.5 w-3.5" />
+        <span className="text-xs">DOCX</span>
       </Button>
-      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={print} disabled={!doc}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 gap-1"
+        onClick={() => void downloadAs("pdf")}
+        disabled={!doc || downloading !== null}
+        title="Télécharger PDF"
+      >
+        <Download className="h-3.5 w-3.5" />
+        <span className="text-xs">PDF</span>
+      </Button>
+      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={print} disabled={!doc} title="Imprimer">
         <Printer className="h-3.5 w-3.5" />
       </Button>
     </div>
