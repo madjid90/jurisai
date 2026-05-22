@@ -505,6 +505,66 @@ export const processAgentRun = createServerFn({ method: "POST" })
         nextStatus = "ready";
       }
 
+      // Audit fix : pour intent=lancer_procedure, on démarre LE DOSSIER + WORKFLOW
+      // IMMÉDIATEMENT (avant d'attendre les infos du user). Sinon les runs en
+      // waiting_info restent bloqués indéfiniment et l'orchestration ne se fait jamais.
+      let earlyDossierId = (run as { dossier_id: string | null }).dossier_id;
+      let earlyWorkflowId: string | null = null;
+      if (classification.intent === "lancer_procedure") {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sb = supabaseAdmin as any;
+          // 1. Chercher un workflow validé qui matche le sujet (scoring lexical simple)
+          const { data: defs } = await sb
+            .from("workflow_definitions")
+            .select("id, title, slug")
+            .or(`tenant_id.is.null,tenant_id.eq.${tenantId}`)
+            .in("lifecycle_status", ["ai_validated_auto", "human_validated"])
+            .eq("status", "validated")
+            .limit(50);
+
+          const topicLower = (classification.topic ?? (run as { message: string }).message).toLowerCase();
+          const msgLower = (run as { message: string }).message.toLowerCase();
+          const searchStr = `${topicLower} ${msgLower}`;
+          const tokens = searchStr.split(/\s+/).filter((w: string) => w.length >= 4);
+          let bestDef: { id: string; title: string; slug: string } | null = null;
+          let bestScore = 0;
+          for (const d of (defs ?? []) as Array<{ id: string; title: string; slug: string; category: string | null }>) {
+            const hay = `${d.title} ${d.slug}`.toLowerCase();
+            const hits = tokens.filter((w: string) => hay.includes(w)).length;
+            const score = tokens.length > 0 ? hits / tokens.length : 0;
+            if (score > bestScore && score >= 0.3) {
+              bestScore = score;
+              bestDef = d;
+            }
+          }
+
+          if (bestDef) {
+            // 2. Démarrer la procédure end-to-end via RPC SECURITY DEFINER
+            const { data: rpcResult, error: rpcErr } = await sb.rpc("start_procedure_full", {
+              _user_id: userId,
+              _tenant_id: tenantId,
+              _run_id: data.id,
+              _definition_id: bestDef.id,
+              _definition_title: bestDef.title,
+              _existing_dossier_id: earlyDossierId,
+              _context: { source: "auto_classification", message: (run as { message: string }).message },
+            });
+            if (!rpcErr && rpcResult) {
+              const result = rpcResult as { dossier_id?: string; workflow_instance_id?: string; task_count?: number };
+              earlyDossierId = result.dossier_id ?? earlyDossierId;
+              earlyWorkflowId = result.workflow_instance_id ?? null;
+              console.log(`[processAgentRun] Procédure démarrée auto : ${bestDef.title} (${result.task_count} tâches, dossier=${earlyDossierId})`);
+            } else if (rpcErr) {
+              console.warn("[processAgentRun] start_procedure_full failed (non-blocking):", rpcErr.message);
+            }
+          }
+        } catch (e) {
+          // Best-effort : ne bloque pas le pipeline si l'orchestration auto échoue
+          console.warn("[processAgentRun] Early orchestration failed (non-blocking):", e instanceof Error ? e.message : e);
+        }
+      }
+
       await supabaseAdmin
         .from("agent_runs")
         .update({
@@ -520,11 +580,13 @@ export const processAgentRun = createServerFn({ method: "POST" })
           missing_information: classification.missing_information ?? [],
           suggested_actions: classification.suggested_actions ?? [],
           draft,
+          ...(earlyDossierId ? { dossier_id: earlyDossierId } : {}),
+          ...(earlyWorkflowId ? { workflow_instance_id: earlyWorkflowId } : {}),
         } as never)
         .eq("id", data.id);
 
       // 4. Timeline si rattaché à un dossier
-      const dossierId = (run as { dossier_id: string | null }).dossier_id;
+      const dossierId = earlyDossierId;
       if (dossierId) {
         await logTimelineEvent({
           tenantId,
@@ -532,11 +594,11 @@ export const processAgentRun = createServerFn({ method: "POST" })
           actorId: userId,
           eventType: "agent.run.advanced",
           title: `Agent : ${classification.intent} (${nextStatus})`,
-          metadata: { run_id: data.id, status: nextStatus },
+          metadata: { run_id: data.id, status: nextStatus, workflow_started: !!earlyWorkflowId },
         });
       }
 
-      return { status: nextStatus, run_id: data.id };
+      return { status: nextStatus, run_id: data.id, dossier_id: earlyDossierId, workflow_instance_id: earlyWorkflowId };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
       await supabaseAdmin
