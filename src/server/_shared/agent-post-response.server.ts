@@ -130,20 +130,80 @@ export async function runPostResponsePipeline(
     }
   }
 
-  // Mémoire : on retient le sujet courant pour le dossier (relevance moyenne).
+  // Mémoire — 3 écritures parallèles pour que l'agent soit cohérent entre sessions :
+  //
+  // 1. scope=dossier  → dernier topic abordé sur ce dossier (relevance haute)
+  // 2. scope=user     → liste rotative des derniers sujets / intents du user
+  //                    (l'agent peut dire "comme on en parlait la dernière fois...")
+  // 3. scope=tenant   → fréquences d'intents/domains pour calibrer les suggestions
+  //
+  // Aucune des 3 ne doit faire crasher la réponse — try/catch indépendants.
+  const nowIso = new Date().toISOString();
+
   if (input.dossierId && input.topic) {
     try {
       await rememberMemory({
         tenantId: input.tenantId,
         scope: "dossier",
-        key: `last_topic`,
-        value: { topic: input.topic, intent: input.intent, domain: input.domain, at: new Date().toISOString() },
+        key: "last_topic",
+        value: { topic: input.topic, intent: input.intent, domain: input.domain, at: nowIso },
         dossierId: input.dossierId,
-        relevance: 0.6,
+        relevance: 0.7,
       });
-    } catch {
-      /* noop */
-    }
+    } catch { /* noop */ }
+  }
+
+  if (input.userId && input.topic) {
+    try {
+      // Lecture-modification : on garde les 5 derniers sujets en file glissante.
+      const { data: existing } = await sb
+        .from("agent_memory")
+        .select("value")
+        .eq("tenant_id", input.tenantId)
+        .eq("scope", "user")
+        .eq("key", "recent_topics")
+        .eq("user_id", input.userId)
+        .maybeSingle();
+
+      const prev = (existing?.value?.items as Array<{ topic: string; intent: string; domain: string; at: string }>) ?? [];
+      const next = [
+        { topic: input.topic, intent: input.intent, domain: input.domain, at: nowIso },
+        ...prev.filter((p) => p.topic !== input.topic),
+      ].slice(0, 5);
+
+      await rememberMemory({
+        tenantId: input.tenantId,
+        scope: "user",
+        key: "recent_topics",
+        value: { items: next, count: next.length },
+        userId: input.userId,
+        relevance: 0.5,
+      });
+    } catch { /* noop */ }
+  }
+
+  if (input.intent && input.domain) {
+    try {
+      const { data: existing } = await sb
+        .from("agent_memory")
+        .select("value")
+        .eq("tenant_id", input.tenantId)
+        .eq("scope", "tenant")
+        .eq("key", "intent_frequency")
+        .maybeSingle();
+
+      const counters = (existing?.value as Record<string, number> | null) ?? {};
+      const k = `${input.intent}|${input.domain}`;
+      counters[k] = (counters[k] ?? 0) + 1;
+
+      await rememberMemory({
+        tenantId: input.tenantId,
+        scope: "tenant",
+        key: "intent_frequency",
+        value: counters,
+        relevance: 0.4,
+      });
+    } catch { /* noop */ }
   }
 
   // Timeline du dossier si applicable

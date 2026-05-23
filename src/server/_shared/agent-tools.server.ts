@@ -739,20 +739,24 @@ export async function startWorkflowTool(
     if (!d) return { result: { error: "Dossier introuvable" }, succeeded: false };
   }
 
-  const { data: inst, error } = await sb
-    .from("workflow_instances")
-    .insert({
-      tenant_id: ctx.tenantId,
-      definition_id: defRow.id,
-      title: (args.title ?? defRow.title).slice(0, 200),
-      dossier_id: args.dossier_id ?? null,
-      client_id: args.client_id ?? null,
-      started_by: ctx.userId,
-      context: args.context ?? {},
-    })
-    .select("id, title, status")
-    .single();
+  // Audit fix : INSERT direct bloqué par RLS si supabaseAdmin n'a pas un
+  // vrai service_role (cas Lovable). On passe par instantiate_workflow
+  // SECURITY DEFINER (idempotent côté garde-fous tenant).
+  const { data: rpcRes, error } = await sb.rpc("instantiate_workflow", {
+    _user_id: ctx.userId,
+    _tenant_id: ctx.tenantId,
+    _definition_id: defRow.id,
+    _title: args.title ?? defRow.title,
+    _dossier_id: args.dossier_id ?? null,
+    _client_id: args.client_id ?? null,
+    _context: args.context ?? {},
+  });
   if (error) return { result: { error: error.message }, succeeded: false };
+  const inst = {
+    id: (rpcRes as { instance_id: string }).instance_id,
+    title: (rpcRes as { title: string }).title,
+    status: (rpcRes as { status: string }).status,
+  };
 
   if (args.dossier_id) {
     await logTimelineEvent({
