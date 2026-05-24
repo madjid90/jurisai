@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
+import { captureServerError } from "@/server/_shared/error-monitor.server";
 import { classifyIntent, safeParseJSON, searchDossier, type AgentCtx } from "@/server/_shared/agent-tools.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { searchLegalSources } from "@/server/_shared/legal-rag.server";
@@ -658,6 +659,12 @@ export const processAgentRun = createServerFn({ method: "POST" })
       return { status: nextStatus, run_id: data.id, dossier_id: earlyDossierId, workflow_instance_id: earlyWorkflowId };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      // Audit fix V6 P4 : capture serveur pour observabilité avant de marquer failed
+      await captureServerError(
+        "agent-runs.processAgentRun",
+        { userId, tenantId, severity: "error", extra: { run_id: data.id } },
+        err,
+      );
       await supabaseAdmin
         .from("agent_runs")
         .update({ status: "failed", error_message: msg } as never)
@@ -1130,11 +1137,23 @@ ${sourcesBlock || "(aucune)"}`;
       } catch (postErr) {
         // Post-response non bloquant — log et continue
         console.error("[executeAgentRun] Post-response pipeline failed:", postErr);
+        // Audit fix V6 P4 : on capture aussi côté serveur pour pouvoir le retrouver
+        await captureServerError(
+          "agent-runs.executeAgentRun.postResponse",
+          { userId, tenantId, severity: "warn", extra: { run_id: data.id } },
+          postErr,
+        );
       }
 
       return { ok: true, answer: finalAnswer, sources_count: sources.length };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erreur inconnue";
+      // Audit fix V6 P4 : capture serveur pour observabilité
+      await captureServerError(
+        "agent-runs.executeAgentRun",
+        { userId, tenantId, severity: "error", extra: { run_id: data.id } },
+        err,
+      );
       await supabaseAdmin
         .from("agent_runs")
         .update({ status: "failed", error_message: msg } as never)

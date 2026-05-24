@@ -5,6 +5,13 @@
 //
 // Authentification : x-cron-secret seulement (pas de JWT user — appelable depuis pg_cron).
 //
+// Audit fix 2026-05-24 (cf AUDIT-JURISAI-V6.md §3 P1) :
+// Les UPDATE directs `db.from('agent_runs').update()` étaient bloqués
+// silencieusement par RLS quand SUPABASE_SERVICE_ROLE_KEY est en réalité une
+// anon key sur Lovable Cloud. Résultat : 9 runs stuck depuis 158h. On passe
+// maintenant par la RPC SECURITY DEFINER `agent_run_force_fail` qui
+// bypass RLS et retourne explicitement le nombre de rows affected.
+//
 // Politique :
 //   - pending / waiting_info > 30 minutes  → failed("Demande expirée — réessayez")
 //   - running / executing    > 10 minutes  → failed("Traitement interrompu — réessayez")
@@ -57,17 +64,18 @@ export const Route = createFileRoute("/api/public/hooks/agent-recovery-tick")({
 
         for (const r of (stuckInput ?? []) as StuckRun[]) {
           const errMsg = "Demande expirée (aucune action depuis 30 min). Veuillez relancer.";
-          const { error: upErr } = await db
-            .from("agent_runs")
-            .update({
-              status: "failed",
-              error_message: errMsg,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", r.id)
-            .in("status", ["pending", "waiting_info"]);
+          const { data: rpcRes, error: upErr } = await db.rpc("agent_run_force_fail", {
+            _run_id: r.id,
+            _expected_statuses: ["pending", "waiting_info"],
+            _new_status: "failed",
+            _error_message: errMsg,
+          });
           if (upErr) {
             results.errors.push(`update ${r.id}: ${upErr.message}`);
+            continue;
+          }
+          if (!(rpcRes as { updated?: boolean } | null)?.updated) {
+            // status a changé entre le SELECT et le UPDATE → on skip
             continue;
           }
           await notifyUser({
@@ -93,19 +101,17 @@ export const Route = createFileRoute("/api/public/hooks/agent-recovery-tick")({
 
         for (const r of (stuckProc ?? []) as StuckRun[]) {
           const errMsg = "Traitement interrompu (timeout interne). Veuillez relancer la demande.";
-          const { error: upErr } = await db
-            .from("agent_runs")
-            .update({
-              status: "failed",
-              error_message: errMsg,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", r.id)
-            .in("status", ["running", "executing"]);
+          const { data: rpcRes, error: upErr } = await db.rpc("agent_run_force_fail", {
+            _run_id: r.id,
+            _expected_statuses: ["running", "executing"],
+            _new_status: "failed",
+            _error_message: errMsg,
+          });
           if (upErr) {
             results.errors.push(`update ${r.id}: ${upErr.message}`);
             continue;
           }
+          if (!(rpcRes as { updated?: boolean } | null)?.updated) continue;
           await notifyUser({
             userId: r.user_id,
             tenantId: r.tenant_id,
@@ -128,15 +134,17 @@ export const Route = createFileRoute("/api/public/hooks/agent-recovery-tick")({
         if (e3) results.errors.push(`stale_val: ${e3.message}`);
 
         for (const r of (staleVal ?? []) as StuckRun[]) {
-          const { error: upErr } = await db
-            .from("agent_runs")
-            .update({ status: "archived", updated_at: new Date().toISOString() })
-            .eq("id", r.id)
-            .eq("status", "waiting_validation");
+          const { data: rpcRes, error: upErr } = await db.rpc("agent_run_force_fail", {
+            _run_id: r.id,
+            _expected_statuses: ["waiting_validation"],
+            _new_status: "archived",
+            _error_message: null,
+          });
           if (upErr) {
             results.errors.push(`archive ${r.id}: ${upErr.message}`);
             continue;
           }
+          if (!(rpcRes as { updated?: boolean } | null)?.updated) continue;
           results.archived++;
         }
 
