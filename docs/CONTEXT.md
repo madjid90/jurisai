@@ -189,9 +189,17 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 
 ---
 
-## 8. État actuel (au 17/05/2026)
+## 8. État actuel (au 23/05/2026)
 
-### Livré
+### Livré (mises à jour 23/05)
+- ✅ **JOUR 1 — Auto-orchestration sur 7 intents** : `processAgentRun` détecte 7 intents (lancer_procedure, redaction_document, chiffrage, reclamation, analyse_document, analyse_contrat, conformite) et crée toujours un dossier. Match lexical workflow → `start_procedure_full`, sinon `create_dossier_for_run` (RPC idempotent). Commit `cccc660`.
+- ✅ **JOUR 2 — UI feedback chat** : toast distingue "Procédure démarrée" vs "Dossier créé" avec action "Voir le dossier". Server fn `exportGeneratedDocument` (HTML → DOCX/PDF via docx + jspdf). `GeneratedDocRow` affiche 3 boutons (DOCX, PDF, Imprimer). Commit `cccc660`.
+- ✅ **JOUR 3-5 — 30 templates documents** : 12 ajoutés (Social: faute grave, promesse embauche, accusé démission ; Commercial: prestation services, NDA, bon commande, résiliation, CGV produits ; RGPD: politique confid, notification CNIL art. 33 ; Sociétés: PV AGE, décision unique SASU/EURL). Tous public+validated.
+- ✅ **Fix start_workflow** : RPC SECURITY DEFINER `instantiate_workflow` avec garde-fous tenant/définition/dossier. `startWorkflowTool` l'utilise au lieu de l'INSERT direct (bloqué quand supabaseAdmin n'est pas service_role). Commit `7486088`.
+- ✅ **Mémoire agent 3 scopes activée** : `runPostResponsePipeline` écrit désormais dossier.last_topic + user.recent_topics (file 5 max) + tenant.intent_frequency. Avant : 0 ligne en table car condition `(dossierId && topic)` jamais vraie. Commit `7486088`.
+- ✅ **Page /validations + Realtime** : route `_authenticated/validations.tsx`, server fns `listPendingValidations` / `countPendingValidationsForMe` / `decideValidation`. Sidebar item "Validations" entre Documents et Notifications. Subscribe Supabase Realtime sur validation_requests (reload live). Garde-fous : pas d'auto-validation, contrôle rôle, propagation status sur generated_documents, notif au demandeur. 5 tests métier ajoutés (82/82 total). Commit `18c3cf1`.
+
+### Livré (précédemment)
 - ✅ **Sprint 1** : Fusion UI + comparateur contrats + démo landing + onboarding tour + veille active (commit `4b90b98`)
 - ✅ **Audit 6 critiques résolus** : SMIC/PSS 2026, Macron TPE, RLS calculation_history, hybrid_search ×167, watchdog, circuit breaker (commit `75f3f72`)
 - ✅ **Auto-update barèmes 5 connecteurs** : CDTN, INSEE, Legifrance, BOFIP, BOSS (commit `921026e`)
@@ -204,17 +212,23 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 - ✅ **404 /_authenticated/chat** : ajout `to: "/chat"` explicite dans 4 navigate() (commit `f175c9a`)
 - ✅ **Chat fonctionnel end-to-end** : pipeline complet marche (createAgentRun → process → execute → réponse affichée)
 
-### Notes par dimension (au 17/05)
-| Dimension | Score |
-|---|---|
-| DB | 9/10 |
-| Sécurité | 8,5/10 |
-| Agent 360 | 8/10 |
-| RAG | 7,5/10 |
-| UX | 7/10 |
-| TypeScript | 7/10 |
-| Tests | 7/10 |
-| **Moyenne** | **~7,8/10** |
+### Notes par dimension (au 23/05)
+| Dimension | Score | Évolution |
+|---|---|---|
+| DB | 9/10 | = |
+| Sécurité | 8,5/10 | = |
+| Agent 360 | 8,5/10 | ↑ (orchestration 7 intents + mémoire 3 scopes + workflow RPC) |
+| RAG | 7,5/10 | = |
+| UX | 7,5/10 | ↑ (toast feedback + page validations + DL DOCX/PDF) |
+| TypeScript | 7/10 | = |
+| Tests | 7,5/10 | ↑ (77 → 82 tests) |
+| **Moyenne** | **~8,0/10** | ↑ +0,2 |
+
+### Bugs actifs identifiés à l'audit du 23/05 (à surveiller)
+- ⚠️ `chat_citations` : table jamais écrite (code mort) — sources déjà en `agent_runs.sources` JSONB. Pas critique V1.
+- ⚠️ `dossier_context_index` : table jamais écrite. Pas critique V1 (l'agent re-lit le dossier à la volée via `dossier_context` tool).
+- ⚠️ `rag_response_cache` : table jamais écrite. Optimisation perf reportée.
+- ⚠️ 14/18 outils agent jamais déclenchés en prod. Pas forcément cassés — juste pas exercés par le LLM. À tester via prompts E2E.
 
 ### En cours
 - ⏳ **LRE Vague 2** : Pass 1 qualification + Pass 2 retrieval stratifié
@@ -269,6 +283,9 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 | `supabaseAdmin.auth.admin.updateUserById` pour user_metadata | "User not allowed" si SERVICE_ROLE = anon key | Colonne dédiée dans `profiles` |
 | `signOut()` automatique sur `!profile` | Cause #1 des déconnexions intempestives | Loader + 3 retries fetchProfile |
 | Regex `/exp/` pour détecter JWT expired | Matche "expect", "experiment" → faux positifs | Patterns stricts (`jwt expired`, `"exp" claim`...) |
+| Écriture `agent_memory` uniquement si `(dossierId && topic)` | Sur 56 runs un seul avait dossierId → 0 ligne en table | Écrire scope=user (recent_topics) + scope=tenant (intent_frequency) en plus du scope=dossier |
+| INSERT direct `workflow_instances` via supabaseAdmin | Bloqué quand SUPABASE_SERVICE_ROLE_KEY=anon (Lovable) | RPC SECURITY DEFINER `instantiate_workflow` avec garde-fous tenant explicites |
+| Conclure "tout marche" sur la base d'un commit qui type-check | Le code peut être déployé sans avoir été exécuté en prod | Vérifier l'activité réelle (agent_runs.status, tool_runs.succeeded) avant d'annoncer ok |
 | SELECT direct dans `getTenantId` côté server | RLS bloque silencieusement quand SERVICE_ROLE = anon | RPC `get_user_tenant_id` SECURITY DEFINER en premier |
 | `navigate({ search: ... })` sans `to:` explicite | TanStack utilise `from:` comme path → `/_authenticated/chat?run=...` → 404 | Toujours fournir `to: "/chat"` explicite |
 | `DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash"` | Format Lovable Gateway only — OpenAI direct renvoie 400 invalid_model | `gpt-4o-mini` qui marche partout |
