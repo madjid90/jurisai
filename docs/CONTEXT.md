@@ -230,6 +230,12 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 - ⚠️ `rag_response_cache` : table jamais écrite. Optimisation perf reportée.
 - ⚠️ 14/18 outils agent jamais déclenchés en prod. Pas forcément cassés — juste pas exercés par le LLM. À tester via prompts E2E.
 
+### Audit V6 (24/05) — état après traitement
+- ✅ **P1 watchdog** : RPC `agent_run_force_fail` créée + watchdog rebranché + 9 runs stuck purgés en prod (commit `10d5240`)
+- ✅ **P2 drift git/Supabase** : 2 RPCs récentes versionnées + README de traçabilité créé. Reste à faire `supabase db pull` pour rattraper les 20 migrations LRE V1 du 17/05 (CLI Supabase pas installée localement)
+- ⏳ **P3 `hybrid_search_typed` lent (4,1s mesuré 24/05)** : index `legal_sources_active_type_idx` existe mais le bottleneck est le KNN HNSW + post-filter. Solution proposée par l'audit : index HNSW partiel par `source_type`. Coût build ~20 min sur 60K rows, à faire dans une session dédiée. Workaround temporaire : augmenter `match_count * 8` → `* 32` quand source_types restrictif
+- ✅ **P4 observabilité orpheline** : RPC `log_server_error` testée en prod (OK). `captureServerError` branché dans processAgentRun + executeAgentRun + post-response. Reste à étendre aux autres server fns (workflows, analyses, RGPD) sur les sessions suivantes
+
 ### En cours
 - ⏳ **LRE Vague 2** : Pass 1 qualification + Pass 2 retrieval stratifié
 - ⏳ **LRE Vague 3** : Pass 3 syllogisme + Pass 4 vérifications (3 niveaux exact/normalized/fuzzy)
@@ -286,6 +292,9 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 | Écriture `agent_memory` uniquement si `(dossierId && topic)` | Sur 56 runs un seul avait dossierId → 0 ligne en table | Écrire scope=user (recent_topics) + scope=tenant (intent_frequency) en plus du scope=dossier |
 | INSERT direct `workflow_instances` via supabaseAdmin | Bloqué quand SUPABASE_SERVICE_ROLE_KEY=anon (Lovable) | RPC SECURITY DEFINER `instantiate_workflow` avec garde-fous tenant explicites |
 | Conclure "tout marche" sur la base d'un commit qui type-check | Le code peut être déployé sans avoir été exécuté en prod | Vérifier l'activité réelle (agent_runs.status, tool_runs.succeeded) avant d'annoncer ok |
+| Watchdog avec `db.from('agent_runs').update()` direct | RLS bloque silencieusement (0 rows affected, pas d'erreur) → 9 runs stuck 158h | RPC SECURITY DEFINER `agent_run_force_fail` qui retourne explicitement `rows_affected` |
+| Appliquer migrations via MCP sans créer le fichier `supabase/migrations/...` | Drift git ↔ Supabase invisible. Impossible de rejouer la DB | Toujours créer le fichier AVANT d'appliquer + `supabase db pull` régulier |
+| Définir `logErr`/`captureServerError` sans l'appeler partout | Observabilité orpheline → 0 erreur loggée pendant 7 jours malgré des bugs en prod | Brancher dans tous les `catch` des server fns, pas juste console.error |
 | SELECT direct dans `getTenantId` côté server | RLS bloque silencieusement quand SERVICE_ROLE = anon | RPC `get_user_tenant_id` SECURITY DEFINER en premier |
 | `navigate({ search: ... })` sans `to:` explicite | TanStack utilise `from:` comme path → `/_authenticated/chat?run=...` → 404 | Toujours fournir `to: "/chat"` explicite |
 | `DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash"` | Format Lovable Gateway only — OpenAI direct renvoie 400 invalid_model | `gpt-4o-mini` qui marche partout |
