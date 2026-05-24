@@ -28,6 +28,7 @@ import {
   Link2,
   PanelLeftClose,
   PanelLeftOpen,
+  CheckCircle2,
 } from "lucide-react";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -57,6 +58,7 @@ const NAV_ITEMS: NavItemDef[] = [
   { to: "/chat", label: "Chat", icon: MessageSquare },
   { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
   { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
+  { to: "/validations", label: "Validations", icon: CheckCircle2 },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/veille", label: "Veille juridique", icon: BookMarked, perms: ["veille.view"] },
 ];
@@ -169,7 +171,7 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
     access.roles.length > 0 &&
     access.roles.every((r) => r === "operationnel_terrain");
 
-  const TERRAIN_PATHS = new Set(["/dashboard", "/chat", "/dossiers", "/documents", "/notifications"]);
+  const TERRAIN_PATHS = new Set(["/dashboard", "/chat", "/dossiers", "/documents", "/validations", "/notifications"]);
 
   const baseNav = isTerrainOnly
     ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))

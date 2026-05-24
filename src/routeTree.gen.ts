@@ -23,6 +23,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWorkflowsRouteImport } from './routes/_authenticated/workflows'
 import { Route as AuthenticatedVeilleRouteImport } from './routes/_authenticated/veille'
+import { Route as AuthenticatedValidationsRouteImport } from './routes/_authenticated/validations'
 import { Route as AuthenticatedUpgradeRouteImport } from './routes/_authenticated/upgrade'
 import { Route as AuthenticatedTemplatesRouteImport } from './routes/_authenticated/templates'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
@@ -139,6 +140,12 @@ const AuthenticatedVeilleRoute = AuthenticatedVeilleRouteImport.update({
   path: '/veille',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedValidationsRoute =
+  AuthenticatedValidationsRouteImport.update({
+    id: '/validations',
+    path: '/validations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedUpgradeRoute = AuthenticatedUpgradeRouteImport.update({
   id: '/upgrade',
   path: '/upgrade',
@@ -419,6 +426,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof AuthenticatedTeamRoute
   '/templates': typeof AuthenticatedTemplatesRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
+  '/validations': typeof AuthenticatedValidationsRoute
   '/veille': typeof AuthenticatedVeilleRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -480,6 +488,7 @@ export interface FileRoutesByTo {
   '/team': typeof AuthenticatedTeamRoute
   '/templates': typeof AuthenticatedTemplatesRoute
   '/upgrade': typeof AuthenticatedUpgradeRoute
+  '/validations': typeof AuthenticatedValidationsRoute
   '/veille': typeof AuthenticatedVeilleRoute
   '/workflows': typeof AuthenticatedWorkflowsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -543,6 +552,7 @@ export interface FileRoutesById {
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/templates': typeof AuthenticatedTemplatesRoute
   '/_authenticated/upgrade': typeof AuthenticatedUpgradeRoute
+  '/_authenticated/validations': typeof AuthenticatedValidationsRoute
   '/_authenticated/veille': typeof AuthenticatedVeilleRoute
   '/_authenticated/workflows': typeof AuthenticatedWorkflowsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
@@ -606,6 +616,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/templates'
     | '/upgrade'
+    | '/validations'
     | '/veille'
     | '/workflows'
     | '/admin/audit'
@@ -667,6 +678,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/templates'
     | '/upgrade'
+    | '/validations'
     | '/veille'
     | '/workflows'
     | '/admin/audit'
@@ -729,6 +741,7 @@ export interface FileRouteTypes {
     | '/_authenticated/team'
     | '/_authenticated/templates'
     | '/_authenticated/upgrade'
+    | '/_authenticated/validations'
     | '/_authenticated/veille'
     | '/_authenticated/workflows'
     | '/_authenticated/admin/audit'
@@ -894,6 +907,13 @@ declare module '@tanstack/react-router' {
       path: '/veille'
       fullPath: '/veille'
       preLoaderRoute: typeof AuthenticatedVeilleRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/validations': {
+      id: '/_authenticated/validations'
+      path: '/validations'
+      fullPath: '/validations'
+      preLoaderRoute: typeof AuthenticatedValidationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/upgrade': {
@@ -1275,6 +1295,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedTemplatesRoute: typeof AuthenticatedTemplatesRoute
   AuthenticatedUpgradeRoute: typeof AuthenticatedUpgradeRoute
+  AuthenticatedValidationsRoute: typeof AuthenticatedValidationsRoute
   AuthenticatedVeilleRoute: typeof AuthenticatedVeilleRoute
   AuthenticatedWorkflowsRoute: typeof AuthenticatedWorkflowsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
@@ -1308,6 +1329,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedTemplatesRoute: AuthenticatedTemplatesRoute,
   AuthenticatedUpgradeRoute: AuthenticatedUpgradeRoute,
+  AuthenticatedValidationsRoute: AuthenticatedValidationsRoute,
   AuthenticatedVeilleRoute: AuthenticatedVeilleRoute,
   AuthenticatedWorkflowsRoute: AuthenticatedWorkflowsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
@@ -1365,12 +1387,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
