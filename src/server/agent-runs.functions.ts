@@ -8,6 +8,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTenantId } from "@/server/_shared/tenant.server";
 import { captureServerError } from "@/server/_shared/error-monitor.server";
+import { runLegalReasoning } from "@/server/_shared/legal-reasoning.server";
+import { buildLegalProcedure } from "@/server/_shared/procedure-builder.server";
+import {
+  buildWorkflowFromProcedure,
+  buildDocumentsFromProcedure,
+  linkWorkflowToSources,
+  blockSensitiveActionUntilValidation,
+} from "@/server/_shared/agent360-builders.server";
 import { classifyIntent, safeParseJSON, searchDossier, type AgentCtx } from "@/server/_shared/agent-tools.server";
 import { logTimelineEvent } from "@/server/_shared/timeline.server";
 import { searchLegalSources } from "@/server/_shared/legal-rag.server";
@@ -535,8 +543,93 @@ export const processAgentRun = createServerFn({ method: "POST" })
       let earlyDossierId = (run as { dossier_id: string | null }).dossier_id;
       let earlyWorkflowId: string | null = null;
       let earlyTaskCount = 0;
+      let agent360PipelineUsed = false;
 
-      if (INTENTS_WITH_DOSSIER.has(classification.intent)) {
+      // ─── J5 — Pipeline Agent 360 RAG-first (LRE → Procedure → Workflow → Document) ───
+      // Branché uniquement pour intent=lancer_procedure + flag tenant.agent360_pipeline_enabled.
+      // En cas d'échec ou de flag off → fallback automatique sur le pipeline legacy ci-dessous.
+      if (classification.intent === "lancer_procedure") {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sbTenant = supabaseAdmin as any;
+          const { data: tenantRow } = await sbTenant
+            .from("tenants")
+            .select("agent360_pipeline_enabled")
+            .eq("id", tenantId)
+            .maybeSingle();
+          const flagOn = (tenantRow as { agent360_pipeline_enabled?: boolean | null } | null)
+            ?.agent360_pipeline_enabled !== false; // défaut true
+
+          if (flagOn) {
+            const message = (run as { message: string }).message;
+            const lreCtx = {
+              tenantId,
+              userId,
+              idcc: ctx.idcc,
+              agentRunId: data.id,
+              mode: "standard" as const,
+            };
+            const lre = await runLegalReasoning(message, lreCtx);
+            if (lre.ok && lre.trace && !lre.trace.refused) {
+              const builderCtx = { tenantId, userId, idcc: ctx.idcc };
+              const proc = await buildLegalProcedure(lre.trace, builderCtx);
+              if (proc.ok && proc.procedure) {
+                // Workflow (avec dossier existant si disponible)
+                const wf = await buildWorkflowFromProcedure(proc.procedure, {
+                  tenantId, userId, dossierId: earlyDossierId,
+                });
+                if (wf.ok && wf.workflow_instance_id) {
+                  earlyWorkflowId = wf.workflow_instance_id;
+                  earlyDossierId = wf.dossier_id ?? earlyDossierId;
+                  earlyTaskCount = wf.task_count;
+                  agent360PipelineUsed = true;
+
+                  // Documents (best-effort, ne bloque pas)
+                  await buildDocumentsFromProcedure(
+                    proc.procedure,
+                    lre.trace.retrieved_sources,
+                    { tenantId, userId, dossierId: earlyDossierId },
+                  );
+
+                  // Liaison sources → workflow_instance
+                  await linkWorkflowToSources(wf.workflow_instance_id, lre.trace.retrieved_sources, {
+                    tenantId, userId, dossierId: earlyDossierId,
+                  });
+
+                  // Validation humaine systématique si procédure sensible
+                  if (proc.procedure.requires_human_review) {
+                    await blockSensitiveActionUntilValidation({
+                      actionKey: proc.procedure.procedure_slug,
+                      subjectType: "agent_run",
+                      subjectId: data.id,
+                      dossierId: earlyDossierId,
+                      ctx: { tenantId, userId, dossierId: earlyDossierId },
+                      comment: `Procédure sensible "${proc.procedure.title}" construite par l'Agent 360. Approuvez pour débloquer l'exécution.`,
+                    });
+                  }
+
+                  console.log(`[processAgentRun] Agent 360 pipeline OK : procedure=${proc.procedure.procedure_slug}, workflow=${earlyWorkflowId}, tasks=${earlyTaskCount}, cache_hit=${proc.cache_hit}`);
+                } else if (!wf.ok) {
+                  console.warn(`[processAgentRun] Agent 360 buildWorkflowFromProcedure KO: ${wf.error} — fallback legacy`);
+                }
+              } else if (!proc.ok) {
+                console.warn(`[processAgentRun] Agent 360 buildLegalProcedure KO: ${proc.error} — fallback legacy`);
+              }
+            } else if (!lre.ok) {
+              console.warn(`[processAgentRun] Agent 360 runLegalReasoning KO: ${lre.error} — fallback legacy`);
+            }
+          }
+        } catch (e) {
+          console.warn("[processAgentRun] Agent 360 pipeline exception, fallback legacy:", e instanceof Error ? e.message : e);
+          await captureServerError(
+            "agent-runs.processAgentRun.agent360",
+            { tenantId, userId, severity: "warn", extra: { run_id: data.id } },
+            e,
+          );
+        }
+      }
+
+      if (!agent360PipelineUsed && INTENTS_WITH_DOSSIER.has(classification.intent)) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const sb = supabaseAdmin as any;
