@@ -325,3 +325,51 @@ export const ProcedureVerificationSchema = z.object({
 });
 
 export type ProcedureVerification = z.infer<typeof ProcedureVerificationSchema>;
+
+// ─── Document Builder (J4) ─────────────────────────────────────────────────
+//
+// Schema d'une grille de validation document construite par le LLM depuis
+// les sources RAG. Stocké en cache dans document_generation_rules.
+
+export const DocumentRequiredMentionSchema = z.object({
+  mention: z.string().min(1).describe("Mention obligatoire en clair"),
+  legal_ref: z.string().min(1).describe("Article qui la rend obligatoire"),
+  source_id: z.number().int().positive().describe("[source:N] retrieval"),
+  verbatim_extrait: z.string().min(1),
+  position_hint: z.string().nullable().describe("Indication de placement (ex: 'en pied de page')"),
+});
+
+export const DocumentGrammarSchema = z.object({
+  document_type: z.string().regex(/^[a-z0-9_]+$/),
+  domain: z.string(),
+  template_slug: z.string().nullable(),
+  required_fields: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    type: z.enum(["text", "date", "number", "textarea", "select", "boolean"]).default("text"),
+    required: z.boolean().default(true),
+  })).default([]),
+  required_legal_mentions: z.array(DocumentRequiredMentionSchema).default([]),
+  forbidden_phrases: z.array(z.object({
+    phrase: z.string(),
+    reason: z.string(),
+    legal_ref: z.string().nullable(),
+  })).default([]),
+  validation_required: z.boolean().default(true),
+  output_formats: z.array(z.enum(["pdf", "docx", "html"])).default(["pdf", "docx"]),
+});
+
+export type DocumentGrammar = z.infer<typeof DocumentGrammarSchema>;
+
+export const DocumentVerificationSchema = z.object({
+  ok: z.boolean(),
+  mentions_present: z.array(z.string()).default([]),
+  mentions_missing: z.array(z.string()).default([]),
+  forbidden_found: z.array(z.string()).default([]),
+  fields_missing: z.array(z.string()).default([]),
+  errors: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
+  grounding_health: z.number().min(0).max(1),
+});
+
+export type DocumentVerification = z.infer<typeof DocumentVerificationSchema>;
