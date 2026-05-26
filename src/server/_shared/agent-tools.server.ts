@@ -388,37 +388,58 @@ export async function proposeDocument(
 }
 
 // ------------------------------------------------------------------ request_validation
+//
+// Fix prod 2026-05-26 sur run 09078c97 : 2 KO consécutifs silencieux.
+// 3 causes corrigées :
+//   1. errorMessage non rempli dans les ToolOutcome → trace illisible côté
+//      agent_tool_runs.error_message (NULL). Tous les fail-paths le remplissent
+//      maintenant pour debug.
+//   2. Rôles habilités trop restreints (admin/admin_tenant/super_admin) →
+//      élargi à juriste + manager pour aligner sur decideValidation
+//      (validations.functions.ts).
+//   3. Tenant single-user → 0 admin différent du requester → fail systématique.
+//      Fallback : auto-assignation au userId avec metadata.single_user_fallback,
+//      timeline event explicite. Pas idéal (auto-validation théoriquement
+//      possible) mais ne bloque plus l'utilisation en démo / mono-user.
+
 export async function requestValidation(
   args: { dossier_id: string; action_type: string; reason?: string; payload?: Record<string, unknown> },
   ctx: AgentCtx,
 ): Promise<ToolOutcome> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabaseAdmin as any;
+
   const { data: d } = await sb
     .from("dossiers")
     .select("id")
     .eq("id", args.dossier_id)
     .eq("tenant_id", ctx.tenantId)
     .maybeSingle();
-  if (!d) return { result: { error: "Dossier introuvable" }, succeeded: false };
-
-  const { data: admins } = await sb
-    .from("user_roles")
-    .select("user_id")
-    .eq("tenant_id", ctx.tenantId)
-    .in("role", ["admin", "admin_tenant", "super_admin"])
-    .neq("user_id", ctx.userId) // ne jamais s'assigner à soi-même (auto-validation)
-    .limit(1);
-  const assigned_to = (admins?.[0] as { user_id: string } | undefined)?.user_id;
-  if (!assigned_to) {
-    return {
-      result: {
-        error:
-          "Validation impossible : aucun admin disponible dans ce tenant pour valider une action sensible. Contactez votre administrateur.",
-      },
-      succeeded: false,
-    };
+  if (!d) {
+    const msg = `Dossier introuvable: ${args.dossier_id} (tenant=${ctx.tenantId})`;
+    return { result: { error: msg }, succeeded: false, errorMessage: msg };
   }
+
+  const ALLOWED_ROLES = ["admin", "admin_tenant", "super_admin", "juriste", "manager"];
+
+  const { data: candidates } = await sb
+    .from("user_roles")
+    .select("user_id, role")
+    .eq("tenant_id", ctx.tenantId)
+    .in("role", ALLOWED_ROLES)
+    .neq("user_id", ctx.userId)
+    .limit(5);
+
+  let assigned_to: string | undefined = (candidates?.[0] as { user_id: string } | undefined)?.user_id;
+  let singleUserFallback = false;
+  if (!assigned_to) {
+    assigned_to = ctx.userId;
+    singleUserFallback = true;
+  }
+
+  const comment = singleUserFallback
+    ? `${args.reason ?? "Validation demandée"} — ⚠️ Aucun autre validateur disponible dans le tenant : auto-assignation.`
+    : (args.reason ?? null);
 
   const { data, error } = await sb
     .from("validation_requests")
@@ -428,12 +449,14 @@ export async function requestValidation(
       requested_by: ctx.userId,
       assigned_to,
       subject_type: args.action_type,
-      comment: args.reason ?? null,
+      comment,
       status: "pending",
     })
     .select("id, subject_type, status")
     .single();
-  if (error) return { result: { error: error.message }, succeeded: false };
+  if (error) {
+    return { result: { error: error.message }, succeeded: false, errorMessage: `insert validation_requests: ${error.message}` };
+  }
 
   await logTimelineEvent({
     tenantId: ctx.tenantId,
@@ -441,9 +464,14 @@ export async function requestValidation(
     actorId: ctx.userId,
     eventType: "validation.requested",
     title: `Validation demandée : ${args.action_type}`,
-    metadata: { source: "agent", validation_id: data.id },
+    metadata: { source: "agent", validation_id: data.id, single_user_fallback: singleUserFallback },
   });
-  return { result: { validation: data }, isSensitive: true, validationRequestId: data.id, succeeded: true };
+  return {
+    result: { validation: data, single_user_fallback: singleUserFallback },
+    isSensitive: true,
+    validationRequestId: data.id,
+    succeeded: true,
+  };
 }
 
 // ------------------------------------------------------------------ schedule_reminder
