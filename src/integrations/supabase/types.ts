@@ -1067,6 +1067,86 @@ export type Database = {
           },
         ]
       }
+      document_generation_rules: {
+        Row: {
+          built_by_llm: boolean | null
+          built_by_model: string | null
+          created_at: string | null
+          document_type: string
+          domain: string
+          forbidden_phrases: Json
+          id: string
+          is_active: boolean | null
+          last_reused_at: string | null
+          output_formats: string[] | null
+          required_fields: Json
+          required_legal_mentions: Json
+          reuse_count: number | null
+          source_corpus_hash: string | null
+          source_ids: string[]
+          template_slug: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          validation_required: boolean | null
+          verified: boolean | null
+          verified_at: string | null
+        }
+        Insert: {
+          built_by_llm?: boolean | null
+          built_by_model?: string | null
+          created_at?: string | null
+          document_type: string
+          domain: string
+          forbidden_phrases?: Json
+          id?: string
+          is_active?: boolean | null
+          last_reused_at?: string | null
+          output_formats?: string[] | null
+          required_fields?: Json
+          required_legal_mentions?: Json
+          reuse_count?: number | null
+          source_corpus_hash?: string | null
+          source_ids?: string[]
+          template_slug?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          validation_required?: boolean | null
+          verified?: boolean | null
+          verified_at?: string | null
+        }
+        Update: {
+          built_by_llm?: boolean | null
+          built_by_model?: string | null
+          created_at?: string | null
+          document_type?: string
+          domain?: string
+          forbidden_phrases?: Json
+          id?: string
+          is_active?: boolean | null
+          last_reused_at?: string | null
+          output_formats?: string[] | null
+          required_fields?: Json
+          required_legal_mentions?: Json
+          reuse_count?: number | null
+          source_corpus_hash?: string | null
+          source_ids?: string[]
+          template_slug?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+          validation_required?: boolean | null
+          verified?: boolean | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_generation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_generation_sessions: {
         Row: {
           collected_data: Json
@@ -2586,6 +2666,45 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_doctrine_rules: {
+        Row: {
+          content: string
+          created_at: string | null
+          domain: string
+          examples: Json | null
+          id: string
+          intent: string
+          is_active: boolean | null
+          priority: number | null
+          rule_type: string
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          domain: string
+          examples?: Json | null
+          id?: string
+          intent: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_type: string
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          domain?: string
+          examples?: Json | null
+          id?: string
+          intent?: string
+          is_active?: boolean | null
+          priority?: number | null
+          rule_type?: string
+          title?: string
+        }
+        Relationships: []
+      }
       legal_normative_hierarchy: {
         Row: {
           beats_levels: number[]
@@ -2696,6 +2815,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      legal_source_hierarchy: {
+        Row: {
+          authority_rank: number
+          contentieux_boost: number | null
+          created_at: string | null
+          default_boost: number | null
+          description: string | null
+          document_boost: number | null
+          id: string
+          is_active: boolean | null
+          is_binding: boolean | null
+          label: string
+          procedure_boost: number | null
+          source_type: string
+        }
+        Insert: {
+          authority_rank: number
+          contentieux_boost?: number | null
+          created_at?: string | null
+          default_boost?: number | null
+          description?: string | null
+          document_boost?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_binding?: boolean | null
+          label: string
+          procedure_boost?: number | null
+          source_type: string
+        }
+        Update: {
+          authority_rank?: number
+          contentieux_boost?: number | null
+          created_at?: string | null
+          default_boost?: number | null
+          description?: string | null
+          document_boost?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_binding?: boolean | null
+          label?: string
+          procedure_boost?: number | null
+          source_type?: string
+        }
+        Relationships: []
       }
       legal_sources: {
         Row: {
@@ -3532,6 +3696,92 @@ export type Database = {
           valid_to?: string | null
         }
         Relationships: []
+      }
+      procedure_generation_rules: {
+        Row: {
+          built_by_llm: boolean | null
+          built_by_model: string | null
+          created_at: string | null
+          deadlines: Json
+          documents: Json
+          domain: string
+          id: string
+          is_active: boolean | null
+          last_reused_at: string | null
+          procedure_slug: string
+          qualification: Json
+          reuse_count: number | null
+          risk_level: string | null
+          source_corpus_hash: string | null
+          source_ids: string[]
+          steps: Json
+          tenant_id: string | null
+          title: string
+          updated_at: string | null
+          validation_rules: Json
+          verified: boolean | null
+          verified_at: string | null
+          warnings: Json
+        }
+        Insert: {
+          built_by_llm?: boolean | null
+          built_by_model?: string | null
+          created_at?: string | null
+          deadlines?: Json
+          documents?: Json
+          domain: string
+          id?: string
+          is_active?: boolean | null
+          last_reused_at?: string | null
+          procedure_slug: string
+          qualification: Json
+          reuse_count?: number | null
+          risk_level?: string | null
+          source_corpus_hash?: string | null
+          source_ids: string[]
+          steps: Json
+          tenant_id?: string | null
+          title: string
+          updated_at?: string | null
+          validation_rules?: Json
+          verified?: boolean | null
+          verified_at?: string | null
+          warnings?: Json
+        }
+        Update: {
+          built_by_llm?: boolean | null
+          built_by_model?: string | null
+          created_at?: string | null
+          deadlines?: Json
+          documents?: Json
+          domain?: string
+          id?: string
+          is_active?: boolean | null
+          last_reused_at?: string | null
+          procedure_slug?: string
+          qualification?: Json
+          reuse_count?: number | null
+          risk_level?: string | null
+          source_corpus_hash?: string | null
+          source_ids?: string[]
+          steps?: Json
+          tenant_id?: string | null
+          title?: string
+          updated_at?: string | null
+          validation_rules?: Json
+          verified?: boolean | null
+          verified_at?: string | null
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "procedure_generation_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -4423,6 +4673,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          agent360_pipeline_enabled: boolean | null
           chat_model: string
           created_at: string
           id: string
@@ -4439,6 +4690,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agent360_pipeline_enabled?: boolean | null
           chat_model?: string
           created_at?: string
           id?: string
@@ -4455,6 +4707,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agent360_pipeline_enabled?: boolean | null
           chat_model?: string
           created_at?: string
           id?: string
@@ -5808,9 +6061,27 @@ export type Database = {
       }
     }
     Functions: {
+      agent_run_force_fail: {
+        Args: {
+          _error_message?: string
+          _expected_statuses: string[]
+          _new_status: string
+          _run_id: string
+        }
+        Returns: Json
+      }
       append_batch_items: {
         Args: { p_batch_id: string; p_items: Json }
         Returns: undefined
+      }
+      audit_all_agent_tools: {
+        Args: never
+        Returns: {
+          detail: string
+          duration_ms: number
+          status: string
+          tool: string
+        }[]
       }
       check_rate_limit: {
         Args: {
@@ -5832,6 +6103,18 @@ export type Database = {
           connector: string
           count: number
         }[]
+      }
+      create_dossier_for_run: {
+        Args: {
+          _category?: string
+          _description?: string
+          _risk_level?: string
+          _run_id: string
+          _tenant_id: string
+          _title: string
+          _user_id: string
+        }
+        Returns: Json
       }
       create_notification: {
         Args: {
@@ -5978,6 +6261,18 @@ export type Database = {
           id: string
           status: string
         }[]
+      }
+      instantiate_workflow: {
+        Args: {
+          _client_id?: string
+          _context?: Json
+          _definition_id: string
+          _dossier_id?: string
+          _tenant_id: string
+          _title: string
+          _user_id: string
+        }
+        Returns: Json
       }
       is_member_of_tenant: {
         Args: { _tenant_id: string; _user_id: string }
