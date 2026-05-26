@@ -230,3 +230,98 @@ export function laneToNiveau(lane: keyof typeof SOURCE_TYPE_LANE): typeof NIVEAU
     case "doctrine": return "jurisprudence"; // doctrine = source secondaire, mais pas dans niveau_normatif
   }
 }
+
+// ─── Procedure Builder (J3) ────────────────────────────────────────────────
+//
+// Schemas Zod stricts pour l'output du Procedure Builder. Le LLM ne peut
+// PAS dévier de cette structure. Chaque step DOIT pointer une source réelle
+// (source_id depuis retrieved_sources de Pass 2).
+
+export const RISK_LEVEL = ["low", "medium", "high", "critical"] as const;
+
+export const ProcedureStepSchema = z.object({
+  index: z.number().int().min(0),
+  title: z.string().min(1).max(200),
+  description: z.string(),
+  step_type: z.enum(["action", "document", "decision", "wait", "validation"]),
+  // Sourcing obligatoire (sauf si step_type=wait/decision purement procédural)
+  legal_ref: z.string().nullable().describe("Ex: 'L1232-2' ou 'L1232-4'"),
+  source_id: z.number().int().positive().nullable().describe("Numéro [source:N] du retrieval"),
+  verbatim: z.string().nullable().describe("Extrait exact justifiant l'étape"),
+  // Délais
+  delay_days_before: z.number().int().min(0).nullable(),
+  delay_days_after: z.number().int().min(0).nullable(),
+  delay_source: z.string().nullable().describe("Article qui fixe le délai"),
+  // Documents générés à cette étape
+  documents_to_generate: z.array(z.string()).default([]).describe("template_slug à utiliser"),
+  // Validation humaine
+  requires_validation: z.boolean().default(false),
+  validation_roles: z.array(z.string()).default([]),
+  // Risques
+  risks: z.array(z.object({
+    title: z.string(),
+    severity: z.enum(RISK_LEVEL),
+    legal_ref: z.string().nullable(),
+  })).default([]),
+});
+
+export type ProcedureStep = z.infer<typeof ProcedureStepSchema>;
+
+export const ProcedureDocumentSchema = z.object({
+  doc_type: z.string().describe("Slug type (ex: convocation_entretien_prealable)"),
+  template_slug: z.string().nullable().describe("Slug du template existant dans document_templates, ou null si à créer"),
+  step_index: z.number().int().min(0).describe("Étape qui génère ce document"),
+  required_mentions: z.array(z.object({
+    mention: z.string(),
+    legal_ref: z.string(),
+    source_id: z.number().int().positive(),
+    verbatim_extrait: z.string(),
+  })).default([]),
+  validation_required: z.boolean().default(true),
+});
+
+export type ProcedureDocument = z.infer<typeof ProcedureDocumentSchema>;
+
+export const ProcedureDeadlineSchema = z.object({
+  label: z.string(),
+  from_step: z.number().int().min(0).nullable(),
+  days: z.number().int().min(0),
+  source: z.string().describe("Article qui fixe le délai"),
+  source_id: z.number().int().positive().nullable(),
+  is_imperative: z.boolean().default(true).describe("Délai légal strict ou indicatif"),
+});
+
+export type ProcedureDeadline = z.infer<typeof ProcedureDeadlineSchema>;
+
+export const LegalProcedureSchema = z.object({
+  procedure_slug: z.string().regex(/^[a-z0-9_]+$/).describe("Slug court ex: licenciement_personnel"),
+  title: z.string().min(1).max(200),
+  domain: z.string().describe("Branche du droit ex: droit_social"),
+  risk_level: z.enum(RISK_LEVEL),
+  requires_human_review: z.boolean().describe("True pour toute action sensible (licenciement, sanction…)"),
+  required_information: z.array(z.string()).default([]).describe("Faits à collecter du user avant exécution"),
+  legal_refs: z.array(z.string()).default([]).describe("Articles pivots de la procédure"),
+  steps: z.array(ProcedureStepSchema).min(1),
+  documents: z.array(ProcedureDocumentSchema).default([]),
+  deadlines: z.array(ProcedureDeadlineSchema).default([]),
+  validation_rules: z.array(z.string()).default([]).describe("Règles métier humaines (ex: 'DRH valide avant envoi')"),
+  warnings: z.array(z.string()).default([]).describe("Points d'attention à signaler au user"),
+});
+
+export type LegalProcedure = z.infer<typeof LegalProcedureSchema>;
+
+// Verifier output — résultat de verifyProcedureGrounding
+export const ProcedureVerificationSchema = z.object({
+  ok: z.boolean(),
+  steps_grounded: z.number().int().min(0),
+  steps_total: z.number().int().min(0),
+  grounding_health: z.number().min(0).max(1),
+  unknown_source_ids: z.array(z.number().int().positive()).default([]),
+  missing_template_slugs: z.array(z.string()).default([]),
+  steps_without_source: z.array(z.number().int().min(0)).default([]).describe("step.index"),
+  deadlines_without_source: z.array(z.string()).default([]).describe("deadline.label"),
+  warnings: z.array(z.string()).default([]),
+  errors: z.array(z.string()).default([]),
+});
+
+export type ProcedureVerification = z.infer<typeof ProcedureVerificationSchema>;
