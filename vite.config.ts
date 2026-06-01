@@ -1,21 +1,36 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, cloudflare (build-only),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... } }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+// Configuration Vite — cible Vercel via Nitro preset (migration depuis Lovable Cloud).
+//
+// Stack :
+//   - TanStack Start (server functions + router fichier-based)
+//   - Nitro (runtime serveur, preset 'vercel' auto-détecté en build)
+//   - React 19 + Tailwind 4
+//
+// Avant : @lovable.dev/vite-tanstack-config + @cloudflare/vite-plugin
+// Après : plugins vanilla TanStack/Nitro/React/Tailwind/tsConfigPaths
+
+import { defineConfig } from "vite";
+import viteReact from "@vitejs/plugin-react";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import { nitro } from "nitro/vite";
+import tsConfigPaths from "vite-tsconfig-paths";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  tanstackStart: {
-    importProtection: {
-      // Disable the default "**/server/**" file pattern that blocks ALL imports
-      // from src/server/ in client code. Our *.functions.ts files use createServerFn
-      // which is designed to be imported from client components — the bundler
-      // automatically replaces the server implementation with an RPC stub.
-      // Vite's mergeConfig concatenates arrays, so we cannot override the files
-      // pattern. Setting enabled:false is the only reliable way to disable it.
-      enabled: false,
-    },
-  },
+  plugins: [
+    tsConfigPaths(),
+    tailwindcss(),
+    tanstackStart({
+      // src/server/*.functions.ts sont importés depuis le client (createServerFn
+      // est remplacé automatiquement par un stub RPC côté bundle). On désactive
+      // la protection par défaut qui bloque "**/server/**".
+      importProtection: { enabled: false },
+    }),
+    nitro({
+      // Preset 'vercel' lit automatiquement vercel.json et émet les Functions
+      // (serverless Node par défaut) + crons. Pas besoin d'adapter manuel.
+      preset: "vercel",
+    }),
+    viteReact(),
+  ],
+  // Alias @/ déjà géré par tsConfigPaths qui lit tsconfig.json
 });
