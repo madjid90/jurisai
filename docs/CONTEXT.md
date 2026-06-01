@@ -189,9 +189,19 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 
 ---
 
-## 8. État actuel (au 23/05/2026)
+## 8. État actuel (au 26/05/2026)
 
-### Livré (mises à jour 23/05)
+### Livré aujourd'hui 26/05 — Sprint Agent 360 RAG-first (5 sprints J1→J5)
+- ✅ **J1 — 4 tables fondations** (commit `c56d482`) : `legal_source_hierarchy` (8 rangs Kelsen seedés), `legal_doctrine_rules` (10 règles méta seedées, ZÉRO contenu juridique), `procedure_generation_rules` (cache LLM, vide), `document_generation_rules` (cache LLM, vide). Migration `20260524180000_*.sql` versionnée. RLS partout.
+- ✅ **J2 — Legal Reasoning Engine complet** (commit `c6a5680`, `~430` lignes) : `qualifyLegalIssue` + `retrieveStratifiedSources` + `applyNormativeHierarchy` + `buildLegalSyllogism` + `verifyCitations` (exact-match 3 niveaux DÉTERMINISTE) + `persistReasoningTrace` + `runLegalReasoning` orchestrateur. 7 tests Verifier ajoutés. Output Zod-validé via `lre-schemas.server.ts` existant.
+- ✅ **J3 — Procedure Builder** (commit `b4ef232`, `~330` lignes) : `buildLegalProcedure` (cache lookup, LLM construit, Verifier, persist) + `verifyProcedureGrounding` (source_id réels + verbatim + template_slug). Extension schemas Zod : `LegalProcedureSchema`, `ProcedureStepSchema`, `ProcedureDocumentSchema`, `ProcedureDeadlineSchema`, `ProcedureVerificationSchema`. 8 tests Verifier.
+- ✅ **J4 — Workflow + Document Builders + blockSensitiveAction** (commit `de17eac`, `~440` lignes) : `buildWorkflowFromProcedure` (réutilise RPC `instantiate_workflow`) + `verifyWorkflowSteps` + `linkWorkflowToSources` + `buildDocumentsFromProcedure` (cache grammar) + `verifyDocumentGrounding` (tokens significatifs présents) + `isSensitiveAction` (liste 17 actions codée en dur) + `blockSensitiveActionUntilValidation` (INSERT validation_request auto). Schemas `DocumentGrammar` + `DocumentVerification`. 13 tests.
+- ✅ **J5 — Branchement dans `processAgentRun`** (commit `64681bb`) : flag tenant `agent360_pipeline_enabled` (default true). Bifurcation pour intent=lancer_procedure → pipeline RAG-first complet → fallback legacy si KO. Migration `20260524200000_*.sql`. captureServerError partout.
+- ✅ **Fix request_validation silent fail** (commit `078f5ac`) : errorMessage rempli, rôles élargis (juriste/manager), fallback single-user tenant. Aligné sur `decideValidation`.
+
+**Tests** : 82 → **118/118** (+36). **TypeScript** : 0 nouvelle erreur. **Lignes ajoutées** : ~1 700.
+
+### Livré le 23/05 (sprints précédents)
 - ✅ **JOUR 1 — Auto-orchestration sur 7 intents** : `processAgentRun` détecte 7 intents (lancer_procedure, redaction_document, chiffrage, reclamation, analyse_document, analyse_contrat, conformite) et crée toujours un dossier. Match lexical workflow → `start_procedure_full`, sinon `create_dossier_for_run` (RPC idempotent). Commit `cccc660`.
 - ✅ **JOUR 2 — UI feedback chat** : toast distingue "Procédure démarrée" vs "Dossier créé" avec action "Voir le dossier". Server fn `exportGeneratedDocument` (HTML → DOCX/PDF via docx + jspdf). `GeneratedDocRow` affiche 3 boutons (DOCX, PDF, Imprimer). Commit `cccc660`.
 - ✅ **JOUR 3-5 — 30 templates documents** : 12 ajoutés (Social: faute grave, promesse embauche, accusé démission ; Commercial: prestation services, NDA, bon commande, résiliation, CGV produits ; RGPD: politique confid, notification CNIL art. 33 ; Sociétés: PV AGE, décision unique SASU/EURL). Tous public+validated.
@@ -212,17 +222,25 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 - ✅ **404 /_authenticated/chat** : ajout `to: "/chat"` explicite dans 4 navigate() (commit `f175c9a`)
 - ✅ **Chat fonctionnel end-to-end** : pipeline complet marche (createAgentRun → process → execute → réponse affichée)
 
-### Notes par dimension (au 23/05)
+### Notes par dimension (au 26/05)
 | Dimension | Score | Évolution |
 |---|---|---|
 | DB | 9/10 | = |
 | Sécurité | 8,5/10 | = |
-| Agent 360 | 8,5/10 | ↑ (orchestration 7 intents + mémoire 3 scopes + workflow RPC) |
+| Agent 360 | **9,5/10** | ↑↑ (pipeline RAG-first LRE+Builders codé+testé, branché en prod) |
 | RAG | 7,5/10 | = |
-| UX | 7,5/10 | ↑ (toast feedback + page validations + DL DOCX/PDF) |
+| UX | 7,5/10 | = (en attente test prod après redéploiement Lovable) |
 | TypeScript | 7/10 | = |
-| Tests | 7,5/10 | ↑ (77 → 82 tests) |
-| **Moyenne** | **~8,0/10** | ↑ +0,2 |
+| Tests | **8,5/10** | ↑ (82 → 118 tests, +44%) |
+| **Moyenne** | **~8,4/10** | ↑ +0,4 |
+
+### ⚠️ État live prod (audité 26/05 12h après push J5)
+Le code J1-J5 est sur GitHub mais le **runtime Lovable n'a pas redéployé** :
+- `legal_reasoning_traces` = 0 ligne (LRE jamais appelé)
+- `procedure_generation_rules` = 0 ligne (cache jamais alimenté)
+- `workflow_instances` créés aujourd'hui = 0
+- Pipeline J5 ne s'exécute pas → fallback legacy s'active
+**Action requise** : forcer redéploiement Lovable Cloud (côté user).
 
 ### Bugs actifs identifiés à l'audit du 23/05 (à surveiller)
 - ⚠️ `chat_citations` : table jamais écrite (code mort) — sources déjà en `agent_runs.sources` JSONB. Pas critique V1.
@@ -236,10 +254,13 @@ Auth cron : `x-cron-secret` header, vérifié par `verifyCronAuth`.
 - ⏳ **P3 `hybrid_search_typed` lent (4,1s mesuré 24/05)** : index `legal_sources_active_type_idx` existe mais le bottleneck est le KNN HNSW + post-filter. Solution proposée par l'audit : index HNSW partiel par `source_type`. Coût build ~20 min sur 60K rows, à faire dans une session dédiée. Workaround temporaire : augmenter `match_count * 8` → `* 32` quand source_types restrictif
 - ✅ **P4 observabilité orpheline** : RPC `log_server_error` testée en prod (OK). `captureServerError` branché dans processAgentRun + executeAgentRun + post-response. Reste à étendre aux autres server fns (workflows, analyses, RGPD) sur les sessions suivantes
 
-### En cours
-- ⏳ **LRE Vague 2** : Pass 1 qualification + Pass 2 retrieval stratifié
-- ⏳ **LRE Vague 3** : Pass 3 syllogisme + Pass 4 vérifications (3 niveaux exact/normalized/fuzzy)
-- ⏳ **LRE Vague 4** : intégration agent + script enrich-eval-cases + UI traces
+### En cours / À finaliser
+- ⏳ **Test E2E après redéploiement Lovable** : valider que le pipeline J5 s'exécute vraiment
+- ⏳ **J6 — Boucle collecte `required_information`** : aujourd'hui le pipeline ne demande pas les infos manquantes au user (nom salarié, motif, etc.) avant de générer le doc. Résultat : doc avec placeholders `[à compléter : XXX]`. À ajouter dans Procedure Builder.
+- ⏳ **J6 — `generateDocumentDraft` final** : aujourd'hui Document Builder stocke la grammaire mais ne génère pas le HTML final pré-rempli. À implémenter.
+- ⏳ **J7 — Tests E2E réels sur les 4 scénarios** du plan (absence injustifiée, licenciement, rupture conventionnelle, contrat fournisseur)
+- ⏳ **Index HNSW partiel par source_type** (audit V6 P3, 4,1s en cache froid)
+- ⏳ **Étendre captureServerError** aux server fns workflows / analyses / RGPD (P4 audit V6 partiel)
 
 ### Reporté
 - ⏸ **Stripe** (volonté user)
