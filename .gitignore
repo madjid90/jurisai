@@ -14,9 +14,10 @@ dist-ssr
 .vinxi
 .tanstack/**
 .nitro
+.vercel/
 *.local
 
-# Wrangler / Cloudflare
+# Wrangler / Cloudflare (legacy, removed in Vercel migration)
 .wrangler/
 .dev.vars
 
