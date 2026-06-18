@@ -59,6 +59,7 @@ import {
   Search,
   MessageSquare,
   Trash2,
+  ChevronRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -489,7 +490,69 @@ function ComposerView({
         </Card>
 
         <EmptyExamples onPick={(prompt) => setMessage(prompt)} />
+
+        <RecentRequests />
       </div>
+    </div>
+  );
+}
+
+// Sprint U3.5 (18/06) — Section "Vos dernières demandes" toujours visible sur la home.
+// Demande explicite user : "tu fais apparaître juste les dernières demandes" dans la home,
+// pour qu'on ait un accès rapide aux 5 dernières conversations sans ouvrir la sidebar.
+// Si aucune demande, ne s'affiche pas (la home reste minimale au premier usage).
+function RecentRequests() {
+  const navigate = useNavigate();
+  const listFn = useServerFn(listMyRuns);
+  const [runs, setRuns] = useState<Array<{ id: string; title: string | null; message: string; status: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = (await listFn({ data: { limit: 20, scope: "mine" } })) as Array<{
+          id: string;
+          title: string | null;
+          message: string;
+          status: string;
+        }>;
+        if (cancelled) return;
+        // Exclut les archived (cf. fix bouton "Tout effacer" : listMyRuns ne filtre pas côté serveur)
+        setRuns(rows.filter((r) => r.status !== "archived").slice(0, 5));
+      } catch (e) {
+        console.error("[RecentRequests] failed", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [listFn]);
+
+  if (runs.length === 0) return null;
+
+  return (
+    <div className="mt-8 border-t border-border/40 pt-6">
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Vos dernières demandes
+      </p>
+      <ul className="space-y-1">
+        {runs.map((r) => {
+          const label = (r.title?.trim() || r.message?.trim() || "Conversation").slice(0, 100);
+          return (
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/chat", search: { run: r.id } })}
+                className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition hover:bg-muted/50"
+              >
+                <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/60" />
+                <span className="flex-1 truncate text-sm text-foreground/80 group-hover:text-foreground">
+                  {label}
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/40 transition group-hover:text-muted-foreground" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

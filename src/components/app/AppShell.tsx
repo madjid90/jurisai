@@ -95,8 +95,25 @@ export function AppShell({ children }: { children: ReactNode }) {
     <FormSlideOverProvider>
     <div className="mesh-bg flex min-h-screen md:p-3">
       {/* Desktop sidebar */}
-      <div className="hidden md:block">
+      <div className="relative hidden md:block">
         <Sidebar collapsed={collapsed} />
+        {/* Onglet flottant pour replier/déplier la sidebar.
+            Repositionné le 18/06 suite à retour user : avant dans le header,
+            il était mal placé. Maintenant attaché au bord droit de la sidebar
+            comme une vraie poignée d'onglet (style Notion / Linear). */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="absolute top-16 z-30 flex h-7 w-7 -right-3 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-md transition hover:bg-secondary hover:text-foreground"
+          aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
+          title={collapsed ? "Déplier le menu" : "Replier le menu"}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-3.5 w-3.5" />
+          ) : (
+            <PanelLeftClose className="h-3.5 w-3.5" />
+          )}
+        </button>
       </div>
       {/* Mobile drawer */}
       {mobileOpen && (
@@ -120,15 +137,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground md:flex"
-            aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
-            title={collapsed ? "Déplier le menu" : "Replier le menu"}
-          >
-            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          </button>
+          {/* Bouton toggle desktop déplacé à droite de la sidebar (onglet flottant).
+              Le header garde uniquement le hamburger mobile + recherche + notifs. */}
           <div className="md:hidden">
             <JurisAIWordmark />
           </div>
@@ -212,7 +222,10 @@ function ConversationHistory({
     }
     try {
       const rows = (await listFn({ data: { limit: 50, scope: "mine" } })) as RunSummary[];
-      setRuns(rows);
+      // Fix prod 18/06 : listMyRuns ne filtre pas status='archived' côté serveur.
+      // Conséquence : après 'Tout effacer', les conversations revenaient au polling
+      // 30s suivant. On filtre ici pour qu'elles disparaissent vraiment.
+      setRuns(rows.filter((r) => r.status !== "archived"));
     } catch (e) {
       console.error("[ConversationHistory] failed", e);
     } finally {
