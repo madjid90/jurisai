@@ -17,7 +17,7 @@ import {
   MessageSquareText,
   Trash2,
 } from "lucide-react";
-import { listMyRuns, archiveAgentRun } from "@/server/agent-runs.functions";
+import { listMyRuns, archiveAgentRun, archiveAllMyRuns } from "@/server/agent-runs.functions";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,11 +197,13 @@ function ConversationHistory({
 }) {
   const listFn = useServerFn(listMyRuns);
   const archiveFn = useServerFn(archiveAgentRun);
+  const archiveAllFn = useServerFn(archiveAllMyRuns);
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
 
   const refresh = async () => {
     if (!profile?.onboarded) {
@@ -215,6 +217,34 @@ function ConversationHistory({
       console.error("[ConversationHistory] failed", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Suppression en masse de tout l'historique (retour user 18/06)
+  // Bulk update server-side = 1 requête au lieu de N appels.
+  // Confirm fort car action destructive non triviale.
+  const handleClearAll = async () => {
+    if (runs.length === 0) return;
+    const confirmed = window.confirm(
+      `Supprimer toutes vos conversations (${runs.length}) ? Cette action est irréversible.`,
+    );
+    if (!confirmed) return;
+    setClearingAll(true);
+    const previousRuns = runs;
+    // Optimistic : vide la liste tout de suite
+    setRuns([]);
+    try {
+      const res = (await archiveAllFn({})) as { ok: boolean; count: number };
+      toast.success(`${res.count} conversation(s) supprimée(s)`);
+      // Si la conversation active est dans la liste effacée, on retourne sur /chat vide
+      if (currentRunId && previousRuns.some((r) => r.id === currentRunId)) {
+        void navigate({ to: "/chat", search: {} as never });
+      }
+    } catch (err) {
+      toast.error((err as Error).message);
+      setRuns(previousRuns); // rollback
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -272,7 +302,26 @@ function ConversationHistory({
   const groups = groupRunsByDate(runs);
 
   return (
-    <div className="flex-1 overflow-y-auto px-1">
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Bouton "Tout effacer" en haut, discret mais accessible */}
+      <div className="flex items-center justify-between border-b border-border/40 px-2 py-1.5">
+        <span className="text-[10px] font-medium text-muted-foreground">
+          {runs.length} conversation{runs.length > 1 ? "s" : ""}
+        </span>
+        <button
+          type="button"
+          onClick={() => void handleClearAll()}
+          disabled={clearingAll}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground/70 transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          aria-label="Supprimer tout l'historique"
+          title="Supprimer tout l'historique"
+        >
+          <Trash2 className="h-3 w-3" />
+          {clearingAll ? "…" : "Tout effacer"}
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-1 pt-2">
       {groups.map((g) => (
         <div key={g.label} className="mb-4">
           <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
@@ -331,6 +380,7 @@ function ConversationHistory({
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }

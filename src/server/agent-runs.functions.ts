@@ -897,6 +897,34 @@ export const archiveAgentRun = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Archive en masse TOUTES les conversations du user courant (sauf déjà
+ * archivées). Réutilisé par la sidebar pour le bouton "Tout effacer".
+ * Bulk update unique = 1 requête au lieu de N appels archiveAgentRun.
+ *
+ * Sécurité : strict tenant + user filter via WHERE. Pas de hard-delete pour
+ * préserver l'audit. Les conversations restent en DB avec status='archived'
+ * mais n'apparaissent plus dans listMyRuns (qui n'a pas de filtre status
+ * mais on peut en ajouter un côté UI ou ici).
+ */
+export const archiveAllMyRuns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = (context as { userId: string }).userId;
+    const tenantId = await getTenantId(userId);
+
+    const { data, error } = await supabaseAdmin
+      .from("agent_runs")
+      .update({ status: "archived", archived_at: new Date().toISOString() } as never)
+      .eq("user_id", userId)
+      .eq("tenant_id", tenantId)
+      .neq("status", "archived")
+      .select("id");
+
+    if (error) throw new Error(error.message);
+    return { ok: true, count: (data as Array<{ id: string }> | null)?.length ?? 0 };
+  });
+
 // ---------------------------------------------------------------------------
 // WATCHDOG — récupère les runs bloquées en `running` depuis plus de 5 min.
 // Appelable manuellement ou via un cron. Reset le statut à `pending` pour relance.
