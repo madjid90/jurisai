@@ -6,12 +6,14 @@ import { Toaster } from "@/components/ui/sonner";
 import { CookieBanner } from "@/components/public/CookieBanner";
 import { ConfirmProvider } from "@/components/shared/ConfirmProvider";
 import { AppErrorBoundary } from "@/components/shared/AppErrorBoundary";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   // Audit fix : afficher l'URL qui a 404 pour pouvoir débugger les liens cassés.
-  const currentUrl = typeof window !== "undefined" ? window.location.pathname + window.location.search : "?";
+  const currentUrl =
+    typeof window !== "undefined" ? window.location.pathname + window.location.search : "?";
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -115,6 +117,7 @@ function RootComponent() {
             </div>
             <Toaster richColors position="top-right" />
             <CookieBanner />
+            <SpeedInsights />
           </ConfirmProvider>
         </AuthProvider>
       </AppErrorBoundary>
