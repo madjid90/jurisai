@@ -98,20 +98,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="relative hidden md:block">
         <Sidebar collapsed={collapsed} />
         {/* Onglet flottant pour replier/déplier la sidebar.
-            Repositionné le 18/06 suite à retour user : avant dans le header,
-            il était mal placé. Maintenant attaché au bord droit de la sidebar
-            comme une vraie poignée d'onglet (style Notion / Linear). */}
+            Position : centré verticalement sur le bord droit (style VS Code).
+            18/06 — passé de top-16 (collision avec bouton "Nouvelle conversation")
+            au centre vertical avec opacité réduite, plus visible au hover. */}
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="absolute top-16 z-30 flex h-7 w-7 -right-3 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-md transition hover:bg-secondary hover:text-foreground"
+          className="absolute top-1/2 -right-3 z-30 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground/60 opacity-60 shadow-sm transition hover:bg-secondary hover:text-foreground hover:opacity-100"
           aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
           title={collapsed ? "Déplier le menu" : "Replier le menu"}
         >
           {collapsed ? (
-            <PanelLeftOpen className="h-3.5 w-3.5" />
+            <PanelLeftOpen className="h-3 w-3" />
           ) : (
-            <PanelLeftClose className="h-3.5 w-3.5" />
+            <PanelLeftClose className="h-3 w-3" />
           )}
         </button>
       </div>
