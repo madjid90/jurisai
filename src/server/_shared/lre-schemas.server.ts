@@ -4,6 +4,30 @@
 
 import { z } from "zod";
 
+// ─── Helpers — schemas tolérants aux LLM outputs ──────────────────────────
+//
+// Bug prod 2026-06-18 : le LLM (GPT-4o-mini) a renvoyé `documents_to_generate: null`
+// au lieu d'un []. Avec `z.array(...).default([])`, Zod n'applique le default
+// QUE si la clé est absente — pas si elle vaut explicitement null. Résultat :
+// 1 erreur dans `procedure-builder.buildLegalProcedure` → fallback legacy.
+//
+// `.nullish().transform(v => v ?? defaultVal)` couvre les 3 cas :
+//   - clé absente   → undefined → default
+//   - clé = null    → null       → default
+//   - clé = []      → []         → []
+//
+// À utiliser sur TOUS les champs array/bool optionnels du LRE, Procedure
+// Builder, Document Builder.
+
+const tolerantArrayOfStrings = () =>
+  z.array(z.string()).nullish().transform((v) => v ?? []);
+
+const tolerantArray = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.array(itemSchema).nullish().transform((v) => v ?? []);
+
+const tolerantBoolean = (defaultVal: boolean) =>
+  z.boolean().nullish().transform((v) => v ?? defaultVal);
+
 // ─── Référentiels (utilisés par plusieurs passes) ──────────────────────────
 
 export const BRANCHE_DROIT = [
@@ -80,11 +104,11 @@ export const LegalQualificationSchema = z.object({
   date_faits: z.string().nullable().describe("ISO date YYYY-MM-DD si extractible, sinon null"),
   idcc_hypothesis: z.string().nullable().describe("Code IDCC inféré (ex: 1486 pour Syntec) si social"),
   sous_questions_rag: z.array(z.string()).min(1).max(5).describe("1-5 sous-questions pour interroger le RAG"),
-  articles_pivots: z.array(z.string()).default([]).describe("Articles du Code que le LLM pré-identifie déjà"),
-  urgence: z.enum(["aucune", "delai_court", "delai_legal_strict"]).default("aucune"),
-  complexity: z.enum(["low", "medium", "high"]).default("medium").describe("high → mode _deep recommandé"),
-  missing_info: z.array(z.string()).default([]).describe("Infos manquantes pour qualifier précisément"),
-  refuse: z.boolean().default(false).describe("true si question hors-droit / non éthique → STOP"),
+  articles_pivots: tolerantArrayOfStrings().describe("Articles du Code que le LLM pré-identifie déjà"),
+  urgence: z.enum(["aucune", "delai_court", "delai_legal_strict"]).nullish().transform((v) => v ?? "aucune"),
+  complexity: z.enum(["low", "medium", "high"]).nullish().transform((v) => v ?? "medium").describe("high → mode _deep recommandé"),
+  missing_info: tolerantArrayOfStrings().describe("Infos manquantes pour qualifier précisément"),
+  refuse: tolerantBoolean(false).describe("true si question hors-droit / non éthique → STOP"),
   refuse_reason: z.string().nullable().default(null),
 });
 
@@ -154,11 +178,11 @@ export const SyllogismeSchema = z.object({
   conclusion: z.object({
     application: z.string().describe("Comment la règle s'applique aux faits du cas"),
     principe_faveur: PrincipeFaveurSchema.nullable().describe("Évalué si branche=social et conv ≠ légal"),
-    exceptions: z.array(ExceptionSchema).default([]),
+    exceptions: tolerantArray(ExceptionSchema),
   }),
   confidence_self: z.enum(CONFIDENCE_LEVEL).describe("Auto-évaluation du LLM, sera ajustée par Pass 4"),
   markdown_user: z.string().describe("Réponse formatée pour l'utilisateur (la seule chose qu'il voit)"),
-  citations_secondaires: z.array(CitationSchema).default([]).describe("Citations dans markdown_user au-delà de la majeure"),
+  citations_secondaires: tolerantArray(CitationSchema).describe("Citations dans markdown_user au-delà de la majeure"),
 });
 
 export type Syllogisme = z.infer<typeof SyllogismeSchema>;
@@ -253,16 +277,16 @@ export const ProcedureStepSchema = z.object({
   delay_days_after: z.number().int().min(0).nullable(),
   delay_source: z.string().nullable().describe("Article qui fixe le délai"),
   // Documents générés à cette étape
-  documents_to_generate: z.array(z.string()).default([]).describe("template_slug à utiliser"),
+  documents_to_generate: tolerantArrayOfStrings().describe("template_slug à utiliser"),
   // Validation humaine
-  requires_validation: z.boolean().default(false),
-  validation_roles: z.array(z.string()).default([]),
+  requires_validation: z.boolean().nullish().transform((v) => v ?? false),
+  validation_roles: tolerantArrayOfStrings(),
   // Risques
-  risks: z.array(z.object({
+  risks: tolerantArray(z.object({
     title: z.string(),
     severity: z.enum(RISK_LEVEL),
     legal_ref: z.string().nullable(),
-  })).default([]),
+  })),
 });
 
 export type ProcedureStep = z.infer<typeof ProcedureStepSchema>;
@@ -271,13 +295,13 @@ export const ProcedureDocumentSchema = z.object({
   doc_type: z.string().describe("Slug type (ex: convocation_entretien_prealable)"),
   template_slug: z.string().nullable().describe("Slug du template existant dans document_templates, ou null si à créer"),
   step_index: z.number().int().min(0).describe("Étape qui génère ce document"),
-  required_mentions: z.array(z.object({
+  required_mentions: tolerantArray(z.object({
     mention: z.string(),
     legal_ref: z.string(),
     source_id: z.number().int().positive(),
     verbatim_extrait: z.string(),
-  })).default([]),
-  validation_required: z.boolean().default(true),
+  })),
+  validation_required: z.boolean().nullish().transform((v) => v ?? true),
 });
 
 export type ProcedureDocument = z.infer<typeof ProcedureDocumentSchema>;
@@ -288,7 +312,7 @@ export const ProcedureDeadlineSchema = z.object({
   days: z.number().int().min(0),
   source: z.string().describe("Article qui fixe le délai"),
   source_id: z.number().int().positive().nullable(),
-  is_imperative: z.boolean().default(true).describe("Délai légal strict ou indicatif"),
+  is_imperative: z.boolean().nullish().transform((v) => v ?? true).describe("Délai légal strict ou indicatif"),
 });
 
 export type ProcedureDeadline = z.infer<typeof ProcedureDeadlineSchema>;
@@ -299,13 +323,13 @@ export const LegalProcedureSchema = z.object({
   domain: z.string().describe("Branche du droit ex: droit_social"),
   risk_level: z.enum(RISK_LEVEL),
   requires_human_review: z.boolean().describe("True pour toute action sensible (licenciement, sanction…)"),
-  required_information: z.array(z.string()).default([]).describe("Faits à collecter du user avant exécution"),
-  legal_refs: z.array(z.string()).default([]).describe("Articles pivots de la procédure"),
+  required_information: tolerantArrayOfStrings().describe("Faits à collecter du user avant exécution"),
+  legal_refs: tolerantArrayOfStrings().describe("Articles pivots de la procédure"),
   steps: z.array(ProcedureStepSchema).min(1),
-  documents: z.array(ProcedureDocumentSchema).default([]),
-  deadlines: z.array(ProcedureDeadlineSchema).default([]),
-  validation_rules: z.array(z.string()).default([]).describe("Règles métier humaines (ex: 'DRH valide avant envoi')"),
-  warnings: z.array(z.string()).default([]).describe("Points d'attention à signaler au user"),
+  documents: tolerantArray(ProcedureDocumentSchema),
+  deadlines: tolerantArray(ProcedureDeadlineSchema),
+  validation_rules: tolerantArrayOfStrings().describe("Règles métier humaines (ex: 'DRH valide avant envoi')"),
+  warnings: tolerantArrayOfStrings().describe("Points d'attention à signaler au user"),
 });
 
 export type LegalProcedure = z.infer<typeof LegalProcedureSchema>;
@@ -316,12 +340,12 @@ export const ProcedureVerificationSchema = z.object({
   steps_grounded: z.number().int().min(0),
   steps_total: z.number().int().min(0),
   grounding_health: z.number().min(0).max(1),
-  unknown_source_ids: z.array(z.number().int().positive()).default([]),
-  missing_template_slugs: z.array(z.string()).default([]),
-  steps_without_source: z.array(z.number().int().min(0)).default([]).describe("step.index"),
-  deadlines_without_source: z.array(z.string()).default([]).describe("deadline.label"),
-  warnings: z.array(z.string()).default([]),
-  errors: z.array(z.string()).default([]),
+  unknown_source_ids: tolerantArray(z.number().int().positive()),
+  missing_template_slugs: tolerantArrayOfStrings(),
+  steps_without_source: tolerantArray(z.number().int().min(0)).describe("step.index"),
+  deadlines_without_source: tolerantArrayOfStrings().describe("deadline.label"),
+  warnings: tolerantArrayOfStrings(),
+  errors: tolerantArrayOfStrings(),
 });
 
 export type ProcedureVerification = z.infer<typeof ProcedureVerificationSchema>;
@@ -343,32 +367,32 @@ export const DocumentGrammarSchema = z.object({
   document_type: z.string().regex(/^[a-z0-9_]+$/),
   domain: z.string(),
   template_slug: z.string().nullable(),
-  required_fields: z.array(z.object({
+  required_fields: tolerantArray(z.object({
     key: z.string(),
     label: z.string(),
-    type: z.enum(["text", "date", "number", "textarea", "select", "boolean"]).default("text"),
-    required: z.boolean().default(true),
-  })).default([]),
-  required_legal_mentions: z.array(DocumentRequiredMentionSchema).default([]),
-  forbidden_phrases: z.array(z.object({
+    type: z.enum(["text", "date", "number", "textarea", "select", "boolean"]).nullish().transform((v) => v ?? "text"),
+    required: tolerantBoolean(true),
+  })),
+  required_legal_mentions: tolerantArray(DocumentRequiredMentionSchema),
+  forbidden_phrases: tolerantArray(z.object({
     phrase: z.string(),
     reason: z.string(),
     legal_ref: z.string().nullable(),
-  })).default([]),
-  validation_required: z.boolean().default(true),
-  output_formats: z.array(z.enum(["pdf", "docx", "html"])).default(["pdf", "docx"]),
+  })),
+  validation_required: tolerantBoolean(true),
+  output_formats: z.array(z.enum(["pdf", "docx", "html"])).nullish().transform((v) => v ?? ["pdf" as const, "docx" as const]),
 });
 
 export type DocumentGrammar = z.infer<typeof DocumentGrammarSchema>;
 
 export const DocumentVerificationSchema = z.object({
   ok: z.boolean(),
-  mentions_present: z.array(z.string()).default([]),
-  mentions_missing: z.array(z.string()).default([]),
-  forbidden_found: z.array(z.string()).default([]),
-  fields_missing: z.array(z.string()).default([]),
-  errors: z.array(z.string()).default([]),
-  warnings: z.array(z.string()).default([]),
+  mentions_present: tolerantArrayOfStrings(),
+  mentions_missing: tolerantArrayOfStrings(),
+  forbidden_found: tolerantArrayOfStrings(),
+  fields_missing: tolerantArrayOfStrings(),
+  errors: tolerantArrayOfStrings(),
+  warnings: tolerantArrayOfStrings(),
   grounding_health: z.number().min(0).max(1),
 });
 
