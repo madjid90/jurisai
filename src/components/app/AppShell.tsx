@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   Bell,
   Users,
@@ -14,8 +15,9 @@ import {
   Plus,
   ShieldAlert,
   MessageSquareText,
+  Trash2,
 } from "lucide-react";
-import { listMyRuns } from "@/server/agent-runs.functions";
+import { listMyRuns, archiveAgentRun } from "@/server/agent-runs.functions";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,9 +196,12 @@ function ConversationHistory({
   currentRunId: string | null;
 }) {
   const listFn = useServerFn(listMyRuns);
+  const archiveFn = useServerFn(archiveAgentRun);
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const refresh = async () => {
     if (!profile?.onboarded) {
@@ -210,6 +215,32 @@ function ConversationHistory({
       console.error("[ConversationHistory] failed", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sprint U3.5 — suppression depuis l'historique sidebar (retour user 18/06)
+  // Réutilise archiveAgentRun (pas hard-delete, audit préservé). Pop optimiste
+  // pour effet immédiat. window.confirm pour éviter clic accidentel.
+  const handleDelete = async (e: React.MouseEvent, runId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("Supprimer cette conversation ? Cette action est irréversible.")) return;
+    setDeletingId(runId);
+    // Optimistic update : retire immédiatement de la liste
+    setRuns((prev) => prev.filter((r) => r.id !== runId));
+    try {
+      await archiveFn({ data: { id: runId } });
+      toast.success("Conversation supprimée");
+      // Si on supprime la conversation active, on redirige vers /chat vide
+      if (currentRunId === runId) {
+        void navigate({ to: "/chat", search: {} as never });
+      }
+    } catch (err) {
+      toast.error((err as Error).message);
+      // Rollback : on recharge
+      void refresh();
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -250,25 +281,51 @@ function ConversationHistory({
           <div className="flex flex-col gap-0.5">
             {g.runs.map((r) => {
               const isActive = currentRunId === r.id;
+              const isDeleting = deletingId === r.id;
               const title =
                 r.title?.trim() ||
                 r.message?.slice(0, 60).trim() ||
                 "Conversation";
               return (
-                <Link
+                <div
                   key={r.id}
-                  to="/chat"
-                  search={{ run: r.id }}
                   className={cn(
-                    "block truncate rounded-md px-2 py-1.5 text-[12.5px] transition",
+                    "group relative flex items-center rounded-md transition",
                     isActive
-                      ? "bg-primary/10 text-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                      ? "bg-primary/10"
+                      : "hover:bg-secondary",
+                    isDeleting && "opacity-50",
                   )}
-                  title={title}
                 >
-                  {title}
-                </Link>
+                  <Link
+                    to="/chat"
+                    search={{ run: r.id }}
+                    className={cn(
+                      "block flex-1 truncate px-2 py-1.5 pr-8 text-[12.5px]",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                    title={title}
+                  >
+                    {title}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => void handleDelete(e, r.id)}
+                    disabled={isDeleting}
+                    aria-label="Supprimer la conversation"
+                    title="Supprimer"
+                    className={cn(
+                      "absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 transition",
+                      "opacity-0 group-hover:opacity-100",
+                      "text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+                      "focus:opacity-100 focus:outline-none",
+                    )}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               );
             })}
           </div>
