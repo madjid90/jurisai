@@ -505,18 +505,30 @@ function ComposerView({
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onPickFiles: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
+  // Sprint U2 : salutation personnalisée + question centrale, style Harvey/Claude
+  // Le composant est appelé sans run actif → home par défaut.
+  const { profile, user } = useAuth();
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 5) return "Bonsoir";
+    if (h < 12) return "Bonjour";
+    if (h < 18) return "Bon après-midi";
+    return "Bonsoir";
+  })();
+  const firstName =
+    profile?.full_name?.split(" ")[0] ??
+    user?.email?.split("@")[0] ??
+    "";
+
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col items-center justify-center px-4 py-10">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-accent text-primary-foreground shadow-lg shadow-primary/20">
-            <Sparkles className="h-7 w-7" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Votre assistant juridique
+      <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-4 py-12">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            {greeting}{firstName ? `, ${firstName}` : ""}.
           </h1>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            Posez votre question, joignez un document — je m'occupe du reste.
+          <p className="mt-2 text-base text-muted-foreground">
+            Comment puis-je vous aider aujourd&apos;hui&nbsp;?
           </p>
         </div>
 
@@ -591,37 +603,49 @@ function ComposerView({
 }
 
 function EmptyExamples({ onPick }: { onPick: (prompt: string) => void }) {
-  const examples: Array<{ domain: string; prompt: string; emoji: string }> = [
-    { domain: "Ressources humaines", emoji: "👥", prompt: "Je veux licencier un salarié pour faute grave — quelle procédure suivre ?" },
-    { domain: "Commercial", emoji: "🤝", prompt: "Vérifier mon contrat fournisseur et identifier les clauses à risque." },
-    { domain: "Sociétés", emoji: "🏢", prompt: "Préparer une AGE pour modifier l'objet social de ma SAS." },
-    { domain: "RGPD", emoji: "🔒", prompt: "Rédiger une politique de confidentialité conforme RGPD pour mon site." },
-    { domain: "Contentieux", emoji: "⚖️", prompt: "Préparer une mise en demeure pour facture impayée depuis 60 jours." },
-    { domain: "Fiscalité", emoji: "📊", prompt: "Quelles obligations fiscales pour une auto-entreprise dépassant 35 000 € ?" },
+  // Sprint U2 — 4 suggestions premium, neutres (pas centrées RH).
+  // Couvrent les 4 cas d'usage cœur : procédure, calcul, document, question.
+  const suggestions: Array<{ label: string; prompt: string; icon: string }> = [
+    {
+      icon: "💼",
+      label: "Lancer une procédure",
+      prompt: "Je veux lancer une procédure de licenciement pour faute simple.",
+    },
+    {
+      icon: "📊",
+      label: "Calculer une indemnité",
+      prompt: "Calculer les indemnités de rupture pour un cadre, 8 ans d'ancienneté, salaire brut 3500 €.",
+    },
+    {
+      icon: "📄",
+      label: "Rédiger un document",
+      prompt: "Rédiger une mise en demeure pour facture impayée depuis 60 jours.",
+    },
+    {
+      icon: "❓",
+      label: "Poser une question",
+      prompt: "Quel est le délai de préavis pour un cadre avec 5 ans d'ancienneté ?",
+    },
   ];
+
   return (
-    <div className="mt-8 w-full space-y-3">
-      <p className="text-center text-xs font-medium text-muted-foreground">
-        Quelques exemples pour démarrer
-      </p>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {examples.map((ex, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onPick(ex.prompt)}
-            className="group space-y-1 rounded-lg border border-border/60 bg-background p-3 text-left transition hover:border-primary/40 hover:bg-accent/30"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-base leading-none">{ex.emoji}</span>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground group-hover:text-primary">
-                {ex.domain}
-              </span>
-            </div>
-            <p className="text-sm leading-snug text-foreground/90">{ex.prompt}</p>
-          </button>
-        ))}
-      </div>
+    <div className="mt-6 grid gap-2 sm:grid-cols-2">
+      {suggestions.map((s, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onPick(s.prompt)}
+          className="group flex items-start gap-3 rounded-xl border border-border/60 bg-card/60 p-3.5 text-left transition hover:border-primary/30 hover:bg-card hover:shadow-sm"
+        >
+          <span className="text-xl leading-none">{s.icon}</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{s.label}</p>
+            <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+              {s.prompt}
+            </p>
+          </div>
+        </button>
+      ))}
     </div>
   );
 }
