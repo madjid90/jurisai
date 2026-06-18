@@ -1285,14 +1285,20 @@ function exportAnswerToPdf({
 </body>
 </html>`;
 
-  const w = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
+  // Fix prod 2026-06-18 : noopener,noreferrer empêche le script parent
+  // d'accéder à w.document.{open,write,close} sur Chrome/Safari modernes
+  // → la fenêtre s'ouvrait blanche. On utilise plutôt un Blob URL : la nouvelle
+  // fenêtre est totalement isolée du parent, mais charge bien le HTML.
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank", "noopener,noreferrer,width=900,height=1100");
   if (!w) {
+    URL.revokeObjectURL(url);
     toast.error("Veuillez autoriser les pop-ups pour exporter en PDF.");
     return;
   }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  // Libérer le Blob une fois la fenêtre chargée (best-effort, n'empêche pas l'impression)
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 function GeneratedDocRow({ docId }: { docId: string }) {
