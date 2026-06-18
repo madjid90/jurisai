@@ -58,6 +58,7 @@ import {
   Plus,
   Search,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/chat")({
@@ -327,20 +328,13 @@ function ChatPage() {
       }
     : null;
 
+  // Sprint U3 (18/06) : suppression de la sidebar interne ConversationsSidebar.
+  // L'historique des conversations est maintenant géré uniquement par la
+  // sidebar globale de l'AppShell (Sprint U1). Plus de doublon visuel.
+  // La main content prend toute la largeur.
   return (
     <AppShell>
       <div className="flex h-[calc(100vh-5rem)] min-h-[600px] overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm">
-        {/* SIDEBAR conversations */}
-        <ConversationsSidebar
-          runs={groupedRuns}
-          activeId={focusRunId}
-          query={sidebarQuery}
-          onQueryChange={setSidebarQuery}
-          onPick={(id) => void navigate({ to: "/chat", search: { run: id } as never })}
-          onNew={startNew}
-        />
-
-        {/* MAIN content */}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {focusRunId && focusSummary ? (
             <FocusedRunView
@@ -371,113 +365,11 @@ function ChatPage() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sidebar gauche — liste des conversations regroupées par jour
-// ---------------------------------------------------------------------------
-function ConversationsSidebar({
-  runs,
-  activeId,
-  query,
-  onQueryChange,
-  onPick,
-  onNew,
-}: {
-  runs: Record<RunGroup, Run[]>;
-  activeId: string | null;
-  query: string;
-  onQueryChange: (v: string) => void;
-  onPick: (id: string) => void;
-  onNew: () => void;
-}) {
-  const ORDER: RunGroup[] = ["today", "yesterday", "week", "older"];
-  const isEmpty = ORDER.every((g) => runs[g].length === 0);
-
-  return (
-    <aside className="hidden w-[280px] flex-shrink-0 flex-col border-r border-border/60 bg-muted/30 md:flex">
-      <div className="space-y-2 p-3">
-        <Button onClick={onNew} className="w-full justify-start gap-2" size="sm">
-          <Plus className="h-4 w-4" />
-          Nouvelle conversation
-        </Button>
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Rechercher…"
-            className="h-8 bg-background pl-7 text-xs"
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-2 pb-3">
-        {isEmpty ? (
-          <div className="flex h-full items-center justify-center px-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              {query
-                ? "Aucune conversation correspondante."
-                : "Pas encore de conversation. Cliquez sur « Nouvelle conversation »."}
-            </p>
-          </div>
-        ) : (
-          ORDER.map((g) =>
-            runs[g].length === 0 ? null : (
-              <div key={g} className="mb-3">
-                <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {GROUP_LABEL[g]}
-                </p>
-                <ul className="space-y-0.5">
-                  {runs[g].map((r) => {
-                    const isActive = r.id === activeId;
-                    const stat = shortStatus(r.status);
-                    const title = (r.title ?? r.message ?? "").trim();
-                    const display = title.length > 50 ? `${title.slice(0, 50)}…` : title || "(sans titre)";
-                    return (
-                      <li key={r.id}>
-                        <button
-                          type="button"
-                          onClick={() => onPick(r.id)}
-                          className={cn(
-                            "group w-full rounded-md px-2 py-1.5 text-left transition",
-                            isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-accent/60",
-                          )}
-                        >
-                          <div className="flex items-start gap-1.5">
-                            <MessageSquare
-                              className={cn(
-                                "mt-0.5 h-3 w-3 flex-shrink-0",
-                                isActive ? "text-accent-foreground" : "text-muted-foreground",
-                              )}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[12.5px] font-medium leading-tight">
-                                {display}
-                              </p>
-                              <span
-                                className={cn(
-                                  "mt-1 inline-flex items-center rounded px-1 py-px text-[9px] font-medium",
-                                  stat.tone,
-                                )}
-                              >
-                                {stat.label}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ),
-          )
-        )}
-      </div>
-    </aside>
-  );
-}
+// Sprint U3 (18/06) — ConversationsSidebar supprimée.
+// L'historique des conversations est maintenant rendu par la sidebar globale
+// de l'AppShell (ConversationHistory). Plus de doublon visuel ni de logique
+// dupliquée. La fonction shortStatus et les helpers groupOf/GROUP_LABEL/
+// RunGroup restent disponibles ailleurs dans le fichier au cas où.
 
 // ---------------------------------------------------------------------------
 // Vue "nouveau message" — composer central (ChatGPT empty state)
@@ -603,8 +495,8 @@ function ComposerView({
 }
 
 function EmptyExamples({ onPick }: { onPick: (prompt: string) => void }) {
-  // Sprint U2 — 4 suggestions premium, neutres (pas centrées RH).
-  // Couvrent les 4 cas d'usage cœur : procédure, calcul, document, question.
+  // Sprint U2+U3 — 5 suggestions premium, neutres (pas centrées RH).
+  // Couvrent les 5 cas d'usage cœur : procédure, calcul, document, question, veille.
   const suggestions: Array<{ label: string; prompt: string; icon: string }> = [
     {
       icon: "💼",
@@ -625,6 +517,11 @@ function EmptyExamples({ onPick }: { onPick: (prompt: string) => void }) {
       icon: "❓",
       label: "Poser une question",
       prompt: "Quel est le délai de préavis pour un cadre avec 5 ans d'ancienneté ?",
+    },
+    {
+      icon: "🔔",
+      label: "Veille juridique",
+      prompt: "Quelles sont les dernières évolutions du droit social ce mois-ci ?",
     },
   ];
 
@@ -786,6 +683,7 @@ function RunDetail({
   onChanged: () => void;
   reload: () => Promise<void>;
 }) {
+  const navigate = useNavigate();
   const answer = useServerFn(answerAgentRun);
   const validate = useServerFn(validateAgentRun);
   const archive = useServerFn(archiveAgentRun);
@@ -1061,11 +959,89 @@ function RunDetail({
           {status !== "archived" ? (
             <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/[0.03] to-accent/[0.03] p-4">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Que voulez-vous faire ?
+                Actions disponibles
               </p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+
+              {/* Sprint U3 — Action primary contextuelle selon run.intent.
+                  Le bouton principal change selon le type de demande :
+                  - lancer_procedure → Lancer la procédure (crée dossier + workflow)
+                  - redaction_document → Générer le document
+                  - chiffrage → Voir le détail du calcul
+                  - reclamation → Générer la mise en demeure
+                  - analyse_document/contrat → Créer un suivi
+                  - question_juridique/autre → pas d'action primary (juste secondaires)
+                  Le bouton ne s'affiche que si la procédure peut encore être lancée
+                  (pas déjà de workflow associé). */}
+              {(() => {
+                const intent = (run.intent as string | null) ?? null;
+                const canStartProcedure = !workflowInstanceId && !dossierId;
+                if (intent === "lancer_procedure" && canStartProcedure) {
+                  return (
+                    <Button
+                      size="default"
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await process({ data: { id: run.id as string } });
+                          toast.success("Procédure démarrée");
+                          await reload();
+                          onChanged();
+                        } catch (e) {
+                          toast.error((e as Error).message);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                      disabled={busy}
+                      className="mb-3 h-auto w-full justify-start gap-3 py-3"
+                    >
+                      <Sparkles className="h-5 w-5 flex-shrink-0" />
+                      <div className="text-left">
+                        <div className="text-sm font-semibold">Lancer la procédure</div>
+                        <div className="text-[11px] font-normal opacity-90">
+                          Crée un dossier + workflow + étapes à suivre
+                        </div>
+                      </div>
+                    </Button>
+                  );
+                }
+                if (intent === "redaction_document" && !dossierId) {
+                  return (
+                    <Button
+                      size="default"
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await process({ data: { id: run.id as string } });
+                          toast.success("Document en préparation");
+                          await reload();
+                          onChanged();
+                        } catch (e) {
+                          toast.error((e as Error).message);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                      disabled={busy}
+                      className="mb-3 h-auto w-full justify-start gap-3 py-3"
+                    >
+                      <FileText className="h-5 w-5 flex-shrink-0" />
+                      <div className="text-left">
+                        <div className="text-sm font-semibold">Générer le document</div>
+                        <div className="text-[11px] font-normal opacity-90">
+                          Rédige le document et l&apos;archive dans un dossier
+                        </div>
+                      </div>
+                    </Button>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Actions secondaires — toujours disponibles, layout compact */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
                   onClick={() =>
                     exportAnswerToPdf({
@@ -1078,35 +1054,11 @@ function RunDetail({
                       createdAt: run.created_at as string | undefined,
                     })
                   }
-                  className="h-auto justify-start gap-2 py-2.5"
+                  className="h-auto flex-col gap-1 py-2.5"
+                  title="Télécharger en PDF"
                 >
-                  <Download className="h-4 w-4 flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-xs font-semibold">Télécharger en PDF</div>
-                    <div className="text-[10px] font-normal opacity-80">Réponse + procédure + sources</div>
-                  </div>
-                </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint} className="h-auto justify-start gap-2 py-2.5">
-                  <Printer className="h-4 w-4 flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-xs font-semibold">Imprimer</div>
-                    <div className="text-[10px] font-normal opacity-70">Version papier</div>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={doArchive}
-                  disabled={busy}
-                  className="h-auto justify-start gap-2 py-2.5"
-                >
-                  <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-xs font-semibold">Classer cette demande</div>
-                    <div className="text-[10px] font-normal opacity-70">
-                      {dossierId ? "Dans le dossier lié" : "Marquer comme traitée"}
-                    </div>
-                  </div>
+                  <Download className="h-4 w-4" />
+                  <span className="text-[11px]">Télécharger</span>
                 </Button>
                 <a
                   href="#follow-up-thread"
@@ -1115,14 +1067,49 @@ function RunDetail({
                     document.getElementById(`follow-up-${run.id as string}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
                     document.getElementById(`follow-up-input-${run.id as string}`)?.focus();
                   }}
-                  className="inline-flex h-auto items-center justify-start gap-2 rounded-md border border-border bg-background px-3 py-2.5 text-sm transition hover:bg-accent"
+                  className="inline-flex h-auto flex-col items-center justify-center gap-1 rounded-md border border-border bg-background py-2.5 text-sm transition hover:bg-accent"
+                  title="Préciser ou poser une question de suivi"
                 >
-                  <Send className="h-4 w-4 flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-xs font-semibold">Préciser ou compléter</div>
-                    <div className="text-[10px] font-normal opacity-70">Poser une question de suivi</div>
-                  </div>
+                  <Send className="h-4 w-4" />
+                  <span className="text-[11px]">Préciser</span>
                 </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={doArchive}
+                  disabled={busy}
+                  className="h-auto flex-col gap-1 py-2.5"
+                  title={dossierId ? "Classer dans le dossier lié" : "Marquer comme traitée"}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-[11px]">Classer</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!window.confirm("Supprimer cette conversation ? Cette action est irréversible.")) return;
+                    setBusy(true);
+                    try {
+                      // Réutilise archiveAgentRun : pas de hard-delete pour préserver l'audit.
+                      // La conversation disparaît de l'historique mais reste auditée en DB.
+                      await archive({ data: { id: run.id as string } });
+                      toast.success("Conversation supprimée");
+                      onChanged();
+                      void navigate({ to: "/chat", search: {} as never });
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  disabled={busy}
+                  className="h-auto flex-col gap-1 py-2.5 text-muted-foreground hover:text-destructive"
+                  title="Supprimer cette conversation"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="text-[11px]">Supprimer</span>
+                </Button>
               </div>
             </div>
           ) : null}
