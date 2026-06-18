@@ -1,35 +1,21 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
-  Home,
   Bell,
-  FileText,
-  FolderOpen,
-  ScanSearch,
-  ScanLine,
   Users,
   Settings,
   LogOut,
   ChevronDown,
-  Sparkles,
-  MessageSquare,
-
-  Database,
-  BookMarked,
   Menu,
-  Activity,
-  ShieldCheck,
-  Workflow,
-  ScrollText,
-  Library,
-  ServerCrash,
-  Scale,
-  ClipboardList,
-  Link2,
   PanelLeftClose,
   PanelLeftOpen,
   CheckCircle2,
+  Plus,
+  ShieldAlert,
+  MessageSquareText,
 } from "lucide-react";
+import { listMyRuns } from "@/server/agent-runs.functions";
 import { JurisAIWordmark } from "@/components/brand/JurisAILogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,24 +35,21 @@ type NavItemDef = {
   perms?: string[];
 };
 
-// Sidebar client (spec § 4 + § 6) : l'Agent 360 est l'expérience principale.
-// /chat = Assistant juridique sourcé (RAG), /agent = Assistant action.
-// Outils techniques (OCR, Templates, Workflows, Analyses, Liaisons,
-// RAG/Data quality...) restent en arrière-plan et accessibles via Admin.
-const NAV_ITEMS: NavItemDef[] = [
-  { to: "/dashboard", label: "Accueil", icon: Home },
-  { to: "/chat", label: "Chat", icon: MessageSquare },
-  { to: "/dossiers", label: "Dossiers", icon: FolderOpen, perms: ["dossiers.view"] },
-  { to: "/documents", label: "Documents", icon: FileText, perms: ["documents.upload", "documents.analyze"] },
-  { to: "/validations", label: "Validations", icon: CheckCircle2 },
-  { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/veille", label: "Veille juridique", icon: BookMarked, perms: ["veille.view"] },
-];
+// Sprint U1 (18/06) — Refonte Sidebar Harvey-style :
+// L'agent EST l'app. Tout passe par le chat. La sidebar devient minimale :
+//   1. Bouton "+ Nouvelle conversation"
+//   2. Historique conversations groupé par date (Aujourd'hui / Hier / Cette semaine / Plus ancien)
+//   3. Footer : Paramètres + Avatar
+//
+// Plus de pages Dossiers / Documents / Validations / Veille dans le menu :
+// elles deviennent des résultats d'actions depuis le chat. Le badge "À valider"
+// reste visible pour les rôles habilités (DRH/manager) sous forme de chip.
+//
+// Pour les admins (super_admin/tenant_admin), une seule entrée discrète
+// "Administration" donne accès à toutes les pages techniques en sous-menu.
 
-const SECONDARY_ITEMS: NavItemDef[] = [
-  { to: "/team", label: "Équipe", icon: Users, perms: ["users.manage", "roles.manage"] },
-  { to: "/settings", label: "Paramètres", icon: Settings },
-];
+const NAV_ITEMS: NavItemDef[] = [];          // vide — la nav principale = historique conversations
+const SECONDARY_ITEMS: NavItemDef[] = [];   // vide — settings en footer direct
 
 function canSee(access: UserAccess, item: NavItemDef): boolean {
   if (!item.perms || item.perms.length === 0) return true;
@@ -161,31 +144,164 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
+// ─── Sidebar Harvey-style ─────────────────────────────────────────────────
+// L'agent EST l'app. Sidebar ultra-minimale :
+//   1. Wordmark + bouton [+ Nouvelle conversation]
+//   2. Historique conversations groupé par date
+//   3. Footer : badge "À valider" (si DRH) + Paramètres + UserMenu
+
+type RunSummary = {
+  id: string;
+  title: string | null;
+  message: string;
+  status: string;
+  intent: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function groupRunsByDate(runs: RunSummary[]): Array<{ label: string; runs: RunSummary[] }> {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  const sevenDaysAgo = new Date(today.getTime() - 7 * 86_400_000);
+
+  const groups: Record<string, RunSummary[]> = {
+    "Aujourd'hui": [],
+    "Hier": [],
+    "7 derniers jours": [],
+    "Plus ancien": [],
+  };
+
+  for (const r of runs) {
+    const d = new Date(r.updated_at);
+    if (d >= today) groups["Aujourd'hui"].push(r);
+    else if (d >= yesterday) groups["Hier"].push(r);
+    else if (d >= sevenDaysAgo) groups["7 derniers jours"].push(r);
+    else groups["Plus ancien"].push(r);
+  }
+
+  return Object.entries(groups)
+    .filter(([, list]) => list.length > 0)
+    .map(([label, runs]) => ({ label, runs }));
+}
+
+function ConversationHistory({
+  collapsed,
+  currentRunId,
+}: {
+  collapsed: boolean;
+  currentRunId: string | null;
+}) {
+  const listFn = useServerFn(listMyRuns);
+  const { profile } = useAuth();
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    if (!profile?.onboarded) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const rows = (await listFn({ data: { limit: 50, scope: "mine" } })) as RunSummary[];
+      setRuns(rows);
+    } catch (e) {
+      console.error("[ConversationHistory] failed", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+    const t = setInterval(() => void refresh(), 30_000); // refresh discret
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.onboarded]);
+
+  if (collapsed) return null;
+
+  if (loading) {
+    return (
+      <div className="px-2 py-3 text-[11px] text-muted-foreground/60">Chargement…</div>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <div className="px-2 py-6 text-center text-[11.5px] text-muted-foreground/60">
+        Aucune conversation pour l’instant.
+        <br />
+        Posez votre première question →
+      </div>
+    );
+  }
+
+  const groups = groupRunsByDate(runs);
+
+  return (
+    <div className="flex-1 overflow-y-auto px-1">
+      {groups.map((g) => (
+        <div key={g.label} className="mb-4">
+          <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
+            {g.label}
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {g.runs.map((r) => {
+              const isActive = currentRunId === r.id;
+              const title =
+                r.title?.trim() ||
+                r.message?.slice(0, 60).trim() ||
+                "Conversation";
+              return (
+                <Link
+                  key={r.id}
+                  to="/chat"
+                  search={{ run: r.id }}
+                  className={cn(
+                    "block truncate rounded-md px-2 py-1.5 text-[12.5px] transition",
+                    isActive
+                      ? "bg-primary/10 text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                  title={title}
+                >
+                  {title}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const currentPath = router.state.location.pathname;
+  const search = router.state.location.search as { run?: string };
+  const currentRunId = search.run ?? null;
   const { access, serviceUnavailable } = useAccess();
-  const isSuperAdmin = access.isSuperAdmin;
 
-  const isTerrainOnly =
-    access.roles.length > 0 &&
-    access.roles.every((r) => r === "operationnel_terrain");
+  const canSeeValidations =
+    access.isSuperAdmin ||
+    access.isTenantAdmin ||
+    access.roles.some((r) =>
+      ["admin", "admin_tenant", "super_admin", "juriste", "manager"].includes(r),
+    );
 
-  const TERRAIN_PATHS = new Set(["/dashboard", "/chat", "/dossiers", "/documents", "/validations", "/notifications"]);
-
-  const baseNav = isTerrainOnly
-    ? NAV_ITEMS.filter((it) => TERRAIN_PATHS.has(it.to))
-    : NAV_ITEMS;
-  const visibleNav = baseNav.filter((it) => canSee(access, it));
-  const visibleSecondary = SECONDARY_ITEMS.filter((it) => canSee(access, it));
+  const canSeeAdmin = access.isSuperAdmin || access.isTenantAdmin;
 
   return (
     <aside
       className={cn(
         "glass-panel flex h-full flex-shrink-0 flex-col rounded-3xl shadow-[var(--shadow-card)] transition-[width] duration-200",
-        collapsed ? "w-[68px] p-2" : "w-full p-4 md:w-[244px]",
+        collapsed ? "w-[68px] p-2" : "w-full p-3 md:w-[260px]",
       )}
     >
+      {/* ─── Header : Wordmark + bouton Nouvelle conversation ─── */}
       <div className={cn("flex items-center py-1.5", collapsed ? "justify-center px-0" : "px-2")}>
         {collapsed ? (
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-sm font-bold text-primary-foreground">
@@ -196,108 +312,93 @@ function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
         )}
       </div>
 
-      <div className="my-4 h-px w-full bg-border" />
+      <div className={cn("mt-3", collapsed ? "px-0" : "px-1")}>
+        <Link
+          to="/chat"
+          search={{}}
+          className={cn(
+            "group flex items-center justify-center rounded-xl border border-border bg-card/80 font-medium text-foreground transition hover:bg-secondary",
+            collapsed ? "h-10 w-full" : "h-10 w-full gap-2 px-3 text-[13px]",
+          )}
+          title={collapsed ? "Nouvelle conversation" : undefined}
+          aria-label="Nouvelle conversation"
+        >
+          <Plus className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span>Nouvelle conversation</span>}
+        </Link>
+      </div>
 
       {serviceUnavailable && !collapsed && (
-        <div className="mb-4 rounded-2xl border border-border bg-secondary p-3">
-          <p className="text-[12px] font-semibold text-foreground">Service d’authentification indisponible</p>
+        <div className="mt-4 rounded-xl border border-border bg-secondary p-3">
+          <p className="text-[12px] font-semibold text-foreground">
+            Service d’authentification indisponible
+          </p>
           <p className="mt-1 text-[11.5px] text-muted-foreground">
-            La navigation reste disponible, mais les permissions détaillées sont temporairement dégradées.
+            La navigation reste disponible, mais les permissions détaillées sont
+            temporairement dégradées.
           </p>
         </div>
       )}
 
-      <nav className="flex flex-col gap-1">
-        {visibleNav.map((item, i) => (
-          <NavItem
-            key={`${item.label}-${i}`}
-            label={item.label}
-            icon={item.icon}
-            to={item.to}
-            active={isPathActive(currentPath, item.to)}
-            collapsed={collapsed}
-          />
-        ))}
-      </nav>
+      {/* ─── Body : historique conversations ─── */}
+      <div className="my-3 h-px w-full bg-border/60" />
+      <ConversationHistory collapsed={collapsed} currentRunId={currentRunId} />
 
-      {!collapsed && (
-        <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Workspace
-        </div>
-      )}
-      <nav className={cn("flex flex-col gap-1", collapsed ? "mt-4" : "mt-2")}>
-        {visibleSecondary.map((item) => (
-          <NavItem
-            key={item.label}
-            label={item.label}
-            icon={item.icon}
-            to={item.to}
-            active={isPathActive(currentPath, item.to)}
-            collapsed={collapsed}
-          />
-        ))}
-      </nav>
-
-      {(isSuperAdmin || access.isTenantAdmin) && (
-        <>
-          {!collapsed && (
-            <div className="mt-7 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Admin
-            </div>
-          )}
-          <nav className={cn("flex flex-col gap-1", collapsed ? "mt-4" : "mt-2")}>
-            {isSuperAdmin && (
-              <>
-                <NavItem label="Connecteurs data" icon={Database} to="/admin/connectors" active={currentPath === "/admin/connectors"} collapsed={collapsed} />
-                <NavItem label="Sources légales" icon={BookMarked} to="/admin/legal-sources" active={currentPath === "/admin/legal-sources"} collapsed={collapsed} />
-                <NavItem label="Tenants" icon={Users} to="/admin/tenants" active={currentPath === "/admin/tenants"} collapsed={collapsed} />
-                <NavItem label="Usage" icon={Sparkles} to="/admin/usage" active={currentPath === "/admin/usage"} collapsed={collapsed} />
-                <NavItem label="Workflow Generator" icon={Sparkles} to="/admin/workflow-generator" active={currentPath === "/admin/workflow-generator"} collapsed={collapsed} />
-              </>
+      {/* ─── Footer : Validations (si applicable) + Settings + UserMenu ─── */}
+      <div className="mt-auto pt-2">
+        {canSeeValidations && (
+          <Link
+            to="/validations"
+            className={cn(
+              "mb-1 flex items-center rounded-xl text-[13px] font-medium transition",
+              collapsed
+                ? "h-10 justify-center"
+                : "h-10 gap-2.5 px-3",
+              isPathActive(currentPath, "/validations")
+                ? "bg-amber-50 text-amber-700"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
-            {hasPermission(access, "data_quality.view") && (
-              <NavItem label="Qualité données" icon={ShieldCheck} to="/admin/data-quality" active={currentPath === "/admin/data-quality"} collapsed={collapsed} />
-            )}
-            {access.isSuperAdmin && (
-              <NavItem label="Barèmes officiels" icon={Scale} to="/admin/baremes" active={currentPath === "/admin/baremes"} collapsed={collapsed} />
-            )}
-            {hasPermission(access, "rag_quality.view") && (
-              <NavItem label="Évaluation RAG" icon={Activity} to="/admin/rag-quality" active={currentPath === "/admin/rag-quality"} collapsed={collapsed} />
-            )}
-            {access.isSuperAdmin && (
-              <NavItem label="Cas d'éval" icon={ClipboardList} to="/admin/eval-cases" active={currentPath === "/admin/eval-cases"} collapsed={collapsed} />
-            )}
-            {hasPermission(access, "monitoring.view") && (
-              <NavItem label="Erreurs serveur" icon={ServerCrash} to="/admin/server-errors" active={currentPath === "/admin/server-errors"} collapsed={collapsed} />
-            )}
-            {hasPermission(access, "audit.view") && (
-              <NavItem label="Audit" icon={ScrollText} to="/admin/audit" active={currentPath === "/admin/audit"} collapsed={collapsed} />
-            )}
-            {(isSuperAdmin || access.isTenantAdmin) && (
-              <>
-                {!collapsed && (
-                  <div className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
-                    Outils
-                  </div>
-                )}
-                <NavItem label="Modèles" icon={Library} to="/templates" active={currentPath.startsWith("/templates")} collapsed={collapsed} />
-                <NavItem label="Procédures" icon={Workflow} to="/workflows" active={currentPath.startsWith("/workflows")} collapsed={collapsed} />
-                <NavItem label="OCR & scan" icon={ScanLine} to="/scan" active={currentPath === "/scan"} collapsed={collapsed} />
-                <NavItem label="Analyses" icon={ScanSearch} to="/analyses" active={currentPath.startsWith("/analyses")} collapsed={collapsed} />
-                <NavItem label="Liaisons" icon={Link2} to="/links" active={currentPath === "/links"} collapsed={collapsed} />
-              </>
-            )}
-          </nav>
-        </>
-      )}
-
-      <div className="mt-auto pt-6">
-        {!collapsed && (
-          <>
-            <QuotaBadge />
-            <UpgradeCard />
-          </>
+            title={collapsed ? "À valider" : undefined}
+          >
+            <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+            {!collapsed && <span>À valider</span>}
+          </Link>
         )}
+
+        {canSeeAdmin && (
+          <Link
+            to="/admin/usage"
+            className={cn(
+              "mb-1 flex items-center rounded-xl text-[13px] font-medium transition",
+              collapsed
+                ? "h-10 justify-center"
+                : "h-10 gap-2.5 px-3",
+              currentPath.startsWith("/admin")
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+            )}
+            title={collapsed ? "Administration" : undefined}
+          >
+            <Users className="h-4 w-4 flex-shrink-0" />
+            {!collapsed && <span>Administration</span>}
+          </Link>
+        )}
+
+        <Link
+          to="/settings"
+          className={cn(
+            "mb-1 flex items-center rounded-xl text-[13px] font-medium transition",
+            collapsed ? "h-10 justify-center" : "h-10 gap-2.5 px-3",
+            isPathActive(currentPath, "/settings")
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+          )}
+          title={collapsed ? "Paramètres" : undefined}
+        >
+          <Settings className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span>Paramètres</span>}
+        </Link>
+
         <UserMenu collapsed={collapsed} />
       </div>
     </aside>
@@ -343,23 +444,8 @@ function NavItem({
   );
 }
 
-function UpgradeCard() {
-  return (
-    <div className="mb-3 rounded-2xl bg-gradient-to-br from-primary to-accent p-4 text-primary-foreground shadow-[var(--shadow-glow)]">
-      <Sparkles className="h-5 w-5" />
-      <p className="mt-2 text-[13px] font-semibold leading-snug">Passez au plan Pro</p>
-      <p className="mt-1 text-[11px] leading-snug opacity-80">
-        Veille personnalisée et IA illimitée
-      </p>
-      <Link
-        to="/upgrade"
-        className="mt-3 block w-full rounded-lg bg-white/15 py-1.5 text-center text-[11px] font-medium backdrop-blur transition hover:bg-white/25"
-      >
-        Découvrir
-      </Link>
-    </div>
-  );
-}
+// UpgradeCard supprimé en Sprint U1 — désencombrement.
+// Stripe / Upgrade reviendront comme action depuis Settings une fois prêts.
 
 function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
   const { user, profile, signOut } = useAuth();
@@ -451,7 +537,7 @@ function AdminAccessDenied() {
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-4 rounded-2xl border border-border bg-card p-6 text-center shadow-lg">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-          <ShieldCheck className="h-6 w-6 text-red-700" aria-hidden="true" />
+          <ShieldAlert className="h-6 w-6 text-red-700" aria-hidden="true" />
         </div>
         <h1 className="text-lg font-semibold text-foreground">Accès réservé</h1>
         <p className="text-sm text-muted-foreground">
